@@ -5,99 +5,338 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Sator Chess – Tabuleiro & Deep Learning</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
   <style>
     :root {
-      --bg: #0f1419;
-      --surface: #1a2332;
-      --border: #2d3a4d;
-      --text: #e8ecf1;
-      --muted: #8b9cb3;
-      --accent: #3d9eff;
-      --accent-dim: rgba(61, 158, 255, 0.15);
+      --bg: #06080d;
+      --surface: #0e1420;
+      --surface-2: #131a28;
+      --border: rgba(212, 175, 55, 0.16);
+      --border-strong: rgba(212, 175, 55, 0.35);
+      --text: #ede9e0;
+      --muted: #7a8090;
+      --gold: #d4af37;
+      --gold-bright: #f0cc5a;
+      --gold-dim: rgba(212, 175, 55, 0.1);
+      --accent: #4a9eff;
+      --accent-dim: rgba(74, 158, 255, 0.12);
     }
     * { box-sizing: border-box; }
-    body {
-      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    html, body {
       margin: 0;
-      padding: 20px;
+      padding: 0;
       background: var(--bg);
       color: var(--text);
+      font-family: "Source Sans 3", system-ui, sans-serif;
       line-height: 1.5;
+      min-height: 100vh;
     }
-    h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 8px; }
-    h2 { font-size: 1.1rem; margin: 0 0 12px; color: var(--accent); }
-    h3 { font-size: 0.95rem; margin: 16px 0 8px; }
-    .lead { color: var(--muted); margin: 0 0 20px; max-width: 720px; }
-    .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
-    #board { width: min(92vw, 440px); }
-    .panel {
-      flex: 1;
-      min-width: 280px;
-      max-width: 560px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
+
+    /* ── Fundo decorativo ───────────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 100% 60% at 50% -5%, rgba(20, 28, 48, 0.8) 0%, transparent 55%),
+        repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(212,175,55,0.015) 40px, rgba(212,175,55,0.015) 41px),
+        repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(212,175,55,0.015) 40px, rgba(212,175,55,0.015) 41px);
+      pointer-events: none;
+      z-index: 0;
     }
+
+    /* ── Conteúdo principal ─────────────────────────────────────── */
+    .page-wrap {
+      position: relative;
+      z-index: 1;
+      padding: 24px 24px 48px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* ── Cabeçalho ──────────────────────────────────────────────── */
+    .page-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-title {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.65rem;
+      font-weight: 600;
+      margin: 0;
+      letter-spacing: 0.04em;
+    }
+    .page-title span { color: var(--gold); font-style: italic; font-weight: 400; }
+
+    .lead {
+      color: var(--muted);
+      margin: 0 0 24px;
+      max-width: 680px;
+      font-size: 0.88rem;
+      font-weight: 300;
+      line-height: 1.65;
+    }
+
+    /* ── Badge ──────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(212, 175, 55, 0.12);
+      color: var(--gold);
+      border: 1px solid rgba(212, 175, 55, 0.25);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      vertical-align: middle;
+    }
+
+    /* ── Links de navegação ─────────────────────────────────────── */
+    a.nav-link {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--gold);
+      text-decoration: none;
+      transition: color 0.18s;
+      letter-spacing: 0.02em;
+    }
+    a.nav-link:hover { color: var(--gold-bright); text-decoration: underline; }
+
+    /* ── Layout de colunas ──────────────────────────────────────── */
+    .row {
+      display: flex;
+      gap: 28px;
+      flex-wrap: wrap;
+      align-items: flex-start;
+    }
+
+    /* ── Tabuleiro ──────────────────────────────────────────────── */
+    .board-wrap {
+      flex-shrink: 0;
+    }
+    #board {
+      width: min(92vw, 440px);
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow:
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(212, 175, 55, 0.15);
+    }
+
+    /* ── Barra de ferramentas ───────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    /* ── Controles ──────────────────────────────────────────────── */
+    .controls {
+      margin-top: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    /* ── Botões ─────────────────────────────────────────────────── */
     .btn {
-      padding: 10px 14px;
+      padding: 9px 14px;
       border: 1px solid var(--border);
-      background: var(--surface);
+      background: var(--gold-dim);
       color: var(--text);
       border-radius: 8px;
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 0.85rem;
+      font-family: inherit;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      transition: border-color 0.18s, color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.12s;
     }
-    .btn:hover:not(:disabled) { background: var(--accent-dim); border-color: var(--accent); }
-    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
-    .controls { margin-top: 14px; display: grid; gap: 10px; }
-    label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.875rem; color: var(--muted); }
+    .btn:hover:not(:disabled) {
+      background: rgba(212, 175, 55, 0.18);
+      border-color: var(--border-strong);
+      color: var(--gold-bright);
+      box-shadow: 0 0 14px rgba(212, 175, 55, 0.1);
+      transform: translateY(-1px);
+    }
+    .btn:active:not(:disabled) { transform: translateY(0); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Inputs ─────────────────────────────────────────────────── */
     input[type="number"] {
-      width: 100px;
+      width: 90px;
       padding: 8px 10px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: rgba(0, 0, 0, 0.4);
       color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
+      transition: border-color 0.18s;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: rgba(212, 175, 55, 0.4);
     }
     select {
       padding: 8px 10px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid var(--border);
-      background: var(--bg);
+      background: rgba(0, 0, 0, 0.4);
       color: var(--text);
+      font-family: inherit;
+      font-size: 0.85rem;
       max-width: 100%;
+      transition: border-color 0.18s;
     }
-    pre {
-      background: var(--bg);
-      padding: 12px;
-      overflow: auto;
+    select:focus {
+      outline: none;
+      border-color: rgba(212, 175, 55, 0.4);
+    }
+
+    /* ── Painel lateral ─────────────────────────────────────────── */
+    .panel {
+      flex: 1;
+      min-width: 280px;
+      max-width: 580px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+    .panel h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      margin: 0 0 12px;
+      font-weight: 600;
+    }
+    .panel h3 {
+      font-size: 0.82rem;
+      margin: 16px 0 8px;
+      color: var(--text);
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    /* ── Status ─────────────────────────────────────────────────── */
+    .status-line {
+      font-size: 0.9rem;
+      min-height: 1.5em;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.25);
       border-radius: 8px;
+      border: 1px solid rgba(212, 175, 55, 0.08);
+      margin-bottom: 4px;
+    }
+
+    /* ── Pre / código ───────────────────────────────────────────── */
+    pre {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 12px 14px;
+      overflow: auto;
+      border-radius: 9px;
       font-size: 0.75rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
       border: 1px solid var(--border);
       margin: 0;
-      max-height: 200px;
+      max-height: 180px;
+      color: var(--text);
     }
+
+    /* ── Cards de Deep Learning ─────────────────────────────────── */
     .dl-card {
-      background: var(--bg);
+      background: rgba(0, 0, 0, 0.3);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 14px;
+      padding: 14px 16px;
       margin-bottom: 12px;
     }
-    .dl-card strong { color: var(--accent); }
-    .dl-steps { margin: 0; padding-left: 1.2rem; color: var(--muted); font-size: 0.875rem; }
+    .dl-card strong { color: var(--gold); }
+    .dl-steps {
+      margin: 8px 0 0;
+      padding-left: 1.2rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
     .dl-steps li { margin: 6px 0; }
-    code.cli { font-size: 0.8rem; color: #a8d4ff; }
+    .dl-steps strong { color: var(--text); }
+    code.cli {
+      font-size: 0.8rem;
+      color: #a8d4ff;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      background: rgba(74, 158, 255, 0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ── Accordions ─────────────────────────────────────────────── */
     details.dl-acc { margin-top: 8px; }
     details.dl-acc summary {
       cursor: pointer;
       font-weight: 600;
       padding: 8px 0;
       color: var(--text);
+      font-size: 0.85rem;
+      list-style: none;
+      user-select: none;
     }
+    details.dl-acc summary::-webkit-details-marker { display: none; }
+    details.dl-acc summary::after { content: " ▸"; font-size: 0.72rem; color: var(--muted); }
+    details.dl-acc[open] summary::after { content: " ▾"; }
+
+    details.engine-tune {
+      margin-top: 4px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: rgba(0, 0, 0, 0.25);
+    }
+    details.engine-tune summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: var(--text);
+      list-style: none;
+      user-select: none;
+    }
+    details.engine-tune summary::-webkit-details-marker { display: none; }
+    details.engine-tune summary::after { content: " ▸"; font-size: 0.72rem; color: var(--muted); }
+    details.engine-tune[open] summary::after { content: " ▾"; }
+    .engine-tune__help {
+      margin: 10px 0 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .engine-tune__help strong { color: var(--text); }
+    details.engine-tune .row-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 16px;
+      align-items: center;
+    }
+
+    /* ── Tensor / grade 8×8 ─────────────────────────────────────── */
     .tensor-wrap { overflow-x: auto; margin-top: 8px; }
     table.tensor {
       border-collapse: collapse;
@@ -108,160 +347,121 @@
       width: 28px;
       height: 28px;
       text-align: center;
-      border: 1px solid var(--border);
-      background: var(--surface);
+      border: 1px solid rgba(212, 175, 55, 0.1);
+      background: var(--surface-2);
     }
     table.tensor tr:nth-child(even) td:nth-child(odd),
     table.tensor tr:nth-child(odd) td:nth-child(even) {
-      background: #243044;
+      background: rgba(212, 175, 55, 0.06);
     }
-    .piece-w { color: #f0e6d2; }
+    .piece-w { color: #f0e6d2; font-weight: 600; }
     .piece-b { color: #6b7c93; }
-    .status-line { font-size: 0.9rem; min-height: 1.4em; }
-    .badge {
-      display: inline-block;
-      font-size: 0.7rem;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: var(--accent-dim);
-      color: var(--accent);
-      margin-left: 8px;
-      vertical-align: middle;
-    }
-    a.nav-3d {
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: var(--accent);
-      margin-left: 12px;
-      text-decoration: none;
-    }
-    a.nav-3d:hover { text-decoration: underline; }
-    details.engine-tune {
-      margin-top: 4px;
-      padding: 10px 12px;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      background: var(--bg);
-    }
-    details.engine-tune summary {
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.875rem;
-      color: var(--text);
-      list-style: none;
-    }
-    details.engine-tune summary::-webkit-details-marker { display: none; }
-    details.engine-tune summary::after {
-      content: " ▸";
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-    details.engine-tune[open] summary::after { content: " ▾"; }
-    .engine-tune__help {
-      margin: 10px 0 12px;
-      font-size: 0.8rem;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-    .engine-tune__help strong { color: var(--text); }
-    details.engine-tune .row-inline {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px 16px;
-      align-items: center;
-    }
+
+    /* ── Ajuste do chessboard.js ────────────────────────────────── */
+    .white-1e1d7 { background-color: #e8d5b0 !important; }
+    .black-3c85d { background-color: #8b6914 !important; }
+    .highlight-white { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
+    .highlight-black { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
   </style>
 </head>
 <body>
-  <h1>Sator Chess — tabuleiro jogável <span class="badge">Deep Learning</span> <a class="nav-3d" href="/">Menu</a> <a class="nav-3d" href="/chess3d.html">Vista 3D (Babylon)</a></h1>
-  <p class="lead">
-    Jogue no navegador, salve partidas como <strong>dados</strong> e veja como isso se conecta a redes neurais
-    (policy, value, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
-  </p>
+  <div class="page-wrap">
+    <div class="page-header">
+      <h1 class="page-title">Sator <span>Chess</span></h1>
+      <span class="badge">Deep Learning</span>
+      <a class="nav-link" href="/">← Menu</a>
+      <a class="nav-link" href="/chess3d.html">Vista 3D ↗</a>
+    </div>
+    <p class="lead">
+      Jogue no navegador, salve partidas como <strong>dados</strong> e veja como isso se conecta a redes neurais
+      (policy, value, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
+    </p>
 
-  <div class="row">
-    <div>
-      <div id="board"></div>
-      <div class="toolbar">
-        <button type="button" class="btn" id="btnNew">Novo jogo</button>
-        <button type="button" class="btn" id="btnUndo">Desfazer</button>
-        <button type="button" class="btn" id="btnAnalyze">Analisar posição</button>
-        <button type="button" class="btn" id="btnSave">Salvar replay</button>
-        <button type="button" class="btn" id="btnList">Listar replays</button>
+    <div class="row">
+      <div class="board-wrap">
+        <div id="board"></div>
+        <div class="toolbar">
+          <button type="button" class="btn" id="btnNew">Novo jogo</button>
+          <button type="button" class="btn" id="btnUndo">Desfazer</button>
+          <button type="button" class="btn" id="btnAnalyze">Analisar</button>
+          <button type="button" class="btn" id="btnSave">Salvar replay</button>
+          <button type="button" class="btn" id="btnList">Listar replays</button>
+        </div>
+        <div class="controls">
+          <label>
+            Modo
+            <select id="mode">
+              <option value="engine">Vs motor (minimax)</option>
+              <option value="human">Humano vs humano</option>
+            </select>
+          </label>
+          <label id="wrapColor">
+            Sua cor (vs motor)
+            <select id="playerColor">
+              <option value="w">Brancas (começam)</option>
+              <option value="b">Pretas (motor abre)</option>
+            </select>
+          </label>
+          <details class="engine-tune">
+            <summary>Profundidade e tempo do motor</summary>
+            <p class="engine-tune__help">
+              <strong>Profundidade</strong>: quantas meia-jogadas (plies) o motor analisa à frente.
+              <strong>Tempo (ms)</strong>: limite máximo de reflexão por lance.
+            </p>
+            <div class="row-inline">
+              <label>Profundidade <input id="depth" type="number" value="7" min="1" max="10"/></label>
+              <label>Tempo motor (ms) <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+            </div>
+          </details>
+        </div>
       </div>
-      <div class="controls">
-        <label>
-          Modo
-          <select id="mode">
-            <option value="engine">Vs motor (minimax)</option>
-            <option value="human">Humano vs humano</option>
-          </select>
-        </label>
-        <label id="wrapColor">
-          Sua cor (vs motor)
-          <select id="playerColor">
-            <option value="w">Brancas (começam)</option>
-            <option value="b">Pretas (motor abre)</option>
-          </select>
-        </label>
-        <details class="engine-tune">
-          <summary>Profundidade e tempo do motor</summary>
-          <p class="engine-tune__help">
-            <strong>Profundidade</strong>: quantas meia-jogadas (plies) o motor analisa à frente — mais profundidade costuma fortalecer o jogo e aumentar o custo.
-            <strong>Tempo (ms)</strong>: limite máximo de reflexão por lance; a busca pode terminar antes se a profundidade for alcançada.
+
+      <div class="panel">
+        <h2>Status</h2>
+        <div class="status-line" id="status"></div>
+
+        <h3>Último lance do motor</h3>
+        <pre id="engineMove">-</pre>
+
+        <h3>Relatório (Tabula + métricas)</h3>
+        <pre id="report">{}</pre>
+
+        <h3>Replays</h3>
+        <pre id="replays">[]</pre>
+
+        <h3>FEN</h3>
+        <pre id="fen"></pre>
+
+        <h2 style="margin-top:20px;">Do tabuleiro ao deep learning</h2>
+        <div class="dl-card">
+          <p style="margin:0 0 10px; font-size:0.88rem;">
+            Em motores como AlphaZero, a <strong>rede neural</strong> não "vê" madeira: recebe tensores derivados da posição
+            (vários planos 8×8: peças, repetições, etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
           </p>
-          <div class="row-inline">
-            <label>Profundidade <input id="depth" type="number" value="7" min="1" max="10"/></label>
-            <label>Tempo motor (ms) <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
-          </div>
+          <ul class="dl-steps">
+            <li><strong>Estado s</strong>: posição legal (FEN ou "planos" abaixo) — entrada da rede.</li>
+            <li><strong>Policy π(a|s)</strong>: probabilidades sobre lances legais — "para onde jogar".</li>
+            <li><strong>Value V(s)</strong>: expectativa de resultado a partir de s — "quão boa é a posição".</li>
+            <li><strong>Replay buffer</strong>: pares (estado, ação, resultado) das suas partidas — dataset para treino.</li>
+          </ul>
+        </div>
+        <div class="dl-card">
+          <p style="margin:0 0 8px; font-size:0.85rem; color:var(--muted);">
+            Neste projeto, após jogar na UI você pode agregar replays e ajustar pesos heurísticos:
+          </p>
+          <p style="margin:0; font-size:0.85rem;">
+            <code class="cli">npm run build-buffer</code> →
+            <code class="cli">npm run train-buffer -- 30 4 500</code>
+          </p>
+        </div>
+        <details class="dl-acc" open>
+          <summary>Grade 8×8 (codificação simples para estudo)</summary>
+          <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;">
+            Letras = tipo de peça (maiúscula = branca). Em redes reais usam-se múltiplos canais binários por tipo e cor.
+          </p>
+          <div class="tensor-wrap" id="tensorWrap"></div>
         </details>
       </div>
-    </div>
-
-    <div class="panel">
-      <h2>Status</h2>
-      <div class="status-line" id="status"></div>
-      <h3>Último lance do motor</h3>
-      <pre id="engineMove">-</pre>
-
-      <h3>Relatório (Tabula + métricas)</h3>
-      <pre id="report">{}</pre>
-
-      <h3>Replays</h3>
-      <pre id="replays">[]</pre>
-
-      <h3>FEN</h3>
-      <pre id="fen"></pre>
-
-      <h2>Do tabuleiro ao deep learning</h2>
-      <div class="dl-card">
-        <p style="margin:0 0 10px; font-size:0.9rem;">
-          Em motores como AlphaZero, a <strong>rede neural</strong> não “vê” madeira: recebe tensores derivados da posição
-          (vários planos 8×8: peças, repetições, etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
-        </p>
-        <ul class="dl-steps">
-          <li><strong>Estado s</strong>: posição legal (FEN ou “planos” abaixo) — entrada da rede.</li>
-          <li><strong>Policy π(a|s)</strong>: probabilidades sobre lances legais — “para onde jogar”.</li>
-          <li><strong>Value V(s)</strong>: expectativa de resultado a partir de s — “quão boa é a posição”.</li>
-          <li><strong>Replay buffer</strong>: pares (estado, ação, resultado) das suas partidas — dataset para treino.</li>
-        </ul>
-      </div>
-      <div class="dl-card">
-        <p style="margin:0 0 8px; font-size:0.875rem; color:var(--muted);">
-          Neste projeto, após jogar na UI você pode agregar replays e ajustar pesos heurísticos:
-        </p>
-        <p style="margin:0; font-size:0.85rem;">
-          <code class="cli">npm run build-buffer</code> →
-          <code class="cli">npm run train-buffer -- 30 4 500</code>
-        </p>
-      </div>
-      <details class="dl-acc" open>
-        <summary>Grade 8×8 (codificação simples para estudo)</summary>
-        <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;">
-          Letras = tipo de peça (maiúscula = branca). Em redes reais usam-se múltiplos canais binários por tipo e cor.
-        </p>
-        <div class="tensor-wrap" id="tensorWrap"></div>
-      </details>
     </div>
   </div>
 
@@ -286,18 +486,19 @@
       for (let r = 7; r >= 0; r--) {
         const cells = [];
         for (let c = 0; c < 8; c++) {
-          const sq = b[r][c];
-          let ch = "·";
+          const p = b[r][c];
+          let inner = "&nbsp;";
           let cls = "";
-          if (sq) {
-            ch = sq.color === "w" ? sq.type.toUpperCase() : sq.type;
-            cls = sq.color === "w" ? "piece-w" : "piece-b";
+          if (p) {
+            const sym = p.type.toUpperCase();
+            inner = p.color === "w" ? sym : sym.toLowerCase();
+            cls = p.color === "w" ? " class=\"piece-w\"" : " class=\"piece-b\"";
           }
-          cells.push("<td class=\"" + cls + "\">" + ch + "</td>");
+          cells.push(`<td${cls}>${inner}</td>`);
         }
-        rows.push("<tr>" + cells.join("") + "</tr>");
+        rows.push(`<tr>${cells.join("")}</tr>`);
       }
-      wrap.innerHTML = "<table class=\"tensor\" aria-label=\"Grade 8x8 da posição\">" + rows.join("") + "</table>";
+      wrap.innerHTML = `<table class="tensor"><tbody>${rows.join("")}</tbody></table>`;
     }
 
     function syncModeUI() {
@@ -313,175 +514,153 @@
     }
 
     function updateStatus() {
-      let status = "";
+      let s = "";
       if (game.isCheckmate()) {
-        status = "Xeque-mate. " + (game.turn() === "w" ? "Pretas venceram." : "Brancas venceram.");
+        s = "Xeque-mate — " + (game.turn() === "w" ? "vitória das pretas." : "vitória das brancas.");
+      } else if (game.isStalemate()) {
+        s = "Empate por afogamento.";
+      } else if (game.isInsufficientMaterial()) {
+        s = "Empate — material insuficiente.";
+      } else if (game.isThreefoldRepetition()) {
+        s = "Empate — tripla repetição.";
+      } else if (game.isDrawByFiftyMoves()) {
+        s = "Empate — regra dos 50 lances.";
       } else if (game.isDraw()) {
-        status = "Empate.";
+        s = "Empate.";
       } else {
-        status = game.turn() === "w" ? "Vez das brancas." : "Vez das pretas.";
-        if (game.inCheck()) status += " (xeque)";
-        if (getMode() === "engine" && !game.isGameOver()) {
-          status += isPlayerTurn() ? " — sua vez." : " — motor a pensar…";
-        }
+        s = game.turn() === "w" ? "Vez das brancas." : "Vez das pretas.";
+        if (game.inCheck()) s = "Xeque! " + s;
+        if (getMode() === "engine") s += isPlayerTurn() ? " — sua vez." : " — motor a pensar…";
       }
-      setStatus(status);
+      setStatus(s);
       setFen();
       renderTensorGrid();
     }
 
-    async function callBestMove() {
-      if (getMode() !== "engine" || game.isGameOver()) return;
-      busy = true;
+    function onDragStart(source, piece) {
+      if (busy || game.isGameOver()) return false;
+      if (getMode() === "engine" && !isPlayerTurn()) return false;
+      if (getMode() === "engine" && piece.startsWith(getPlayerColor() === "w" ? "b" : "w")) return false;
+      if (getMode() === "human") {
+        if (game.turn() === "w" && piece.startsWith("b")) return false;
+        if (game.turn() === "b" && piece.startsWith("w")) return false;
+      }
+      return true;
+    }
+
+    async function onDrop(source, target) {
+      const move = game.move({ from: source, to: target, promotion: "q" });
+      if (!move) return "snapback";
+      board.position(game.fen());
       updateStatus();
+      if (game.isGameOver()) { saveReplayAuto(); return; }
+      if (getMode() === "engine" && !isPlayerTurn()) {
+        busy = true;
+        updateStatus();
+        await callBestMove();
+        busy = false;
+        updateStatus();
+      }
+    }
+
+    function onSnapEnd() {
+      board.position(game.fen());
+    }
+
+    async function callBestMove() {
       const depth = parseInt(document.getElementById("depth").value, 10);
       const timeMs = parseInt(document.getElementById("timeMs").value, 10);
-
-      const res = await fetch("/api/bestmove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fen: game.fen(), depth, timeMs })
-      }).then(r => r.json());
-
-      document.getElementById("engineMove").textContent = JSON.stringify(res, null, 2);
-
-      if (res.bestMove && res.bestMove.san) {
-        game.move(res.bestMove.san, { sloppy: true });
-        board.position(game.fen());
-      }
-      busy = false;
-      updateStatus();
-      if (game.isGameOver()) {
-        saveReplay(true).then(() => listReplays());
+      try {
+        const res = await fetch("/api/bestmove", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fen: game.fen(), depth, timeMs })
+        }).then(r => r.json());
+        if (res.bestMove && res.bestMove.san) {
+          game.move(res.bestMove.san, { sloppy: true });
+          board.position(game.fen());
+          document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
+          if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
+        }
+        if (game.isGameOver()) saveReplayAuto();
+      } catch (e) {
+        console.error("bestmove error", e);
       }
     }
 
-    function maybeEngineReply() {
-      if (getMode() !== "engine" || game.isGameOver()) return;
-      if (game.turn() !== getPlayerColor()) {
-        window.setTimeout(() => callBestMove(), 200);
-      }
-    }
-
-    async function saveReplay(auto) {
+    async function saveReplayAuto() {
       const pgn = game.pgn();
       let result = "unknown";
       if (game.isCheckmate()) result = game.turn() === "w" ? "black" : "white";
       else if (game.isDraw()) result = "draw";
-      const payload = {
-        pgn,
-        fen: game.fen(),
-        result,
-        moves: game.history(),
-        meta: {
-          auto,
-          mode: getMode(),
-          playerColor: getPlayerColor(),
-          depth: parseInt(document.getElementById("depth").value, 10),
-          timeMs: parseInt(document.getElementById("timeMs").value, 10)
-        }
+      await fetch("/api/replay/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pgn, fen: game.fen(), result, moves: game.history(), meta: { auto: true, ui: "board2d", mode: getMode() } })
+      }).catch(() => {});
+    }
+
+    function initBoard() {
+      const cfg = {
+        draggable: true,
+        position: "start",
+        onDragStart,
+        onDrop,
+        onSnapEnd,
+        pieceTheme: "https://unpkg.com/chessboardjs@1.0.0/www/img/chesspieces/wikipedia/{piece}.png"
       };
-      const res = await fetch("/api/replay/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).then(r => r.json());
-      if (!auto) alert("Replay salvo: " + res.id);
-      return res;
-    }
-
-    async function listReplays() {
-      const res = await fetch("/api/replay/list").then(r => r.json());
-      document.getElementById("replays").textContent = JSON.stringify(res, null, 2);
-    }
-
-    async function analyze() {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fen: game.fen() })
-      }).then(r => r.json());
-      document.getElementById("report").textContent = JSON.stringify(res, null, 2);
-    }
-
-    function onDragStart(source, piece) {
-      if (busy) return false;
-      if (game.isGameOver()) return false;
-      if (!isPlayerTurn()) return false;
-      const isWhitePiece = piece.search(/^w/) !== -1;
-      if (getMode() === "human") {
-        if (game.turn() === "w" && !isWhitePiece) return false;
-        if (game.turn() === "b" && isWhitePiece) return false;
-      } else {
-        const wantWhite = getPlayerColor() === "w";
-        if (wantWhite && !isWhitePiece) return false;
-        if (!wantWhite && isWhitePiece) return false;
-      }
-    }
-
-    function onDrop(source, target) {
-      const move = game.move({ from: source, to: target, promotion: "q" });
-      if (move === null) return "snapback";
-      board.position(game.fen());
+      board = Chessboard("board", cfg);
       updateStatus();
-      if (getMode() === "engine") maybeEngineReply();
-      else if (game.isGameOver()) saveReplay(true).then(() => listReplays());
     }
 
-    function onSnapEnd() { board.position(game.fen()); }
-
-    function startNewGame() {
+    document.getElementById("btnNew").onclick = () => {
       game.reset();
-      const pc = getPlayerColor();
-      const orientation = getMode() === "human" ? "white" : pc === "w" ? "white" : "black";
-      board.orientation(orientation);
       board.start();
-      document.getElementById("engineMove").textContent = "-";
-      document.getElementById("report").textContent = "{}";
+      syncModeUI();
       updateStatus();
-      analyze();
-      if (getMode() === "engine" && pc === "b") {
-        window.setTimeout(() => callBestMove(), 250);
+      if (getMode() === "engine" && getPlayerColor() === "b") {
+        busy = true;
+        updateStatus();
+        callBestMove().then(() => { busy = false; updateStatus(); });
       }
-    }
-
-    document.getElementById("btnNew").onclick = () => startNewGame();
-
+    };
     document.getElementById("btnUndo").onclick = () => {
       if (busy) return;
-      const mode = getMode();
-      if (mode === "engine") {
-        game.undo();
-        game.undo();
-      } else {
-        game.undo();
-      }
+      if (getMode() === "engine") { game.undo(); game.undo(); }
+      else game.undo();
       board.position(game.fen());
       updateStatus();
     };
-
-    document.getElementById("btnAnalyze").onclick = () => analyze();
-    document.getElementById("btnSave").onclick = () => saveReplay(false);
-    document.getElementById("btnList").onclick = () => listReplays();
+    document.getElementById("btnAnalyze").onclick = async () => {
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fen: game.fen() })
+        }).then(r => r.json());
+        document.getElementById("report").textContent = JSON.stringify(res, null, 2);
+      } catch (e) { console.error(e); }
+    };
+    document.getElementById("btnSave").onclick = async () => {
+      await saveReplayAuto();
+      document.getElementById("btnList").click();
+    };
+    document.getElementById("btnList").onclick = async () => {
+      try {
+        const res = await fetch("/api/replay/list").then(r => r.json());
+        document.getElementById("replays").textContent = JSON.stringify(res, null, 2);
+      } catch (e) { console.error(e); }
+    };
     document.getElementById("mode").onchange = () => {
       syncModeUI();
-      startNewGame();
+      document.getElementById("btnNew").click();
     };
     document.getElementById("playerColor").onchange = () => {
-      if (getMode() === "engine") startNewGame();
+      if (getMode() === "engine") document.getElementById("btnNew").click();
     };
 
-    board = Chessboard("board", {
-      draggable: true,
-      position: "start",
-      onDragStart,
-      onDrop,
-      onSnapEnd
-    });
-
     syncModeUI();
-    updateStatus();
-    analyze();
+    initBoard();
   </script>
 </body>
 </html>

@@ -7,127 +7,317 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg: #0a0c10;
-      --panel: rgba(18, 22, 32, 0.95);
-      --border: rgba(200, 175, 130, 0.22);
-      --text: #e8e4dc;
-      --muted: #8a8f9a;
+      --bg: #06080d;
+      --panel: rgba(14, 18, 28, 0.96);
+      --border: rgba(212, 175, 55, 0.2);
+      --border-hover: rgba(212, 175, 55, 0.55);
+      --text: #ede9e0;
+      --muted: #7a8090;
       --gold: #d4af37;
-      --gold-dim: rgba(212, 175, 55, 0.12);
+      --gold-bright: #f0cc5a;
+      --gold-dim: rgba(212, 175, 55, 0.1);
+      --gold-glow: rgba(212, 175, 55, 0.22);
     }
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
       min-height: 100%;
-      background: radial-gradient(ellipse 120% 80% at 50% -20%, #1a2235 0%, var(--bg) 55%);
+      background: var(--bg);
       color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif;
+      overflow-x: hidden;
     }
+
+    /* ── Canvas de partículas ─────────────────────────────────── */
+    #particleCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Gradiente de fundo radial ────────────────────────────── */
+    .bg-gradient {
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 140% 90% at 50% -10%, rgba(26, 34, 53, 0.9) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 50% 50%, rgba(212, 175, 55, 0.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Padrão de tabuleiro sutil no fundo ───────────────────── */
+    .bg-board {
+      position: fixed;
+      inset: 0;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 40px,
+          rgba(212, 175, 55, 0.018) 40px,
+          rgba(212, 175, 55, 0.018) 41px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent,
+          transparent 40px,
+          rgba(212, 175, 55, 0.018) 40px,
+          rgba(212, 175, 55, 0.018) 41px
+        );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Layout principal ─────────────────────────────────────── */
     .wrap {
+      position: relative;
+      z-index: 1;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 32px 20px 48px;
+      padding: 40px 20px 56px;
     }
+
+    /* ── Emblema / ícone de topo ──────────────────────────────── */
+    .emblem {
+      width: 64px;
+      height: 64px;
+      margin: 0 0 24px;
+      opacity: 0;
+      animation: fadeSlideDown 0.7s ease 0.1s forwards;
+    }
+    .emblem svg {
+      width: 100%;
+      height: 100%;
+      filter: drop-shadow(0 0 16px rgba(212, 175, 55, 0.35));
+    }
+
+    /* ── Título ───────────────────────────────────────────────── */
     .title {
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: clamp(2rem, 6vw, 3rem);
+      font-size: clamp(2.4rem, 7vw, 3.6rem);
       font-weight: 600;
-      letter-spacing: 0.06em;
-      margin: 0 0 8px;
+      letter-spacing: 0.08em;
+      margin: 0 0 6px;
       text-align: center;
+      line-height: 1.1;
+      opacity: 0;
+      animation: fadeSlideDown 0.7s ease 0.2s forwards;
     }
-    .title span { color: var(--gold); font-style: italic; font-weight: 500; }
+    .title span {
+      color: var(--gold);
+      font-style: italic;
+      font-weight: 400;
+      position: relative;
+    }
+    .title span::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0.5;
+    }
+
+    /* ── Subtítulo ────────────────────────────────────────────── */
     .subtitle {
       color: var(--muted);
-      font-size: 0.95rem;
-      margin: 0 0 40px;
+      font-size: 0.9rem;
+      font-weight: 300;
+      margin: 0 0 48px;
       text-align: center;
-      max-width: 420px;
-      line-height: 1.5;
+      max-width: 380px;
+      line-height: 1.6;
+      letter-spacing: 0.02em;
+      opacity: 0;
+      animation: fadeSlideDown 0.7s ease 0.3s forwards;
     }
+
+    /* ── Divisor decorativo ───────────────────────────────────── */
+    .divider {
+      width: 120px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      margin: 0 auto 36px;
+      opacity: 0;
+      animation: fadeIn 0.8s ease 0.35s forwards;
+    }
+
+    /* ── Menu de botões ───────────────────────────────────────── */
     .menu {
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      width: min(320px, 100%);
+      gap: 10px;
+      width: min(300px, 100%);
+      opacity: 0;
+      animation: fadeSlideUp 0.7s ease 0.4s forwards;
     }
-    .menu button, .menu a.btn-link {
+
+    .menu button,
+    .menu a.btn-link {
       display: block;
       width: 100%;
-      padding: 14px 20px;
-      border-radius: 12px;
+      padding: 14px 22px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--gold-dim);
       color: var(--text);
-      font-size: 1rem;
+      font-size: 0.92rem;
       font-weight: 600;
       font-family: inherit;
+      letter-spacing: 0.04em;
       cursor: pointer;
       text-align: center;
       text-decoration: none;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      transition:
+        border-color 0.22s ease,
+        color 0.22s ease,
+        background 0.22s ease,
+        box-shadow 0.22s ease,
+        transform 0.14s ease;
+      position: relative;
+      overflow: hidden;
     }
-    .menu button:hover, .menu a.btn-link:hover {
-      border-color: var(--gold);
-      color: var(--gold);
-      background: rgba(212, 175, 55, 0.18);
+
+    /* Efeito de brilho ao passar o mouse */
+    .menu button::before,
+    .menu a.btn-link::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 60%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.12), transparent);
+      transition: left 0.4s ease;
+      pointer-events: none;
     }
+    .menu button:hover::before,
+    .menu a.btn-link:hover::before {
+      left: 150%;
+    }
+
+    .menu button:hover,
+    .menu a.btn-link:hover {
+      border-color: var(--border-hover);
+      color: var(--gold-bright);
+      background: rgba(212, 175, 55, 0.16);
+      box-shadow: 0 0 20px rgba(212, 175, 55, 0.12), inset 0 0 20px rgba(212, 175, 55, 0.04);
+      transform: translateY(-1px);
+    }
+    .menu button:active,
+    .menu a.btn-link:active {
+      transform: translateY(0);
+    }
+
     .menu .btn--primary {
-      background: rgba(212, 175, 55, 0.22);
-      border-color: rgba(212, 175, 55, 0.45);
+      background: rgba(212, 175, 55, 0.18);
+      border-color: rgba(212, 175, 55, 0.4);
+      font-size: 1rem;
+      padding: 16px 22px;
     }
+    .menu .btn--primary:hover {
+      background: rgba(212, 175, 55, 0.26);
+      box-shadow: 0 0 28px rgba(212, 175, 55, 0.2), inset 0 0 24px rgba(212, 175, 55, 0.06);
+    }
+
     .menu .btn--exit {
-      margin-top: 20px;
+      margin-top: 18px;
       background: transparent;
       color: var(--muted);
-      border-color: rgba(138, 143, 154, 0.35);
+      border-color: rgba(138, 143, 154, 0.25);
+      font-size: 0.82rem;
+      font-weight: 400;
     }
     .menu .btn--exit:hover {
-      color: #c8cdd4;
-      border-color: rgba(200, 205, 212, 0.5);
+      color: #b0b8c4;
+      border-color: rgba(200, 205, 212, 0.4);
+      background: rgba(255, 255, 255, 0.03);
+      box-shadow: none;
     }
+
+    /* ── Versão / rodapé ──────────────────────────────────────── */
+    .footer-note {
+      position: relative;
+      z-index: 1;
+      margin-top: 48px;
+      font-size: 0.72rem;
+      color: rgba(122, 128, 144, 0.5);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fadeIn 1s ease 0.8s forwards;
+    }
+
+    /* ── Modais ───────────────────────────────────────────────── */
     .backdrop {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(6, 8, 14, 0.78);
+      background: rgba(4, 6, 12, 0.82);
       z-index: 100;
       align-items: center;
       justify-content: center;
       padding: clamp(10px, 3vw, 24px);
-      backdrop-filter: blur(6px);
+      backdrop-filter: blur(8px);
     }
-    .backdrop.open { display: flex; }
+    .backdrop.open {
+      display: flex;
+      animation: backdropIn 0.22s ease;
+    }
     .modal {
       background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px 26px;
+      border: 1px solid rgba(212, 175, 55, 0.18);
+      border-radius: 18px;
+      padding: 28px 30px;
       max-width: 520px;
       width: 100%;
-      max-height: min(80vh, 640px);
+      max-height: min(82vh, 660px);
       overflow: auto;
-      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+      box-shadow:
+        0 32px 80px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.03),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      animation: modalIn 0.25s ease;
     }
     .modal h2 {
-      margin: 0 0 14px;
+      margin: 0 0 16px;
       font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 1.5rem;
+      font-size: 1.6rem;
       color: var(--gold);
       font-weight: 600;
+      letter-spacing: 0.04em;
     }
-    .modal p, .modal li { color: var(--muted); font-size: 0.9rem; line-height: 1.55; }
-    .modal ul { margin: 0; padding-left: 1.2rem; }
-    .modal li { margin: 6px 0; }
+    .modal p,
+    .modal li {
+      color: var(--muted);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+    .modal ul {
+      margin: 0;
+      padding-left: 1.2rem;
+    }
+    .modal li {
+      margin: 7px 0;
+    }
+    .modal strong {
+      color: var(--text);
+    }
     .modal pre {
-      background: rgba(0,0,0,0.35);
-      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(212, 175, 55, 0.12);
       border-radius: 10px;
       padding: 14px;
       font-size: 0.75rem;
@@ -135,9 +325,15 @@
       color: var(--text);
       margin: 12px 0 0;
     }
-    .modal .actions { margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
-    .modal .actions button {
-      padding: 10px 18px;
+    .modal .actions {
+      margin-top: 22px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .modal .actions button,
+    .modal .actions a.btn-link {
+      padding: 10px 20px;
       border-radius: 8px;
       border: 1px solid var(--border);
       background: var(--gold-dim);
@@ -145,13 +341,30 @@
       font-family: inherit;
       cursor: pointer;
       font-weight: 600;
+      font-size: 0.88rem;
+      text-decoration: none;
+      display: inline-block;
+      transition: border-color 0.18s, color 0.18s, background 0.18s;
     }
-    .modal .actions button:hover { border-color: var(--gold); color: var(--gold); }
-    .modal .err { color: #e07070; font-size: 0.85rem; margin-top: 10px; }
-    .modal .loading { color: var(--muted); font-size: 0.9rem; }
-    /* Modal IA: mais largo para caber descrições sem scroll horizontal */
+    .modal .actions button:hover,
+    .modal .actions a.btn-link:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+      background: rgba(212, 175, 55, 0.15);
+    }
+    .modal .err {
+      color: #e07070;
+      font-size: 0.85rem;
+      margin-top: 10px;
+    }
+    .modal .loading {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    /* ── Modal IA ─────────────────────────────────────────────── */
     #modalIA .modal {
-      max-width: min(96vw, 44rem);
+      max-width: min(96vw, 46rem);
       width: 100%;
       min-width: 0;
     }
@@ -168,10 +381,11 @@
       border-collapse: collapse;
       font-size: 0.8rem;
     }
-    .ia-table th, .ia-table td {
+    .ia-table th,
+    .ia-table td {
       text-align: left;
-      padding: 8px 10px;
-      border-bottom: 1px solid var(--border);
+      padding: 9px 11px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.1);
       vertical-align: top;
       min-width: 0;
     }
@@ -179,8 +393,8 @@
       color: var(--muted);
       font-weight: 600;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      font-size: 0.68rem;
+      letter-spacing: 0.07em;
+      font-size: 0.67rem;
     }
     .ia-table th:nth-child(1) { width: 26%; }
     .ia-table th:nth-child(2) { width: 24%; }
@@ -210,9 +424,9 @@
         display: block;
         margin-bottom: 12px;
         padding: 12px 14px;
-        border: 1px solid var(--border);
+        border: 1px solid rgba(212, 175, 55, 0.12);
         border-radius: 12px;
-        background: rgba(0, 0, 0, 0.22);
+        background: rgba(0, 0, 0, 0.25);
       }
       .ia-table tbody td {
         display: block;
@@ -232,7 +446,14 @@
       }
       .ia-table tbody tr td:first-child { padding-top: 0; }
     }
-    .ia-sub { font-size: 0.72rem; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    .ia-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin: 14px 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+    }
     details.ia-raw { margin-top: 16px; }
     details.ia-raw summary {
       cursor: pointer;
@@ -247,28 +468,85 @@
       word-break: break-word;
       white-space: pre-wrap;
     }
+
+    /* ── Animações ────────────────────────────────────────────── */
+    @keyframes fadeSlideDown {
+      from { opacity: 0; transform: translateY(-14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes backdropIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes goldPulse {
+      0%, 100% { text-shadow: 0 0 20px rgba(212, 175, 55, 0.0); }
+      50%       { text-shadow: 0 0 32px rgba(212, 175, 55, 0.35), 0 0 60px rgba(212, 175, 55, 0.12); }
+    }
+    .title span {
+      animation: goldPulse 4s ease-in-out infinite;
+    }
   </style>
 </head>
 <body>
+  <canvas id="particleCanvas"></canvas>
+  <div class="bg-gradient"></div>
+  <div class="bg-board"></div>
+
   <div class="wrap">
+    <div class="emblem">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+        <defs>
+          <radialGradient id="emblemGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#d4af37" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="64" height="64" rx="14" fill="#0e1420"/>
+        <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="rgba(212,175,55,0.35)" stroke-width="1"/>
+        <rect x="8" y="8" width="22" height="22" rx="2" fill="#c9a785" opacity="0.9"/>
+        <rect x="34" y="8" width="22" height="22" rx="2" fill="#3a2d22" opacity="0.9"/>
+        <rect x="8" y="34" width="22" height="22" rx="2" fill="#3a2d22" opacity="0.9"/>
+        <rect x="34" y="34" width="22" height="22" rx="2" fill="#c9a785" opacity="0.9"/>
+        <text x="32" y="44" text-anchor="middle" font-size="22" fill="#d4af37" font-family="Georgia, serif" font-weight="bold">♛</text>
+        <circle cx="32" cy="32" r="30" fill="url(#emblemGlow)"/>
+      </svg>
+    </div>
+
     <h1 class="title">Sator <span>Chess</span></h1>
-    <p class="subtitle">Motor com busca clássica, rede de valor (TD online) e vista 3D.</p>
+    <p class="subtitle">Motor com busca clássica, rede de valor TD online e vista 3D imersiva.</p>
+    <div class="divider"></div>
+
     <nav class="menu" aria-label="Menu principal">
-      <a class="btn-link btn--primary" href="/chess3d.html">Iniciar</a>
+      <a class="btn-link btn--primary" href="/chess3d.html">▶ Iniciar Partida</a>
       <button type="button" id="btnRules">Regras</button>
       <button type="button" id="btnOptions">Opções</button>
-      <button type="button" id="btnIA">IA / rede neural</button>
+      <button type="button" id="btnIA">IA / Rede Neural</button>
       <button type="button" class="btn--exit" id="btnExit">Sair</button>
     </nav>
+
+    <p class="footer-note">Sator Chess · Motor Híbrido v3</p>
   </div>
 
+  <!-- Modal: Regras -->
   <div class="backdrop" id="modalRules" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
     <div class="modal">
       <h2 id="rulesTitle">Regras (resumo)</h2>
       <p>Xadrez 8×8: brancas começam. O objetivo é dar xeque-mate ao rei adversário (rei atacado sem lance legal).</p>
       <ul>
         <li><strong>Peão</strong>: uma casa à frente; duas casas no primeiro movimento; captura na diagonal; en passant e promoção ao chegar à última fileira.</li>
-        <li><strong>Cavalo</strong>: movimento em “L”, pode saltar peças.</li>
+        <li><strong>Cavalo</strong>: movimento em "L", pode saltar peças.</li>
         <li><strong>Bispo</strong>: diagonais. <strong>Torre</strong>: fileiras e colunas.</li>
         <li><strong>Dama</strong>: combina torre e bispo. <strong>Rei</strong>: uma casa em qualquer direção; roque sob condições legais.</li>
         <li><strong>Empate</strong>: afogamento, material insuficiente, repetição de posição, regra dos 50 lances, acordo, etc.</li>
@@ -279,22 +557,24 @@
     </div>
   </div>
 
+  <!-- Modal: Opções -->
   <div class="backdrop" id="modalOptions" role="dialog" aria-modal="true" aria-labelledby="optTitle">
     <div class="modal">
       <h2 id="optTitle">Opções</h2>
       <p>Profundidade e tempo do motor, modo de jogo e treino TD por lance ficam no painel da <strong>vista 3D</strong> ou no <strong>tabuleiro 2D</strong> (interface clássica).</p>
       <p>No terminal do projeto você pode agregar replays e treinar com os scripts <code style="color:var(--gold)">npm run build-buffer</code> e <code style="color:var(--gold)">npm run train-buffer</code>.</p>
       <div class="actions">
-        <a class="btn-link" href="/board2d.html" style="display:inline-block;width:auto;padding:10px 18px;">Abrir tabuleiro 2D</a>
+        <a class="btn-link" href="/board2d.html">Abrir tabuleiro 2D</a>
         <button type="button" data-close="modalOptions">Fechar</button>
       </div>
     </div>
   </div>
 
+  <!-- Modal: IA -->
   <div class="backdrop" id="modalIA" role="dialog" aria-modal="true" aria-labelledby="iaTitle">
     <div class="modal">
       <h2 id="iaTitle">Rede neural (valor)</h2>
-      <p style="margin-top:0">Dados vindos de <code style="color:var(--gold)">GET /api/nn/status</code> — mesma API usada na vista 3D no painel “Rede”.</p>
+      <p style="margin-top:0">Dados vindos de <code style="color:var(--gold)">GET /api/nn/status</code> — mesma API usada na vista 3D no painel "Rede".</p>
       <p class="loading" id="iaLoading">A carregar…</p>
       <div class="ia-table-wrap" id="iaTableWrap">
         <table class="ia-table" aria-label="Estado da rede neural">
@@ -321,6 +601,57 @@
   </div>
 
   <script>
+    /* ── Partículas flutuantes ──────────────────────────────────── */
+    (function initParticles() {
+      const canvas = document.getElementById("particleCanvas");
+      const ctx = canvas.getContext("2d");
+      let W, H, particles = [];
+
+      function resize() {
+        W = canvas.width = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+      }
+      resize();
+      window.addEventListener("resize", resize);
+
+      const GOLD = "rgba(212,175,55,";
+      const COUNT = 55;
+
+      for (let i = 0; i < COUNT; i++) {
+        particles.push({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * window.innerHeight,
+          r: 0.5 + Math.random() * 1.8,
+          vx: (Math.random() - 0.5) * 0.18,
+          vy: -0.08 - Math.random() * 0.22,
+          alpha: 0.08 + Math.random() * 0.28,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.4 + Math.random() * 0.8
+        });
+      }
+
+      let t = 0;
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        t += 0.008;
+        for (const p of particles) {
+          const a = p.alpha * (0.6 + 0.4 * Math.sin(t * p.speed + p.phase));
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = GOLD + a + ")";
+          ctx.fill();
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
+          if (p.x < -10) p.x = W + 10;
+          if (p.x > W + 10) p.x = -10;
+        }
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    /* ── Modais ─────────────────────────────────────────────────── */
     function openModal(id) {
       document.getElementById(id).classList.add("open");
     }
@@ -333,10 +664,10 @@
     document.querySelectorAll(".backdrop").forEach((bd) => {
       bd.addEventListener("click", (e) => { if (e.target === bd) closeModal(bd.id); });
     });
-
     document.getElementById("btnRules").onclick = () => openModal("modalRules");
     document.getElementById("btnOptions").onclick = () => openModal("modalOptions");
 
+    /* ── IA labels ──────────────────────────────────────────────── */
     const IA_LABELS = {
       ok: "Indica que a API devolveu o estado sem erro.",
       inputDim: "Tamanho do vetor de características da posição (entrada da rede).",
@@ -350,19 +681,16 @@
       "config.anchorBeta": "Peso da âncora heurística no alvo TD: mistura TD puro com tanh(heurística).",
       "config.lr": "Taxa de aprendizagem do gradiente em cada passo TD (tamanho do ajuste dos pesos)."
     };
-
     function esc(s) {
       const d = document.createElement("div");
       d.textContent = s;
       return d.innerHTML;
     }
-
     function row(k, v) {
       const desc = IA_LABELS[k] || "—";
       const val = v === null || v === undefined ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
       return "<tr><td class=\"ia-k\" data-label=\"Campo\">" + esc(k) + "</td><td class=\"ia-v\" data-label=\"Valor\">" + esc(val) + "</td><td class=\"ia-d\" data-label=\"Descrição\">" + esc(desc) + "</td></tr>";
     }
-
     async function loadIaStatus() {
       const loading = document.getElementById("iaLoading");
       const wrap = document.getElementById("iaTableWrap");
@@ -402,13 +730,11 @@
         err.textContent = "Não foi possível obter o estado da rede. O servidor está a correr em http://localhost:3000? " + (e.message || String(e));
       }
     }
-
     document.getElementById("btnIA").onclick = () => {
       openModal("modalIA");
       loadIaStatus();
     };
     document.getElementById("btnIaRefresh").onclick = () => loadIaStatus();
-
     document.getElementById("btnExit").onclick = () => {
       window.close();
       setTimeout(() => {

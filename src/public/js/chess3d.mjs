@@ -8,6 +8,7 @@ import {
   Vector3,
   HemisphericLight,
   DirectionalLight,
+  PointLight,
   MeshBuilder,
   StandardMaterial,
   Color3,
@@ -91,6 +92,30 @@ let tapSelection = { from: null };
 const TOUCH_MOVE_STRICT = true;
 let statusBriefTimer = null;
 
+/** Aplica brilho emissivo dourado na peça selecionada. */
+function applySelectionGlow(sq, enable) {
+  if (!sceneRef) return;
+  for (const node of pieceNodes) {
+    const meta = node.metadata;
+    if (!meta || meta.square !== sq) continue;
+    const meshes = node.getChildMeshes ? node.getChildMeshes(false) : (node.subMeshes ? [node] : []);
+    const targets = meshes.length ? meshes : [node];
+    for (const m of targets) {
+      if (!m.material) continue;
+      if (enable) {
+        m.material.emissiveColor = new Color3(0.18, 0.14, 0.04);
+      } else {
+        // Restaura emissivo original
+        const isWhite = meta.color === "w";
+        m.material.emissiveColor = isWhite
+          ? new Color3(0.04, 0.038, 0.032)
+          : new Color3(0.008, 0.008, 0.012);
+      }
+    }
+    break;
+  }
+}
+
 /** Prioridade quando há mais de um lance para a mesma casa (ex.: promoções). */
 const KIND_PRI = {
   castle: 7,
@@ -169,6 +194,8 @@ function placeHighlightDisc(scene, sq, kind, diameter) {
 function showLegalMovesFor(fromSq) {
   if (!sceneRef) return;
   clearMoveHighlights();
+  // Aplica glow na peça selecionada
+  applySelectionGlow(fromSq, true);
   const moves = game.moves({ square: fromSq, verbose: true });
   placeHighlightDisc(sceneRef, fromSq, "selected", 0.9);
   if (!moves.length) return;
@@ -462,6 +489,10 @@ function setStatusBrief(msg, ms = 2600) {
 }
 
 function clearTapSelection() {
+  // Remove glow da peça que estava selecionada
+  if (tapSelection.from) {
+    applySelectionGlow(tapSelection.from, false);
+  }
   tapSelection.from = null;
   clearMoveHighlights();
   syncCheckKingHighlight();
@@ -508,15 +539,17 @@ function updateStatus() {
 function makePieceMaterial(scene, color) {
   const mat = new StandardMaterial(`pm_${color}_${Math.random()}`, scene);
   if (color === "w") {
-    mat.diffuseColor = new Color3(1, 1, 1);
-    mat.specularColor = new Color3(1, 1, 1);
-    mat.emissiveColor = Color3.Black();
-    mat.specularPower = 256;
+    // Marfim/alabastro: levemente quente, reflexos suaves e especular intenso
+    mat.diffuseColor = new Color3(0.96, 0.94, 0.88);
+    mat.specularColor = new Color3(0.95, 0.92, 0.82);
+    mat.emissiveColor = new Color3(0.04, 0.038, 0.032);
+    mat.specularPower = 320;
   } else {
-    mat.diffuseColor = Color3.Black();
-    mat.specularColor = new Color3(1, 1, 1);
-    mat.emissiveColor = Color3.Black();
-    mat.specularPower = 220;
+    // Ébano: profundo e escuro, reflexos frios e metálicos
+    mat.diffuseColor = new Color3(0.055, 0.05, 0.06);
+    mat.specularColor = new Color3(0.72, 0.72, 0.78);
+    mat.emissiveColor = new Color3(0.008, 0.008, 0.012);
+    mat.specularPower = 280;
   }
   return mat;
 }
@@ -539,15 +572,19 @@ function paintMarbleTexture(dynamicTex, light, seed) {
   const rnd = mulberry32(seed >>> 0);
 
   if (light) {
+    // Mármore Calacatta: creme quente com veios dourados
     const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, `rgb(${250 + (rnd() * 5) | 0},${246 + (rnd() * 5) | 0},${238 + (rnd() * 6) | 0})`);
-    g.addColorStop(0.42, `rgb(${238 + (rnd() * 7) | 0},${232 + (rnd() * 7) | 0},${224 + (rnd() * 8) | 0})`);
-    g.addColorStop(1, `rgb(${222 + (rnd() * 9) | 0},${214 + (rnd() * 9) | 0},${206 + (rnd() * 10) | 0})`);
+    g.addColorStop(0, `rgb(${248 + (rnd() * 6) | 0},${242 + (rnd() * 6) | 0},${228 + (rnd() * 8) | 0})`);
+    g.addColorStop(0.35, `rgb(${240 + (rnd() * 8) | 0},${232 + (rnd() * 8) | 0},${216 + (rnd() * 10) | 0})`);
+    g.addColorStop(0.7, `rgb(${232 + (rnd() * 8) | 0},${222 + (rnd() * 8) | 0},${204 + (rnd() * 10) | 0})`);
+    g.addColorStop(1, `rgb(${220 + (rnd() * 10) | 0},${210 + (rnd() * 10) | 0},${190 + (rnd() * 12) | 0})`);
     ctx.fillStyle = g;
   } else {
+    // Mármore Nero Marquina: preto profundo com veios brancos
     const g = ctx.createLinearGradient(0, 0, w, h);
-    g.addColorStop(0, `rgb(${44 + (rnd() * 12) | 0},${42 + (rnd() * 12) | 0},${48 + (rnd() * 12) | 0})`);
-    g.addColorStop(1, `rgb(${18 + (rnd() * 8) | 0},${17 + (rnd() * 8) | 0},${22 + (rnd() * 8) | 0})`);
+    g.addColorStop(0, `rgb(${38 + (rnd() * 10) | 0},${34 + (rnd() * 10) | 0},${42 + (rnd() * 10) | 0})`);
+    g.addColorStop(0.4, `rgb(${28 + (rnd() * 8) | 0},${25 + (rnd() * 8) | 0},${32 + (rnd() * 8) | 0})`);
+    g.addColorStop(1, `rgb(${14 + (rnd() * 6) | 0},${12 + (rnd() * 6) | 0},${18 + (rnd() * 6) | 0})`);
     ctx.fillStyle = g;
   }
   ctx.fillRect(0, 0, w, h);
@@ -564,11 +601,14 @@ function paintMarbleTexture(dynamicTex, light, seed) {
   ctx.putImageData(img, 0, 0);
 
   ctx.globalCompositeOperation = light ? "multiply" : "lighter";
-  const veinN = light ? 18 : 18;
+  const veinN = light ? 22 : 20;
   for (let k = 0; k < veinN; k++) {
+    // Mármore claro: veios cinza-dourado; mármore escuro: veios brancos e prateados
     ctx.strokeStyle = light
-      ? `rgba(88,84,96,${0.085 + rnd() * 0.095})`
-      : `rgba(190,190,205,${0.05 + rnd() * 0.07})`;
+      ? (k % 5 === 0
+          ? `rgba(180,148,80,${0.06 + rnd() * 0.08})`   // veio dourado ocasional
+          : `rgba(100,92,110,${0.07 + rnd() * 0.09})`)
+      : `rgba(200,196,215,${0.045 + rnd() * 0.065})`;
     ctx.lineWidth = 0.6 + rnd() * 2.2;
     ctx.beginPath();
     let x = rnd() * w;
@@ -1192,12 +1232,14 @@ function addRemoteChessTable(scene, cx, cz, w, d, woodMat, darkMat) {
 /** Pernas + avental da mesa onde jogas (por baixo do mármore). */
 function buildPlayerChessTable(scene) {
   const wood = new StandardMaterial("plyrTblWood", scene);
-  wood.diffuseColor = new Color3(0.19, 0.1, 0.048);
-  wood.specularColor = new Color3(0.11, 0.08, 0.05);
-  wood.specularPower = 44;
+  // Mogno polido: castanho-avermelhado com reflexos envernizados
+  wood.diffuseColor = new Color3(0.22, 0.11, 0.052);
+  wood.specularColor = new Color3(0.18, 0.13, 0.08);
+  wood.specularPower = 72;
   const legMat = new StandardMaterial("plyrTblLeg", scene);
-  legMat.diffuseColor = new Color3(0.065, 0.05, 0.045);
-  legMat.specularPower = 22;
+  legMat.diffuseColor = new Color3(0.075, 0.055, 0.048);
+  legMat.specularColor = new Color3(0.08, 0.06, 0.05);
+  legMat.specularPower = 38;
   const ap = 4.12;
   const legTop = -0.19;
   const legBot = -0.76;
@@ -1220,24 +1262,29 @@ function buildPlayerChessTable(scene) {
 
 /** Salão de clube: piso, paredes, teto, mesas ao fundo, luzes quentes. */
 function buildChessClubEnvironment(scene) {
-  scene.clearColor = new Color3(0.035, 0.042, 0.055).toColor4(1);
+  // Céu noturno profundo com leve tom azul-esverdeado
+  scene.clearColor = new Color3(0.022, 0.028, 0.042).toColor4(1);
 
   const floor = MeshBuilder.CreateGround("clubFloor", { width: 62, height: 52 }, scene);
   floor.position.set(0, -0.02, 5);
   const flMat = new StandardMaterial("clubFloorMat", scene);
-  flMat.diffuseColor = new Color3(0.13, 0.085, 0.055);
-  flMat.specularColor = new Color3(0.05, 0.04, 0.032);
-  flMat.specularPower = 26;
+  // Parquet escuro envernizado
+  flMat.diffuseColor = new Color3(0.10, 0.065, 0.038);
+  flMat.specularColor = new Color3(0.12, 0.09, 0.06);
+  flMat.specularPower = 55;
   floor.material = flMat;
 
   const wallPaint = new StandardMaterial("clubWallPaint", scene);
-  wallPaint.diffuseColor = new Color3(0.11, 0.14, 0.12);
-  wallPaint.specularColor = new Color3(0.04, 0.05, 0.045);
-  wallPaint.specularPower = 28;
+  // Paredes verde-escuro de clube britânico
+  wallPaint.diffuseColor = new Color3(0.08, 0.11, 0.09);
+  wallPaint.specularColor = new Color3(0.03, 0.04, 0.035);
+  wallPaint.specularPower = 22;
 
   const wainMat = new StandardMaterial("clubWain", scene);
-  wainMat.diffuseColor = new Color3(0.08, 0.06, 0.048);
-  wainMat.specularPower = 18;
+  // Lambris de madeira escura
+  wainMat.diffuseColor = new Color3(0.072, 0.052, 0.038);
+  wainMat.specularColor = new Color3(0.06, 0.048, 0.038);
+  wainMat.specularPower = 35;
 
   const backWall = MeshBuilder.CreateBox("clubBackWall", { width: 52, height: 10.5, depth: 0.5 }, scene);
   backWall.position.set(0, 5.05, -11.2);
@@ -1269,17 +1316,31 @@ function buildChessClubEnvironment(scene) {
   sideR.material = wallPaint;
 
   const lampEmis = new StandardMaterial("clubLampEmis", scene);
-  lampEmis.diffuseColor = new Color3(0.95, 0.78, 0.45);
-  lampEmis.emissiveColor = new Color3(0.35, 0.26, 0.12);
+  lampEmis.diffuseColor = new Color3(0.98, 0.84, 0.52);
+  lampEmis.emissiveColor = new Color3(0.55, 0.38, 0.16);
   lampEmis.specularColor = Color3.Black();
+
+  const lampGlowMat = new StandardMaterial("clubLampGlow", scene);
+  lampGlowMat.diffuseColor = new Color3(1.0, 0.92, 0.62);
+  lampGlowMat.emissiveColor = new Color3(0.75, 0.52, 0.22);
+  lampGlowMat.specularColor = Color3.Black();
+
   for (let i = 0; i < 5; i++) {
     const lx = -16 + i * 8;
-    const shade = MeshBuilder.CreateBox(`lamp_${i}`, { width: 1.4, height: 0.22, depth: 0.65 }, scene);
+    const shade = MeshBuilder.CreateBox(`lamp_${i}`, { width: 1.5, height: 0.24, depth: 0.7 }, scene);
     shade.position.set(lx, 8.35, -10.55);
     shade.material = lampEmis;
-    const glow = MeshBuilder.CreateBox(`lampGlow_${i}`, { width: 1.1, height: 0.08, depth: 0.4 }, scene);
-    glow.position.set(lx, 8.18, -10.48);
-    glow.material = lampEmis;
+    const glow = MeshBuilder.CreateBox(`lampGlow_${i}`, { width: 1.15, height: 0.1, depth: 0.42 }, scene);
+    glow.position.set(lx, 8.16, -10.48);
+    glow.material = lampGlowMat;
+    // Halo de luz (disco plano emissivo abaixo da lâmpada)
+    const halo = MeshBuilder.CreateCylinder(`lampHalo_${i}`, { diameter: 2.2, height: 0.01, tessellation: 24 }, scene);
+    halo.position.set(lx, 8.0, -10.5);
+    const haloMat = new StandardMaterial(`lampHaloMat_${i}`, scene);
+    haloMat.diffuseColor = Color3.Black();
+    haloMat.emissiveColor = new Color3(0.45, 0.32, 0.12);
+    haloMat.alpha = 0.35;
+    halo.material = haloMat;
   }
 
   const tblWood = new StandardMaterial("remoteTblWood", scene);
@@ -1303,9 +1364,11 @@ function buildSalonBackdrop(scene) {
 /** Moldura em latão: bordas alinhadas ao retângulo real das casas (0,99×0,99), não centrado por simetria errada. */
 function addBoardBrassFrame(scene) {
   const brass = new StandardMaterial("brassFrame", scene);
-  brass.diffuseColor = new Color3(0.62, 0.48, 0.18);
-  brass.specularColor = new Color3(0.88, 0.74, 0.38);
-  brass.specularPower = 100;
+  // Latão polido: dourado-quente com reflexos intensos
+  brass.diffuseColor = new Color3(0.68, 0.52, 0.20);
+  brass.specularColor = new Color3(0.96, 0.84, 0.46);
+  brass.emissiveColor = new Color3(0.04, 0.028, 0.008);
+  brass.specularPower = 180;
   const t = 0.095;
   const h = 0.038;
   const y = 0.061;
@@ -1496,15 +1559,31 @@ function createScene(canvas) {
   }
   cameraRef = camera;
 
+  // Luz hemisférica ambiente — levemente quente no topo, fria no chão
   const hemi = new HemisphericLight("hemi", new Vector3(0.2, 1, 0.35), scene);
-  hemi.intensity = 0.62;
-  hemi.diffuse = new Color3(0.88, 0.86, 0.82);
-  hemi.groundColor = new Color3(0.07, 0.075, 0.1);
+  hemi.intensity = 0.52;
+  hemi.diffuse = new Color3(0.86, 0.84, 0.80);
+  hemi.groundColor = new Color3(0.06, 0.065, 0.09);
 
+  // Luz direcional principal — simula luz de janela lateral
   const dir = new DirectionalLight("dir", new Vector3(-0.55, -1.05, -0.25), scene);
   dir.position = new Vector3(12, 16, 6);
-  dir.intensity = 0.72;
-  dir.diffuse = new Color3(1, 0.96, 0.9);
+  dir.intensity = 0.78;
+  dir.diffuse = new Color3(1.0, 0.97, 0.92);
+
+  // Luz pontual dourada sobre o tabuleiro — efeito de lâmpada de clube
+  const boardLight = new PointLight("boardLight", new Vector3(0, 8.5, 0), scene);
+  boardLight.intensity = 0.55;
+  boardLight.diffuse = new Color3(1.0, 0.88, 0.58);
+  boardLight.specular = new Color3(1.0, 0.9, 0.65);
+  boardLight.range = 18;
+
+  // Luz de preenchimento fria — simula reflexo das paredes
+  const fillLight = new PointLight("fillLight", new Vector3(-8, 5, -8), scene);
+  fillLight.intensity = 0.18;
+  fillLight.diffuse = new Color3(0.55, 0.65, 0.88);
+  fillLight.specular = new Color3(0.3, 0.4, 0.7);
+  fillLight.range = 22;
 
   buildPlayerChessTable(scene);
 
@@ -1515,26 +1594,29 @@ function createScene(canvas) {
   base.position.y = -0.1;
   const bmat = new StandardMaterial("bm", scene);
   bmat.diffuseTexture = marbleDark;
-  bmat.diffuseTexture.uScale = 1.8;
-  bmat.diffuseTexture.vScale = 1.8;
-  bmat.specularColor = new Color3(0.28, 0.28, 0.34);
-  bmat.specularPower = 95;
+  bmat.diffuseTexture.uScale = 1.6;
+  bmat.diffuseTexture.vScale = 1.6;
+  bmat.specularColor = new Color3(0.38, 0.36, 0.44);
+  bmat.emissiveColor = new Color3(0.008, 0.007, 0.01);
+  bmat.specularPower = 140;
   base.material = bmat;
   addSatorMarbleInscriptions(scene, base);
 
   const matLightSq = new StandardMaterial("tileMarbleLight", scene);
   matLightSq.diffuseTexture = marbleLight;
-  matLightSq.diffuseTexture.uScale = 2.4;
-  matLightSq.diffuseTexture.vScale = 2.4;
-  matLightSq.specularColor = new Color3(0.4, 0.4, 0.44);
-  matLightSq.specularPower = 95;
+  matLightSq.diffuseTexture.uScale = 2.2;
+  matLightSq.diffuseTexture.vScale = 2.2;
+  matLightSq.specularColor = new Color3(0.52, 0.50, 0.46);
+  matLightSq.emissiveColor = new Color3(0.012, 0.011, 0.009);
+  matLightSq.specularPower = 130;
 
   const matDarkSq = new StandardMaterial("tileMarbleDark", scene);
   matDarkSq.diffuseTexture = marbleDark;
-  matDarkSq.diffuseTexture.uScale = 2.4;
-  matDarkSq.diffuseTexture.vScale = 2.4;
-  matDarkSq.specularColor = new Color3(0.26, 0.26, 0.32);
-  matDarkSq.specularPower = 95;
+  matDarkSq.diffuseTexture.uScale = 2.2;
+  matDarkSq.diffuseTexture.vScale = 2.2;
+  matDarkSq.specularColor = new Color3(0.36, 0.34, 0.42);
+  matDarkSq.emissiveColor = new Color3(0.006, 0.005, 0.008);
+  matDarkSq.specularPower = 130;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
