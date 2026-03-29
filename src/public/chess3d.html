@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sator Chess — Vista 3D (Babylon.js)</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,500&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #0a0c10;
+      --panel: rgba(18, 22, 32, 0.92);
+      --border: rgba(200, 175, 130, 0.22);
+      --text: #e8e4dc;
+      --muted: #8a8f9a;
+      --gold: #d4af37;
+      --gold-dim: rgba(212, 175, 55, 0.15);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
+      font-family: "Source Sans 3", system-ui, sans-serif; }
+    #renderCanvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+    .hud {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 16px 20px;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .hud > * { pointer-events: auto; }
+    .brand {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.65rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-shadow: 0 2px 24px rgba(0,0,0,0.6);
+    }
+    .brand span { color: var(--gold); font-style: italic; font-weight: 500; }
+    .panel {
+      width: min(320px, 92vw);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 18px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.45);
+    }
+    .panel h2 { margin: 0 0 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+    .status { font-size: 0.95rem; line-height: 1.45; min-height: 3.2em; transition: color 0.2s ease; }
+    .status.status--check { color: #ffb84d; font-weight: 600; }
+    .status.status--mate { color: #ff5c5c; font-weight: 700; }
+    .status.status--draw { color: #9ab0c8; font-weight: 600; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    label.toggle { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); cursor: pointer; }
+    .metrics { font-family: ui-monospace, monospace; font-size: 0.78rem; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+    .metrics strong { color: var(--gold); font-weight: 600; }
+    .btn {
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--gold-dim);
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn:hover { border-color: var(--gold); color: var(--gold); }
+    select, input[type="number"] {
+      background: rgba(0,0,0,0.35);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 6px 8px;
+      font-size: 0.8rem;
+    }
+    a.link { color: var(--gold); text-decoration: none; font-size: 0.85rem; }
+    a.link:hover { text-decoration: underline; }
+    #promoOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+    }
+    #promoOverlay.open { display: flex; }
+    #gameOverOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 8, 14, 0.82);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    #gameOverOverlay.open { display: flex; }
+    .go-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 32px;
+      max-width: 380px;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+    }
+    .go-card h3 {
+      margin: 0 0 10px;
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.85rem;
+      font-weight: 600;
+      color: var(--gold);
+    }
+    .go-card p { margin: 0 0 22px; color: var(--muted); font-size: 0.95rem; line-height: 1.5; }
+    .promo-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 22px 24px;
+      text-align: center;
+      max-width: 320px;
+    }
+    .promo-card p { margin: 0 0 14px; color: var(--muted); font-size: 0.9rem; }
+    .promo-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+    .promo-btns button {
+      min-width: 64px;
+      padding: 12px 16px;
+      font-size: 1.1rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--gold-dim);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .promo-btns button:hover { border-color: var(--gold); }
+    .legend-title {
+      margin: 14px 0 0;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .move-legend {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    .move-legend li { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+    .move-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      box-shadow: 0 0 6px rgba(0,0,0,0.35);
+    }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "@babylonjs/core": "https://esm.sh/@babylonjs/core@6.49.0",
+      "chess.js": "https://esm.sh/chess.js@1.4.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <canvas id="renderCanvas"></canvas>
+  <div class="hud">
+    <div class="brand">Sator <span>Chess</span> 3D</div>
+    <div class="panel">
+      <h2>Partida</h2>
+      <div class="status" id="status">Carregando…</div>
+      <p class="hint" style="margin:10px 0 0;font-size:0.78rem;color:var(--muted);line-height:1.45">
+        Lance: clique na peça, depois na casa de destino (sem arrastar). <kbd style="font-size:0.85em;border:1px solid var(--border);padding:1px 5px;border-radius:4px">Esc</kbd> cancela a seleção. Toca-mover: depois de escolher a peça, não pode trocar por outra sua.
+      </p>
+      <div class="row">
+        <button type="button" class="btn" id="btnNew">Novo jogo</button>
+        <button type="button" class="btn" id="btnUndo">Desfazer</button>
+      </div>
+      <div class="row">
+        <label>Modo
+          <select id="mode">
+            <option value="engine">Vs motor</option>
+            <option value="human">Humano vs humano</option>
+          </select>
+        </label>
+      </div>
+      <div class="row" id="wrapColor">
+        <label>Sua cor
+          <select id="playerColor">
+            <option value="w">Brancas</option>
+            <option value="b">Pretas</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Prof. <input id="depth" type="number" value="7" min="1" max="10"/></label>
+        <label>ms <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+      </div>
+      <div class="row">
+        <label class="toggle"><input type="checkbox" id="trainOnline" checked/> Treino TD online (cada lance)</label>
+      </div>
+      <div class="metrics" id="metrics">Rede: —</div>
+      <h2 class="legend-title">Mapa de lances</h2>
+      <ul class="move-legend" aria-label="Legenda das cores de lance">
+        <li><span class="dot" style="background:#f2c82e"></span> Casa da peça selecionada</li>
+        <li><span class="dot" style="background:#2eb861"></span> Lance simples</li>
+        <li><span class="dot" style="background:#e5382e"></span> Captura</li>
+        <li><span class="dot" style="background:#3866f2"></span> Roque</li>
+        <li><span class="dot" style="background:#9447e0"></span> En passant</li>
+        <li><span class="dot" style="background:#26c6d8"></span> Avanço duplo (peão)</li>
+        <li><span class="dot" style="background:#ebad1f"></span> Promoção</li>
+        <li><span class="dot" style="background:#eb6b1a"></span> Captura com promoção</li>
+        <li><span class="dot" style="background:#f21818"></span> Casa ilegal (ao arrastar)</li>
+        <li><span class="dot" style="background:#ff6a00"></span> Rei em xeque (pulsa)</li>
+        <li><span class="dot" style="background:#c40820"></span> Xeque-mate no rei</li>
+      </ul>
+      <div class="row" style="margin-top:14px;">
+        <a class="link" href="/">← Tabuleiro 2D</a>
+      </div>
+    </div>
+  </div>
+  <div id="promoOverlay" aria-hidden="true">
+    <div class="promo-card">
+      <p>Promoção de peão</p>
+      <div class="promo-btns">
+        <button type="button" data-p="q" title="Dama">♕</button>
+        <button type="button" data-p="r" title="Torre">♜</button>
+        <button type="button" data-p="b" title="Bispo">♝</button>
+        <button type="button" data-p="n" title="Cavalo">♞</button>
+      </div>
+    </div>
+  </div>
+  <div id="gameOverOverlay" aria-hidden="true">
+    <div class="go-card">
+      <h3 id="goTitle">Fim de partida</h3>
+      <p id="goDetail"></p>
+      <button type="button" class="btn" id="btnGoNew">Nova partida</button>
+    </div>
+  </div>
+  <script type="module" src="js/chess3d.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "useInEval": true,
+  "scale": 45,
+  "gamma": 0.99,
+  "lr": 0.002,
+  "anchorBeta": 0.08,
+  "heuristicScale": 1800,
+  "gradClip": 1.2,
+  "hidden": 64
+}

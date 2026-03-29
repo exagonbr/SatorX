@@ -1,0 +1,25 @@
+{
+  "name": "sator-chess-engine",
+  "version": "0.6.0",
+  "description": "Motor de xadrez (8x8) com avalia\u00e7\u00e3o Sator + heur\u00edsticas Sun Tzu e Kasparov-style.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js bestmove",
+    "analyze": "node src/index.js analyze",
+    "bestmove": "node src/index.js bestmove",
+    "selfplay": "node src/tools/selfplay.js",
+    "suite": "node src/tools/tacticalSuite.js",
+    "server": "node src/server.js",
+    "evolve": "node src/tools/evolve.js",
+    "replay": "node src/tools/replayTrain.js",
+    "build-buffer": "node src/tools/buildReplayBuffer.js",
+    "train-buffer": "node src/tools/trainFromBuffer.js",
+    "seed-kasparov": "node src/tools/seedKasparov.js"
+  },
+  "dependencies": {
+    "chess.js": "^1.0.0",
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
