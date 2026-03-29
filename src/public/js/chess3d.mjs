@@ -88,6 +88,87 @@ let cameraRef = null;
 let chessClockRootRef = null;
 let pieceNodes = [];
 let busy = false;
+
+// ── Relógio com tempo real ─────────────────────────────────────────────────────────────────────────────
+const CLOCK_INITIAL_SECS = 20 * 60; // 20 minutos por jogador
+let clockWhiteSecs = CLOCK_INITIAL_SECS;
+let clockBlackSecs = CLOCK_INITIAL_SECS;
+let clockInterval  = null;
+let clockRunning   = false;
+let clockWhiteTex  = null; // DynamicTexture para display esquerdo
+let clockBlackTex  = null; // DynamicTexture para display direito
+
+/** Formata segundos como MM:SS */
+function fmtClock(secs) {
+  const s = Math.max(0, Math.floor(secs));
+  const m = Math.floor(s / 60);
+  const ss = s % 60;
+  return String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+}
+
+/** Renderiza o tempo na DynamicTexture do display 3D */
+function renderClockTexture(tex, timeStr, label, isActive) {
+  if (!tex) return;
+  const ctx = tex.getContext();
+  const w = 256, h = 128;
+  // Fundo escuro
+  ctx.fillStyle = '#0a0700';
+  ctx.fillRect(0, 0, w, h);
+  // Borda emissiva
+  ctx.strokeStyle = isActive ? '#c87a10' : '#4a3008';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(2, 2, w - 4, h - 4);
+  // Rótulo
+  ctx.fillStyle = isActive ? '#c87a10' : '#5a4010';
+  ctx.font = 'bold 16px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(label, w / 2, 22);
+  // Tempo (display 7-segmentos simulado)
+  ctx.fillStyle = isActive ? '#ffb830' : '#6a5020';
+  ctx.font = 'bold 52px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(timeStr, w / 2, 82);
+  tex.update();
+}
+
+/** Inicia/para o relógio conforme o turno */
+function tickClock() {
+  if (!clockRunning || game.isGameOver()) return;
+  if (game.turn() === 'w') {
+    clockWhiteSecs = Math.max(0, clockWhiteSecs - 1);
+  } else {
+    clockBlackSecs = Math.max(0, clockBlackSecs - 1);
+  }
+  updateClockDisplays();
+  if (clockWhiteSecs <= 0 || clockBlackSecs <= 0) {
+    stopClock();
+  }
+}
+
+function updateClockDisplays() {
+  const whiteTurn = game.turn() === 'w';
+  renderClockTexture(clockWhiteTex, fmtClock(clockWhiteSecs), 'SATOR ENGINE', whiteTurn);
+  renderClockTexture(clockBlackTex, fmtClock(clockBlackSecs), 'HUMAN PLAYER', !whiteTurn);
+}
+
+function startClock() {
+  if (clockInterval) clearInterval(clockInterval);
+  clockRunning = true;
+  clockInterval = setInterval(tickClock, 1000);
+  updateClockDisplays();
+}
+
+function stopClock() {
+  clockRunning = false;
+  if (clockInterval) { clearInterval(clockInterval); clockInterval = null; }
+}
+
+function resetClock() {
+  stopClock();
+  clockWhiteSecs = CLOCK_INITIAL_SECS;
+  clockBlackSecs = CLOCK_INITIAL_SECS;
+  updateClockDisplays();
+}
 /** Seleção por clique (sem arrastar). Toca-mover: após escolher peça, não pode trocar por outra própria. */
 let tapSelection = { from: null };
 const TOUCH_MOVE_STRICT = true;
@@ -425,31 +506,40 @@ function applyBoardCamera() {
     return;
   }
 
-  /* player (padrão) e fixed_white: perspectiva first-person, baixa e inclinada. */
-  const limA = 0.48;
-  const playerRadius = 12.5;
+  /* player (padrão) e fixed_white:
+   * Câmera first-person imersiva:
+   * - Beta FIXO (sem rotação vertical — apenas pan horizontal + zoom)
+   * - FOV amplo (1.12 rad ~ 64°) para perspectiva cinematográfica
+   * - Alvo levemente acima do tabuleiro para ver o orbe e o ambiente atrás
+   * - Raio menor para ficar mais perto da mesa (imersão)
+   */
+  const limA = 0.52;         // ±30° de pan horizontal
+  const playerRadius = 11.2; // mais próximo para imersão
+  const playerBeta  = 0.82;  // ângulo fixo de inclinação (olhando levemente para baixo)
+
   if (orientWhiteBottom) {
-    cam.setTarget(new Vector3(0, 1.2, -1.5)); // alvo mais alto para ver o ambiente atrás
+    cam.setTarget(new Vector3(0, 1.4, -1.2)); // alvo: centro do tabuleiro + um pouco atrás
     const alpha = -Math.PI / 2;
-    cam.alpha = alpha;
-    cam.beta = 0.78; // mais inclinado para baixo
+    cam.alpha  = alpha;
+    cam.beta   = playerBeta;
     cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   } else {
-    cam.setTarget(new Vector3(0, 1.2, 1.5));
+    cam.setTarget(new Vector3(0, 1.4, 1.2));
     const alpha = Math.PI / 2;
-    cam.alpha = alpha;
-    cam.beta = 0.78;
+    cam.alpha  = alpha;
+    cam.beta   = playerBeta;
     cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   }
-  cam.lowerBetaLimit = 0.45;
-  cam.upperBetaLimit = 1.12;
-  cam.lowerRadiusLimit = 8.0;
-  cam.upperRadiusLimit = 20;
-  cam.fov = 1.05;
+  // Beta fixo: sem rotação vertical no modo first-person
+  cam.lowerBetaLimit  = playerBeta - 0.001;
+  cam.upperBetaLimit  = playerBeta + 0.001;
+  cam.lowerRadiusLimit = 7.5;  // zoom in máximo
+  cam.upperRadiusLimit = 17.0; // zoom out máximo
+  cam.fov = 1.12; // FOV mais amplo para perspectiva first-person imersiva
   syncChessClockPlacement();
 }
 
@@ -1112,6 +1202,10 @@ async function tryMove(from, to) {
     }
   }
 
+  // Atualiza displays do relógio após cada lance
+  updateClockDisplays();
+  if (game.isGameOver()) stopClock();
+
   if (getMode() === "engine") maybeEngineReply();
   else if (game.isGameOver()) saveReplayAuto();
 
@@ -1724,50 +1818,35 @@ function buildClassicChessClock(scene) {
   const divider = MeshBuilder.CreateBox("clkDiv", { width: 0.06, height: 0.85, depth: 0.67 }, scene);
   divider.parent = root; divider.position.set(0, 0.52, 0); divider.material = brass;
 
-  // Displays digitais (dois painéis âmbar emissivos)
-  const displayMat = new StandardMaterial("clkDisplay", scene);
-  displayMat.diffuseColor  = new Color3(0.05, 0.04, 0.02);
-  displayMat.emissiveColor = new Color3(0.0, 0.0, 0.0);
-  displayMat.specularColor = Color3.Black();
+  // ── Displays digitais com DynamicTexture (tempo real) ────────────────────────────────────────────
+  // Painel esquerdo: SATOR ENGINE (brancas)
+  const panelL = MeshBuilder.CreatePlane("clkPanelL", { width: 0.92, height: 0.60 }, scene);
+  panelL.parent = root;
+  panelL.position.set(-0.56, 0.60, 0.35);
+  const texL = new DynamicTexture("clkTexL", { width: 256, height: 128 }, scene, false);
+  texL.hasAlpha = false;
+  const matL = new StandardMaterial("clkMatL", scene);
+  matL.diffuseTexture  = texL;
+  matL.emissiveTexture = texL;
+  matL.specularColor   = Color3.Black();
+  panelL.material = matL;
+  clockWhiteTex = texL;
 
-  const amberMat = new StandardMaterial("clkAmber", scene);
-  amberMat.diffuseColor  = new Color3(0.85, 0.52, 0.04);
-  amberMat.emissiveColor = new Color3(0.72, 0.42, 0.02);
-  amberMat.specularColor = Color3.Black();
+  // Painel direito: HUMAN PLAYER (negras)
+  const panelR = MeshBuilder.CreatePlane("clkPanelR", { width: 0.92, height: 0.60 }, scene);
+  panelR.parent = root;
+  panelR.position.set(0.56, 0.60, 0.35);
+  const texR = new DynamicTexture("clkTexR", { width: 256, height: 128 }, scene, false);
+  texR.hasAlpha = false;
+  const matR = new StandardMaterial("clkMatR", scene);
+  matR.diffuseTexture  = texR;
+  matR.emissiveTexture = texR;
+  matR.specularColor   = Color3.Black();
+  panelR.material = matR;
+  clockBlackTex = texR;
 
-  // Painel esquerdo (Sator Engine)
-  const panelL = MeshBuilder.CreateBox("clkPanelL", { width: 0.88, height: 0.62, depth: 0.04 }, scene);
-  panelL.parent = root; panelL.position.set(-0.56, 0.58, 0.345); panelL.material = displayMat;
-
-  // Painel direito (Human Player)
-  const panelR = MeshBuilder.CreateBox("clkPanelR", { width: 0.88, height: 0.62, depth: 0.04 }, scene);
-  panelR.parent = root; panelR.position.set(0.56, 0.58, 0.345); panelR.material = displayMat;
-
-  // Dígitos âmbar (barras horizontais e verticais simulando display 7-segmentos)
-  // Painel esquerdo: 4 barras horizontais (simula "19:47")
-  for (let i = 0; i < 4; i++) {
-    const bar = MeshBuilder.CreateBox(`clkBarL_${i}`, { width: 0.18, height: 0.04, depth: 0.02 }, scene);
-    bar.parent = root;
-    bar.position.set(-0.72 + (i % 2) * 0.28, 0.72 - Math.floor(i / 2) * 0.22, 0.36);
-    bar.material = amberMat;
-  }
-  // Painel direito: 4 barras horizontais (simula "23:12")
-  for (let i = 0; i < 4; i++) {
-    const bar = MeshBuilder.CreateBox(`clkBarR_${i}`, { width: 0.18, height: 0.04, depth: 0.02 }, scene);
-    bar.parent = root;
-    bar.position.set(0.38 + (i % 2) * 0.28, 0.72 - Math.floor(i / 2) * 0.22, 0.36);
-    bar.material = amberMat;
-  }
-
-  // Rótulos (planos emissivos com texto)
-  const labelMat = new StandardMaterial("clkLabel", scene);
-  labelMat.diffuseColor  = new Color3(0.62, 0.48, 0.18);
-  labelMat.emissiveColor = new Color3(0.38, 0.28, 0.08);
-  labelMat.specularColor = Color3.Black();
-  const labelL = MeshBuilder.CreateBox("clkLabelL", { width: 0.72, height: 0.08, depth: 0.02 }, scene);
-  labelL.parent = root; labelL.position.set(-0.56, 0.96, 0.35); labelL.material = labelMat;
-  const labelR = MeshBuilder.CreateBox("clkLabelR", { width: 0.72, height: 0.08, depth: 0.02 }, scene);
-  labelR.parent = root; labelR.position.set(0.56, 0.96, 0.35); labelR.material = labelMat;
+  // Render inicial dos displays
+  updateClockDisplays();
 
   // Botões de pressionar no topo
   for (const [bx] of [[-0.56], [0.56]]) {
@@ -1945,26 +2024,23 @@ function createScene(canvas) {
     const ring3 = MeshBuilder.CreateTorus("aiRing3", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
     ring3.parent = orbRoot; ring3.rotation.x = -Math.PI / 4; ring3.rotation.y = Math.PI / 4; ring3.material = ringMat;
 
-    // Orbe inicialmente invisível no modo first-person
-    // Fica visível nos presets "quarter" e "top" (câmera mais alta)
+    // Orbe visível em todos os modos de câmera
+    // Posicionado atrás do tabuleiro (Z=-5.8, Y=4.2) — visível na perspectiva first-person
     const orbMeshes = [core, halo, ring1, ring2, ring3];
-    function updateOrbVisibility() {
-      const preset = typeof getCameraView === 'function' ? getCameraView() : 'player';
-      const visible = (preset === 'quarter' || preset === 'top');
-      orbMeshes.forEach(m => { m.isVisible = visible; });
-    }
-    updateOrbVisibility();
-    scene.registerBeforeRender(updateOrbVisibility);
+    orbMeshes.forEach(m => { m.isVisible = true; });
 
     // Rotação e flutuação animadas
     let orbT = 0;
+    // Orbe posicionado atrás do tabuleiro, acima das peças pretas
+    // Visível na câmera first-person (Z negativo = lado das pretas)
+    orbRoot.position.set(0, 4.2, -5.8);
     scene.registerBeforeRender(() => {
       orbT += 0.012;
       orbRoot.rotation.y = orbT * 0.4;
       ring1.rotation.z = orbT * 0.8;
       ring2.rotation.z = -orbT * 0.6;
       ring3.rotation.z = orbT * 0.5;
-      orbRoot.position.y = 8.5 + Math.sin(orbT * 0.5) * 0.22;
+      orbRoot.position.y = 4.2 + Math.sin(orbT * 0.5) * 0.18;
       // Pulsação do núcleo
       const pulse = 0.9 + 0.1 * Math.sin(orbT * 2.2);
       core.scaling.setAll(pulse);
@@ -1979,29 +2055,30 @@ function createScene(canvas) {
     handMat.specularColor = new Color3(0.18, 0.14, 0.10);
     handMat.specularPower = 35;
 
-    // Palma
-    const palm = MeshBuilder.CreateBox("handPalm", { width: 1.1, height: 0.18, depth: 0.75 }, scene);
-    palm.position.set(0.2, -0.55, 3.8); // posicionada na borda inferior da câmera
-    palm.rotation.x = -0.35;
+    // Palma — posicionada na borda inferior da câmera first-person
+    // Z=4.5 = borda da mesa, Y=-0.35 = abaixo do tabuleiro
+    const palm = MeshBuilder.CreateBox("handPalm", { width: 1.4, height: 0.22, depth: 0.95 }, scene);
+    palm.position.set(0.15, -0.35, 4.5);
+    palm.rotation.x = -0.28;
     palm.material = handMat;
 
-    // Dedos
+    // Dedos — ligeiramente curvados sobre a borda do tabuleiro
     for (let fi = 0; fi < 4; fi++) {
-      const fx = -0.32 + fi * 0.22;
+      const fx = -0.42 + fi * 0.28;
       const finger = MeshBuilder.CreateCylinder(`handFinger_${fi}`, {
-        diameterTop: 0.055, diameterBottom: 0.07, height: 0.38, tessellation: 8
+        diameterTop: 0.065, diameterBottom: 0.085, height: 0.44, tessellation: 8
       }, scene);
-      finger.position.set(fx, -0.42, 3.55);
-      finger.rotation.x = -0.55;
+      finger.position.set(fx, -0.22, 4.22);
+      finger.rotation.x = -0.52;
       finger.material = handMat;
     }
     // Polegar
     const thumb = MeshBuilder.CreateCylinder("handThumb", {
-      diameterTop: 0.06, diameterBottom: 0.08, height: 0.28, tessellation: 8
+      diameterTop: 0.075, diameterBottom: 0.095, height: 0.34, tessellation: 8
     }, scene);
-    thumb.position.set(0.62, -0.52, 3.72);
-    thumb.rotation.z = -0.7;
-    thumb.rotation.x = -0.3;
+    thumb.position.set(0.82, -0.32, 4.42);
+    thumb.rotation.z = -0.65;
+    thumb.rotation.x = -0.25;
     thumb.material = handMat;
   })();
 
@@ -2142,6 +2219,8 @@ function startNewGame() {
   applyBoardCamera();
   syncPiecesFromGame();
   updateStatus();
+  resetClock();   // zera e para o relógio
+  startClock();   // inicia a contagem
   if (getMode() === "engine" && getPlayerColor() === "b") {
     setTimeout(() => callBestMove(), 300);
   }
