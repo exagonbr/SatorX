@@ -14,15 +14,15 @@
 
   <!-- Open Graph -->
   <meta property="og:site_name" content="SatorX"/>
-  <meta property="og:title" content="Sator Engine — A Fundação Inteligente"/>
+  <meta property="og:title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
   <meta property="og:description" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Babylon.js."/>
   <meta property="og:url" content="https://satorx.vercel.app/"/>
   <meta property="og:image" content="https://satorx.vercel.app/img/panel1_fundo.webp"/>
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image"/>
-  <meta property="twitter:title" content="Sator Engine — A Fundação Inteligente"/>
-  <meta property="twitter:description" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Babylon.js."/>
+  <meta property="twitter:title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
+  <meta property="twitter:description" content="Motor de IA Avançada de Xadrez: heurísticas híbridas, rede de valor e vista 3D Babylon.js."/>
   <meta property="twitter:image" content="https://satorx.vercel.app/img/panel1_fundo.webp"/>
 
   <link rel="manifest" href="/manifest.webmanifest"/>
@@ -113,8 +113,9 @@
 
     /* Divisor */
     .divider {
-      width: 240px; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      width: 300px; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold-bright), transparent);
+      box-shadow: 0 0 12px rgba(201,168,76,0.8);
       margin-bottom: 32px;
       animation: fadeUp 1.8s 0.5s cubic-bezier(0.22,1,0.36,1) both;
     }
@@ -497,8 +498,8 @@
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < maxDist) {
               ctx.beginPath();
-              ctx.strokeStyle = "rgba(201,168,76," + ((1 - dist/maxDist) * 0.17) + ")";
-              ctx.lineWidth = 0.55;
+              ctx.strokeStyle = "rgba(201,168,76," + ((1 - dist/maxDist) * 0.6) + ")";
+              ctx.lineWidth = 1.5;
               ctx.moveTo(nodes[i].x, nodes[i].y);
               ctx.lineTo(nodes[j].x, nodes[j].y);
               ctx.stroke();
