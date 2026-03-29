@@ -449,6 +449,389 @@
     function openModal(id)  { var el = document.getElementById(id); if (el) el.classList.add("open"); }
     function closeModal(id) { var el = document.getElementById(id); if (el) el.classList.remove("open"); }
 
+    /* Demonstrações animadas — modal Regras */
+    (function rulesChessDemo() {
+      var SVG_NS = "http://www.w3.org/2000/svg";
+      var CELL = 40;
+      var LIGHT = "#2c3348";
+      var DARK = "#171c28";
+      var GOLD = "#c9a84c";
+      var GOLD_F = "rgba(201,168,76,0.5)";
+      var svg = document.getElementById("rulesBoardSvg");
+      var titleEl = document.getElementById("rulesDemoTitle");
+      if (!svg || !titleEl) return;
+
+      var animId = null;
+      var lockedRule = null;
+      var leaveTimer = null;
+      var triggers = document.querySelectorAll("#overlayRules .rule-trigger");
+
+      function xy(file, rank) {
+        return { x: file * CELL + CELL / 2, y: (8 - rank) * CELL + CELL / 2 };
+      }
+      function sqTL(file, rank) {
+        return { x: file * CELL, y: (8 - rank) * CELL };
+      }
+
+      function stopAnim() {
+        if (animId) cancelAnimationFrame(animId);
+        animId = null;
+      }
+
+      function clearSvg() {
+        stopAnim();
+        while (svg.firstChild) svg.removeChild(svg.firstChild);
+      }
+
+      function el(name, attrs) {
+        var n = document.createElementNS(SVG_NS, name);
+        if (attrs) for (var k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+        return n;
+      }
+
+      function drawBoard(root) {
+        var g = el("g");
+        for (var f = 0; f < 8; f++) {
+          for (var r = 1; r <= 8; r++) {
+            var p = sqTL(f, r);
+            var rect = el("rect", { x: p.x, y: p.y, width: CELL, height: CELL, fill: (f + r) % 2 ? DARK : LIGHT });
+            g.appendChild(rect);
+          }
+        }
+        root.appendChild(g);
+        return g;
+      }
+
+      function addPiece(root, file, rank, u, isWhite) {
+        var p = xy(file, rank);
+        var t = el("text", {
+          x: p.x, y: p.y + 4, "text-anchor": "middle",
+          fill: isWhite ? "#f2ebe0" : "#8a8580",
+          "font-size": "28", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif"
+        });
+        t.textContent = u;
+        root.appendChild(t);
+        return t;
+      }
+
+      function arrowLine(root, f1, r1, f2, r2, dashPhase) {
+        var a = xy(f1, r1);
+        var b = xy(f2, r2);
+        var dx = b.x - a.x, dy = b.y - a.y;
+        var len = Math.sqrt(dx * dx + dy * dy) || 1;
+        var ux = dx / len * 14, uy = dy / len * 14;
+        var line = el("line", {
+          x1: a.x + ux, y1: a.y + uy, x2: b.x - ux, y2: b.y - uy,
+          stroke: GOLD, "stroke-width": "2.5", "stroke-linecap": "round",
+          opacity: "0.92"
+        });
+        if (dashPhase != null) {
+          line.setAttribute("stroke-dasharray", "8 6");
+          line.setAttribute("stroke-dashoffset", String(-dashPhase * 20));
+        }
+        root.appendChild(line);
+        var head = el("polygon", {
+          points: (b.x - ux * 1.2) + "," + (b.y - uy * 1.2) + " " + (b.x - ux - uy * 0.45) + "," + (b.y - uy + ux * 0.45) + " " + (b.x - ux + uy * 0.45) + "," + (b.y - uy - ux * 0.45),
+          fill: GOLD, opacity: "0.95"
+        });
+        root.appendChild(head);
+      }
+
+      function highlightSq(root, file, rank, op) {
+        var p = sqTL(file, rank);
+        var h = el("rect", {
+          x: p.x + 1, y: p.y + 1, width: CELL - 2, height: CELL - 2,
+          fill: GOLD_F, opacity: String(op != null ? op : 0.55), rx: "2"
+        });
+        root.appendChild(h);
+        return h;
+      }
+
+      function runLoop(fn) {
+        var t0 = performance.now();
+        function frame(now) {
+          var t = (now - t0) / 1000;
+          if (fn(t, now) !== false) animId = requestAnimationFrame(frame);
+        }
+        animId = requestAnimationFrame(frame);
+      }
+
+      function showRule(id) {
+        clearSvg();
+        var root = el("g");
+        svg.appendChild(root);
+        drawBoard(root);
+        var piecesG = el("g");
+        var fxG = el("g");
+        root.appendChild(piecesG);
+        root.appendChild(fxG);
+
+        if (id === "king") {
+          titleEl.textContent = "Rei — até 8 casas vizinhas";
+          addPiece(piecesG, 4, 4, "\u2654", true);
+          var dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            for (var j = 0; j < dirs.length; j++) {
+              var df = 4 + dirs[j][0], dr = 4 + dirs[j][1];
+              if (df < 0 || df > 7 || dr < 1 || dr > 8) continue;
+              var pulse = 0.35 + 0.45 * (0.5 + 0.5 * Math.sin(t * 4 + j * 0.5));
+              highlightSq(fxG, df, dr, pulse);
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "queen") {
+          titleEl.textContent = "Dama — linhas e diagonais";
+          addPiece(piecesG, 3, 4, "\u2655", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = t % 4;
+            if (c < 2) {
+              for (var r = 5; r <= 8; r++) highlightSq(fxG, 3, r, 0.25 + 0.35 * Math.sin(t * 6));
+              arrowLine(fxG, 3, 4, 3, 8, t * 3);
+            } else {
+              for (var k = 0; k <= 3; k++) highlightSq(fxG, 3 - k, 4 + k, 0.25 + 0.35 * Math.sin(t * 6));
+              arrowLine(fxG, 3, 4, 0, 7, t * 3);
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "rook") {
+          titleEl.textContent = "Torre — fileiras e colunas";
+          addPiece(piecesG, 3, 4, "\u2656", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            for (var r = 1; r <= 8; r++) if (r !== 4) highlightSq(fxG, 3, r, 0.2 + 0.25 * Math.sin(t * 5 + r * 0.2));
+            arrowLine(fxG, 3, 4, 3, 8, t * 4);
+            arrowLine(fxG, 3, 4, 3, 1, t * 4 + 1);
+            return true;
+          });
+          return;
+        }
+
+        if (id === "bishop") {
+          titleEl.textContent = "Bispo — só diagonais";
+          addPiece(piecesG, 5, 1, "\u2657", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            for (var k = 0; k <= 4; k++) {
+              var f = 5 - k, r = 1 + k;
+              if (f >= 0 && f <= 7 && r >= 1 && r <= 8) highlightSq(fxG, f, r, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.3));
+            }
+            arrowLine(fxG, 5, 1, 1, 5, t * 3);
+            return true;
+          });
+          return;
+        }
+
+        if (id === "knight") {
+          titleEl.textContent = "Cavalo — salto em L";
+          addPiece(piecesG, 5, 2, "\u265F", true);
+          addPiece(piecesG, 6, 2, "\u265F", true);
+          var ghx = xy(6, 1).x, ghy = xy(6, 1).y + 4;
+          var ghost = el("text", {
+            x: ghx, y: ghy, "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
+            opacity: "0.95", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif"
+          });
+          ghost.textContent = "\u2658";
+          piecesG.appendChild(ghost);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var u = (t * 0.55) % 1;
+            var x1 = xy(6, 1).x, y1 = xy(6, 1).y + 4;
+            var x2 = xy(5, 3).x, y2 = xy(5, 3).y + 4;
+            ghost.setAttribute("x", String(x1 + (x2 - x1) * u));
+            ghost.setAttribute("y", String(y1 + (y2 - y1) * u));
+            arrowLine(fxG, 6, 1, 5, 3, t * 2);
+            if (u > 0.82) highlightSq(fxG, 5, 3, 0.62);
+            return true;
+          });
+          return;
+        }
+
+        if (id === "pawn") {
+          titleEl.textContent = "Peão — avanço e captura";
+          var wp = addPiece(piecesG, 4, 2, "\u2659", true);
+          addPiece(piecesG, 3, 4, "\u265F", false);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var cycle = (t * 0.38) % 3;
+            if (cycle < 1) {
+              var u0 = cycle;
+              var y0 = xy(4, 2).y + 4, y1 = xy(4, 4).y + 4;
+              wp.setAttribute("x", String(xy(4, 2).x));
+              wp.setAttribute("y", String(y0 + (y1 - y0) * u0));
+              highlightSq(fxG, 4, 3, 0.4);
+              arrowLine(fxG, 4, 2, 4, 4, t * 2);
+            } else if (cycle < 2) {
+              wp.setAttribute("x", String(xy(4, 4).x));
+              wp.setAttribute("y", String(xy(4, 4).y + 4));
+              highlightSq(fxG, 3, 4, 0.5);
+              arrowLine(fxG, 4, 4, 3, 4, t * 2);
+            } else {
+              var u2 = cycle - 2;
+              wp.setAttribute("x", String(xy(4, 4).x + (xy(3, 4).x - xy(4, 4).x) * u2));
+              wp.setAttribute("y", String(xy(4, 4).y + 4 + (xy(3, 4).y + 4 - (xy(4, 4).y + 4)) * u2));
+              if (u2 > 0.88) highlightSq(fxG, 3, 4, 0.7);
+              arrowLine(fxG, 4, 4, 3, 4, 0);
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "castling") {
+          titleEl.textContent = "Roque — rei e torre juntos";
+          var kT = addPiece(piecesG, 4, 1, "\u2654", true);
+          var rT = addPiece(piecesG, 7, 1, "\u2656", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var u = (Math.sin(t * 1.8) * 0.5 + 0.5);
+            kT.setAttribute("x", String(xy(4, 1).x + (xy(6, 1).x - xy(4, 1).x) * u));
+            rT.setAttribute("x", String(xy(7, 1).x + (xy(5, 1).x - xy(7, 1).x) * u));
+            if (u > 0.4) highlightSq(fxG, 6, 1, 0.35);
+            if (u > 0.4) highlightSq(fxG, 5, 1, 0.35);
+            return true;
+          });
+          return;
+        }
+
+        if (id === "enpassant") {
+          titleEl.textContent = "En passant — captura lateral";
+          var wp = addPiece(piecesG, 3, 5, "\u2659", true);
+          var cap = addPiece(piecesG, 4, 5, "\u265F", false);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.35) % 2.2;
+            if (c < 1) {
+              var u = c;
+              wp.setAttribute("x", String(xy(3, 5).x + (xy(4, 6).x - xy(3, 5).x) * u));
+              wp.setAttribute("y", String(xy(3, 5).y + 4 + (xy(4, 6).y + 4 - (xy(3, 5).y + 4)) * u));
+              arrowLine(fxG, 3, 5, 4, 6, t * 2);
+              cap.setAttribute("opacity", String(1 - u * 0.95));
+            } else {
+              wp.setAttribute("x", String(xy(4, 6).x));
+              wp.setAttribute("y", String(xy(4, 6).y + 4));
+              cap.setAttribute("opacity", "0.08");
+              highlightSq(fxG, 4, 6, 0.45 + 0.2 * Math.sin(t * 5));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "promotion") {
+          titleEl.textContent = "Promoção — peão vira dama";
+          var pwn = addPiece(piecesG, 4, 7, "\u2659", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.45) % 2.5;
+            if (c < 1) {
+              var u = c;
+              pwn.setAttribute("y", String(xy(4, 7).y + 4 + (xy(4, 8).y + 4 - (xy(4, 7).y + 4)) * u));
+              arrowLine(fxG, 4, 7, 4, 8, t * 2);
+            } else if (c < 1.35) {
+              pwn.textContent = "\u2659";
+              pwn.setAttribute("y", String(xy(4, 8).y + 4));
+              highlightSq(fxG, 4, 8, 0.55);
+            } else {
+              pwn.textContent = "\u2655";
+              pwn.setAttribute("font-size", "30");
+              highlightSq(fxG, 4, 8, 0.4 + 0.25 * Math.sin(t * 6));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "checkmate") {
+          titleEl.textContent = "Xeque-mate — rei sem escape";
+          addPiece(piecesG, 7, 8, "\u265A", false);
+          addPiece(piecesG, 6, 8, "\u2655", true);
+          addPiece(piecesG, 6, 7, "\u2654", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            highlightSq(fxG, 7, 8, 0.35 + 0.3 * Math.sin(t * 4));
+            arrowLine(fxG, 6, 8, 7, 8, t * 2);
+            return true;
+          });
+          return;
+        }
+
+        titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+      }
+
+      function setActiveTrigger(id) {
+        triggers.forEach(function (b) {
+          b.classList.toggle("rule-trigger--active", id != null && b.getAttribute("data-rule") === id);
+        });
+      }
+
+      function scheduleHide() {
+        if (leaveTimer) clearTimeout(leaveTimer);
+        leaveTimer = setTimeout(function () {
+          leaveTimer = null;
+          if (!lockedRule) {
+            clearSvg();
+            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            setActiveTrigger(null);
+          }
+        }, 220);
+      }
+
+      function activate(rule, fromClick) {
+        if (fromClick) {
+          if (lockedRule === rule) {
+            lockedRule = null;
+            clearSvg();
+            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            setActiveTrigger(null);
+            return;
+          }
+          lockedRule = rule;
+        }
+        stopAnim();
+        showRule(rule);
+        setActiveTrigger(lockedRule != null ? lockedRule : rule);
+      }
+
+      triggers.forEach(function (btn) {
+        var rule = btn.getAttribute("data-rule");
+        btn.addEventListener("mouseenter", function () {
+          if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
+          if (lockedRule) return;
+          activate(rule, false);
+          setActiveTrigger(rule);
+        });
+        btn.addEventListener("mouseleave", function () {
+          if (!lockedRule) scheduleHide();
+        });
+        btn.addEventListener("click", function (e) {
+          e.preventDefault();
+          if (leaveTimer) { clearTimeout(leaveTimer); leaveTimer = null; }
+          activate(rule, true);
+        });
+      });
+
+      var ovRules = document.getElementById("overlayRules");
+      if (ovRules) {
+        var mo = new MutationObserver(function () {
+          if (!ovRules.classList.contains("open")) {
+            lockedRule = null;
+            clearSvg();
+            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            setActiveTrigger(null);
+          }
+        });
+        mo.observe(ovRules, { attributes: true, attributeFilter: ["class"] });
+      }
+    })();
+
     document.getElementById("btnRules").onclick   = function() { openModal("overlayRules"); };
     document.getElementById("btnOptions").onclick  = function() { openModal("overlayOptions"); };
     document.getElementById("btnIA").onclick       = function() { openModal("overlayIA"); };

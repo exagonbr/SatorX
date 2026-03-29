@@ -4,7 +4,7 @@
 # Uso: bash scripts/deploy-prod.sh
 #
 # Se já existia ai_learning.db criado fora do Prisma e migrate deploy falhar por
-# tabelas duplicadas, uma vez: npx prisma migrate resolve --applied 20250329120000_init
+# tabelas duplicadas, uma vez: node scripts/prisma-run.js migrate resolve --applied 20250329120000_init
 
 set -euo pipefail
 

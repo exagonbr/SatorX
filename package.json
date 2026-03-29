@@ -5,10 +5,10 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "build": "prisma generate",
+    "build": "node scripts/prisma-run.js generate",
     "db:init": "node scripts/init-ai-db.js",
-    "db:migrate": "prisma migrate deploy",
-    "db:migrate:dev": "prisma migrate dev",
+    "db:migrate": "node scripts/prisma-run.js migrate deploy",
+    "db:migrate:dev": "node scripts/prisma-run.js migrate dev",
     "deploy:prod": "bash scripts/deploy-prod.sh",
     "start": "node src/index.js bestmove",
     "analyze": "node src/index.js analyze",
