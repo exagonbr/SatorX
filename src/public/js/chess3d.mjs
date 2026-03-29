@@ -99,7 +99,7 @@ function ensureLobbyCapabilities() {
 }
 
 const MP_LOBBY_UNSUPPORTED_MSG =
-  "O lobby online não funciona neste alojamento (servidores sem memória partilhada). Para multijogador, execute o projeto com `npm run server` num VPS, Railway, Fly.io, etc.";
+  "O lobby online não está disponível: no Vercel é necessário PostgreSQL (variável DATABASE_URL + migrações). Em alternativa, execute `npm run server` num VPS, Railway ou Fly.io.";
 
 const LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
 const MP_HOST_SKIP_JOIN_MSG =

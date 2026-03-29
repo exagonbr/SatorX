@@ -2,7 +2,6 @@
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma-client"
 }
 
 datasource db {
@@ -85,4 +84,15 @@ model LobbyRanking {
   @@index([lobbyId], map: "idx_lobby_ranking_lobby_id")
   @@index([endedAt], map: "idx_lobby_ranking_ended")
   @@map("lobby_rankings")
+}
+
+/// Estado em curso do lobby (multijogador) — necessário em Vercel (sem memória partilhada).
+model LobbySession {
+  id        String   @id
+  payload   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([updatedAt], map: "idx_lobby_sessions_updated")
+  @@map("lobby_sessions")
 }

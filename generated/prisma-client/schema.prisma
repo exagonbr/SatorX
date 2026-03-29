@@ -1,0 +1,88 @@
+// PostgreSQL (Vercel / local). DATABASE_URL no .env ou nas env vars do deploy.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model TdLearning {
+  id              Int    @id @default(autoincrement())
+  createdAt       String @map("created_at")
+  tdError         Float? @map("td_error")
+  vBefore         Float? @map("v_before")
+  vAfter          Float? @map("v_after")
+  tdTarget        Float? @map("td_target")
+  terminal        Int    @map("terminal")
+  outcomeForMover Int    @map("outcome_for_mover")
+  updates         Int    @map("updates")
+
+  @@index([createdAt], map: "idx_td_learning_created")
+  @@map("td_learning")
+}
+
+model NnWeightsSnapshot {
+  id        Int    @id @default(autoincrement())
+  createdAt String @map("created_at")
+  updates   Int    @map("updates")
+  payload   String @map("payload")
+
+  @@index([updates], map: "idx_nn_snapshots_updates")
+  @@map("nn_weights_snapshots")
+}
+
+/// Partida salva (replays) — fonte para o buffer de posições.
+model GameReplay {
+  id        String  @id
+  createdAt String  @map("created_at")
+  result    String
+  fen       String?
+  pgn       String?
+  movesJson String  @map("moves_json")
+  metaJson  String  @map("meta_json")
+
+  bufferRows ReplayBufferRow[]
+
+  @@index([createdAt], map: "idx_game_replays_created")
+  @@map("game_replays")
+}
+
+/// Posições derivadas dos replays (amostragem para train-buffer).
+model ReplayBufferRow {
+  id        Int    @id @default(autoincrement())
+  replayId  String @map("replay_id")
+  createdAt String @map("created_at")
+  result    String
+  ply       Int
+  fen       String
+
+  replay GameReplay @relation(fields: [replayId], references: [id], onDelete: Cascade)
+
+  @@index([replayId], map: "idx_replay_buffer_replay_id")
+  @@map("replay_buffer_rows")
+}
+
+/// Histórico de partidas multijogador (lobby) para ranking na UI.
+model LobbyRanking {
+  id          String  @id @default(cuid())
+  lobbyId     String  @map("lobby_id")
+  whiteName   String? @map("white_name")
+  blackName   String? @map("black_name")
+  winner      String
+  reasonCode  String  @map("reason_code")
+  reasonLabel String  @map("reason_label")
+  scoreWhite  Float   @map("score_white")
+  scoreBlack  Float   @map("score_black")
+  durationSec Int     @map("duration_sec")
+  startedAt   String  @map("started_at")
+  endedAt     String  @map("ended_at")
+  recordedAt  String  @map("recorded_at")
+
+  @@index([lobbyId], map: "idx_lobby_ranking_lobby_id")
+  @@index([endedAt], map: "idx_lobby_ranking_ended")
+  @@map("lobby_rankings")
+}

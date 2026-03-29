@@ -3,9 +3,8 @@
  */
 require("dotenv").config();
 
-const path = require("path");
 const { PrismaPg } = require("@prisma/adapter-pg");
-const { PrismaClient } = require(path.join(__dirname, "..", "..", "generated", "prisma-client"));
+const { PrismaClient } = require("@prisma/client");
 
 /** Um snapshot completo a cada N atualizações (além de nnWeights.json). */
 const SNAPSHOT_EVERY_UPDATES = 100;

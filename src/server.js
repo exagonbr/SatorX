@@ -17,6 +17,13 @@ if (!process.env.VERCEL) {
 }
 
 const { appendLobbyRanking, listLobbyRanking } = require("./db/lobbyRankingPrisma");
+const {
+  usePersistedLobbies,
+  loadLobby,
+  persistLobby,
+  createLobbySession,
+  transactionLobbyUpdate
+} = require("./db/lobbySessionStore");
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -234,13 +241,16 @@ const memoryLobbies = {};
 /** @type {(lobbyId: string, msg: object) => void} */
 let lobbyBroadcastToLobby = function () {};
 
-/** Expõe limites do alojamento (Vercel serverless = sem memória partilhada nem upgrade WebSocket no export actual). */
+/** Expõe limites do alojamento (Vercel + Postgres = salas na BD; WS só em Node long-running). */
 app.get("/api/lobby/capabilities", (req, res) => {
   const serverless = Boolean(process.env.VERCEL);
+  const dbUrl = process.env.DATABASE_URL || "";
+  const pgOk = /^postgres(ql)?:\/\//i.test(dbUrl);
   res.json({
     ok: true,
-    persistentLobbies: !serverless,
-    websocketLobby: !serverless
+    persistentLobbies: !serverless || pgOk,
+    websocketLobby: !serverless,
+    httpPollFallback: serverless && pgOk
   });
 });
 
@@ -262,8 +272,8 @@ function lobbyClaimMsLeft(lobby, seat) {
   return Math.max(0, DISCONNECT_AWARD_MS - (Date.now() - d));
 }
 
-function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
-  const lobby = memoryLobbies[lobbyId];
+async function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
+  const lobby = await loadLobby(memoryLobbies, lobbyId);
   if (!lobby || lobby.finished) return false;
   lobby.finished = true;
   lobby.winnerColor = winner === "draw" ? null : winner;
@@ -296,6 +306,7 @@ function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
     endedAt: new Date(lobby.endedAt).toISOString(),
     recordedAt: new Date().toISOString()
   }).catch((e) => console.error("[lobby/ranking] Prisma:", e.message));
+  await persistLobby(memoryLobbies, lobbyId, lobby);
   try {
     lobbyBroadcastToLobby(lobbyId, {
       type: "game_over",
@@ -310,7 +321,8 @@ function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
   return true;
 }
 
-function tickLobbyDisconnectAwards() {
+async function tickLobbyDisconnectAwards() {
+  if (usePersistedLobbies()) return;
   const now = Date.now();
   for (const lobbyId of Object.keys(memoryLobbies)) {
     const lobby = memoryLobbies[lobbyId];
@@ -320,7 +332,7 @@ function tickLobbyDisconnectAwards() {
     const d = lobby.disconnectStartedAt || { w: null, b: null };
     const e = lobby.everHadWs || { w: false, b: false };
     if (wW > 0 && wB === 0 && e.b && d.b && now - d.b >= DISCONNECT_AWARD_MS) {
-      finalizeLobbyMatch(
+      await finalizeLobbyMatch(
         lobbyId,
         "w",
         "disconnect_timeout",
@@ -329,7 +341,7 @@ function tickLobbyDisconnectAwards() {
       continue;
     }
     if (wB > 0 && wW === 0 && e.w && d.w && now - d.w >= DISCONNECT_AWARD_MS) {
-      finalizeLobbyMatch(
+      await finalizeLobbyMatch(
         lobbyId,
         "b",
         "disconnect_timeout",
@@ -338,7 +350,7 @@ function tickLobbyDisconnectAwards() {
       continue;
     }
     if (lobby.bothOfflineSince && now - lobby.bothOfflineSince >= DISCONNECT_AWARD_MS) {
-      finalizeLobbyMatch(
+      await finalizeLobbyMatch(
         lobbyId,
         "draw",
         "dual_offline",
@@ -372,62 +384,13 @@ function lobbyPasswordOk(lobby, provided) {
   }
 }
 
-app.post("/api/lobby/create", (req, res) => {
-  const lobbyId = Math.random().toString(36).substring(2, 8);
-  const playerName = sanitizeLobbyName(req.body?.playerName);
-  const opponentName = sanitizeLobbyName(req.body?.opponentName);
-  const passwordRaw = sanitizeLobbyPassword(req.body?.password);
-  const maxSpectators = Math.min(32, Math.max(1, parseInt(req.body?.maxSpectators, 10) || 8));
-  memoryLobbies[lobbyId] = {
-    players: [1],
-    maxPlayers: 2,
-    maxSpectators,
-    spectators: [],
-    password: passwordRaw || null,
-    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-    lastMove: null,
-    updatedAt: Date.now(),
-    createdAt: Date.now(),
-    startedAt: null,
-    finished: false,
-    wsCount: { w: 0, b: 0 },
-    disconnectStartedAt: { w: null, b: null },
-    everHadWs: { w: false, b: false },
-    bothOfflineSince: null,
-    names: {
-      white: playerName || null,
-      black: null,
-      opponentExpected: opponentName || null
-    },
-    chat: [],
-    wsSecrets: { w: makeSecret(), b: null, spectators: {} }
-  };
-  const lobby = memoryLobbies[lobbyId];
-  return res.json({
-    ok: true,
-    lobbyId,
-    color: "w",
-    names: lobby.names,
-    maxPlayers: 2,
-    maxSpectators: lobby.maxSpectators,
-    hasPassword: Boolean(lobby.password),
-    wsSecret: lobby.wsSecrets.w,
-    realtimePath: "/api/lobby/socket"
-  });
-});
-
-app.post("/api/lobby/join", (req, res) => {
-  const { lobbyId } = req.body;
-  const joinName = sanitizeLobbyName(req.body?.playerName);
-  const lobby = memoryLobbies[lobbyId];
-  if (!lobby) {
-    return res.status(400).json({ error: "Sala não existe" });
-  }
-  if (!lobbyPasswordOk(lobby, req.body?.password)) {
-    return res.status(403).json({ error: "Senha incorreta" });
+/** @returns {null | { status: number, json: object }} */
+function lobbyMutateJoin(lobby, joinName, password) {
+  if (!lobbyPasswordOk(lobby, password)) {
+    return { status: 403, json: { error: "Senha incorreta" } };
   }
   if (lobby.players.length !== 1) {
-    return res.status(400).json({ error: "Sala cheia ou não existe" });
+    return { status: 400, json: { error: "Sala cheia ou não existe" } };
   }
   lobbyEnsureExtras(lobby);
   lobby.players.push(2);
@@ -440,142 +403,307 @@ app.post("/api/lobby/join", (req, res) => {
   if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null, spectators: {} };
   if (!lobby.wsSecrets.spectators) lobby.wsSecrets.spectators = {};
   lobby.wsSecrets.b = makeSecret();
-  return res.json({
-    ok: true,
-    lobbyId,
-    color: "b",
-    fen: lobby.fen,
-    names: lobby.names,
-    maxPlayers: 2,
-    maxSpectators: lobby.maxSpectators,
-    hasPassword: Boolean(lobby.password),
-    wsSecret: lobby.wsSecrets.b,
-    realtimePath: "/api/lobby/socket"
-  });
+  return null;
+}
+
+app.post("/api/lobby/create", async (req, res) => {
+  const playerName = sanitizeLobbyName(req.body?.playerName);
+  const opponentName = sanitizeLobbyName(req.body?.opponentName);
+  const passwordRaw = sanitizeLobbyPassword(req.body?.password);
+  const maxSpectators = Math.min(32, Math.max(1, parseInt(req.body?.maxSpectators, 10) || 8));
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const lobbyId = Math.random().toString(36).substring(2, 8);
+    const lobby = {
+      players: [1],
+      maxPlayers: 2,
+      maxSpectators,
+      spectators: [],
+      password: passwordRaw || null,
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      lastMove: null,
+      updatedAt: Date.now(),
+      createdAt: Date.now(),
+      startedAt: null,
+      finished: false,
+      wsCount: { w: 0, b: 0 },
+      disconnectStartedAt: { w: null, b: null },
+      everHadWs: { w: false, b: false },
+      bothOfflineSince: null,
+      names: {
+        white: playerName || null,
+        black: null,
+        opponentExpected: opponentName || null
+      },
+      chat: [],
+      wsSecrets: { w: makeSecret(), b: null, spectators: {} }
+    };
+    try {
+      await createLobbySession(memoryLobbies, lobbyId, lobby);
+    } catch (e) {
+      if (usePersistedLobbies() && e.code === "P2002") continue;
+      if (e.code === "LOBBY_ID_COLLISION") continue;
+      console.error("[lobby/create]", e.message);
+      return res.status(500).json({ error: "Erro ao criar sala." });
+    }
+    return res.json({
+      ok: true,
+      lobbyId,
+      color: "w",
+      names: lobby.names,
+      maxPlayers: 2,
+      maxSpectators: lobby.maxSpectators,
+      hasPassword: Boolean(lobby.password),
+      wsSecret: lobby.wsSecrets.w,
+      realtimePath: "/api/lobby/socket"
+    });
+  }
+  return res.status(500).json({ error: "Não foi possível criar uma sala. Tente novamente." });
 });
 
-app.post("/api/lobby/spectate", (req, res) => {
+app.post("/api/lobby/join", async (req, res) => {
+  const { lobbyId } = req.body;
+  const joinName = sanitizeLobbyName(req.body?.playerName);
+  const password = req.body?.password;
+  try {
+    if (usePersistedLobbies()) {
+      const tr = await transactionLobbyUpdate(lobbyId, (lobby) => lobbyMutateJoin(lobby, joinName, password));
+      if (!tr.ok) return res.status(tr.error.status).json(tr.error.json);
+      const lobby = tr.lobby;
+      return res.json({
+        ok: true,
+        lobbyId,
+        color: "b",
+        fen: lobby.fen,
+        names: lobby.names,
+        maxPlayers: 2,
+        maxSpectators: lobby.maxSpectators,
+        hasPassword: Boolean(lobby.password),
+        wsSecret: lobby.wsSecrets.b,
+        realtimePath: "/api/lobby/socket"
+      });
+    }
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    if (!lobby) {
+      return res.status(400).json({ error: "Sala não existe" });
+    }
+    const err = lobbyMutateJoin(lobby, joinName, password);
+    if (err) return res.status(err.status).json(err.json);
+    await persistLobby(memoryLobbies, lobbyId, lobby);
+    return res.json({
+      ok: true,
+      lobbyId,
+      color: "b",
+      fen: lobby.fen,
+      names: lobby.names,
+      maxPlayers: 2,
+      maxSpectators: lobby.maxSpectators,
+      hasPassword: Boolean(lobby.password),
+      wsSecret: lobby.wsSecrets.b,
+      realtimePath: "/api/lobby/socket"
+    });
+  } catch (e) {
+    console.error("[lobby/join]", e.message);
+    return res.status(500).json({ error: "Erro ao entrar na sala." });
+  }
+});
+
+app.post("/api/lobby/spectate", async (req, res) => {
   const lobbyId = req.body?.lobbyId;
   const playerName = sanitizeLobbyName(req.body?.playerName);
-  const lobby = memoryLobbies[lobbyId];
-  if (!lobby || lobby.finished) {
-    return res.status(400).json({ error: "Sala inválida" });
+  const password = req.body?.password;
+  /** @type {{ token: string, id: string } | null} */
+  let spectateResult = null;
+  try {
+    const run = (lobby) => {
+      if (!lobby || lobby.finished) {
+        return { status: 400, json: { error: "Sala inválida" } };
+      }
+      lobbyEnsureExtras(lobby);
+      if (!lobbyPasswordOk(lobby, password)) {
+        return { status: 403, json: { error: "Senha incorreta" } };
+      }
+      if (lobby.players.length < 2) {
+        return { status: 400, json: { error: "Aguarde dois jogadores na sala para assistir." } };
+      }
+      const cap = lobby.maxSpectators || 8;
+      if (lobby.spectators.length >= cap) {
+        return { status: 400, json: { error: "Limite de espectadores atingido." } };
+      }
+      const id = crypto.randomBytes(6).toString("hex");
+      const token = makeSecret();
+      const disp = playerName || "Espectador";
+      lobby.spectators.push({ id, name: disp });
+      lobby.wsSecrets.spectators[token] = { id, name: disp };
+      spectateResult = { token, id };
+      return null;
+    };
+    if (usePersistedLobbies()) {
+      const tr = await transactionLobbyUpdate(lobbyId, run);
+      if (!tr.ok) return res.status(tr.error.status).json(tr.error.json);
+      if (!spectateResult) return res.status(500).json({ error: "Erro ao assistir." });
+      return res.json({
+        ok: true,
+        wsSecret: spectateResult.token,
+        spectatorId: spectateResult.id,
+        role: "spectator",
+        realtimePath: "/api/lobby/socket"
+      });
+    }
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    const err = run(lobby);
+    if (err) return res.status(err.status).json(err.json);
+    await persistLobby(memoryLobbies, lobbyId, lobby);
+    if (!spectateResult) return res.status(500).json({ error: "Erro ao assistir." });
+    return res.json({
+      ok: true,
+      wsSecret: spectateResult.token,
+      spectatorId: spectateResult.id,
+      role: "spectator",
+      realtimePath: "/api/lobby/socket"
+    });
+  } catch (e) {
+    console.error("[lobby/spectate]", e.message);
+    return res.status(500).json({ error: "Erro ao assistir." });
   }
-  lobbyEnsureExtras(lobby);
-  if (!lobbyPasswordOk(lobby, req.body?.password)) {
-    return res.status(403).json({ error: "Senha incorreta" });
-  }
-  if (lobby.players.length < 2) {
-    return res.status(400).json({ error: "Aguarde dois jogadores na sala para assistir." });
-  }
-  const cap = lobby.maxSpectators || 8;
-  if (lobby.spectators.length >= cap) {
-    return res.status(400).json({ error: "Limite de espectadores atingido." });
-  }
-  const id = crypto.randomBytes(6).toString("hex");
-  const token = makeSecret();
-  const disp = playerName || "Espectador";
-  lobby.spectators.push({ id, name: disp });
-  lobby.wsSecrets.spectators[token] = { id, name: disp };
-  return res.json({
-    ok: true,
-    wsSecret: token,
-    spectatorId: id,
-    role: "spectator",
-    realtimePath: "/api/lobby/socket"
-  });
 });
 
-app.post("/api/lobby/claim-seat", (req, res) => {
+app.post("/api/lobby/claim-seat", async (req, res) => {
   const { lobbyId, seat, playerName, spectatorSecret } = req.body || {};
   if (seat !== "w" && seat !== "b") {
     return res.status(400).json({ error: "Indique seat: \"w\" ou \"b\"." });
   }
-  const lobby = memoryLobbies[lobbyId];
-  if (!lobby || lobby.finished) {
-    return res.status(400).json({ error: "Sala inválida" });
-  }
-  lobbyEnsureExtras(lobby);
-  if (!lobbyPasswordOk(lobby, req.body?.password)) {
-    return res.status(403).json({ error: "Senha incorreta" });
-  }
-  if (lobby.players.length < 2) {
-    return res.status(400).json({ error: "Partida ainda não começou." });
-  }
-  const wc = lobby.wsCount || { w: 0, b: 0 };
-  if (wc[seat] > 0) {
-    return res.status(400).json({ error: "Esse lugar já está ocupado no tempo real." });
-  }
-  const t0 = lobby.disconnectStartedAt?.[seat];
-  if (!t0 || Date.now() - t0 > DISCONNECT_AWARD_MS) {
-    return res.status(400).json({
-      error: "Não há lugar livre para ocupar (ou passaram 2 minutos — vitória por ausência)."
-    });
-  }
-  if (spectatorSecret && lobby.wsSecrets.spectators?.[spectatorSecret]) {
-    const meta = lobby.wsSecrets.spectators[spectatorSecret];
-    lobby.spectators = lobby.spectators.filter((s) => s.id !== meta.id);
-    delete lobby.wsSecrets.spectators[spectatorSecret];
-  }
-  const nm = sanitizeLobbyName(playerName) || (seat === "w" ? "Brancas" : "Pretas");
-  if (seat === "w") lobby.names.white = nm;
-  else lobby.names.black = nm;
-  const newSec = makeSecret();
-  lobby.wsSecrets[seat] = newSec;
-  lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
-  lobby.disconnectStartedAt[seat] = null;
-  lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
-  lobby.everHadWs[seat] = false;
-  lobby.updatedAt = Date.now();
+  const password = req.body?.password;
+  let claimNewSec = null;
+  let claimName = null;
   try {
-    lobbyBroadcastToLobby(lobbyId, {
-      type: "seat_claimed",
-      seat,
-      name: nm,
-      names: { ...lobby.names }
+    const mutator = (lobby) => {
+      if (!lobby || lobby.finished) {
+        return { status: 400, json: { error: "Sala inválida" } };
+      }
+      lobbyEnsureExtras(lobby);
+      if (!lobbyPasswordOk(lobby, password)) {
+        return { status: 403, json: { error: "Senha incorreta" } };
+      }
+      if (lobby.players.length < 2) {
+        return { status: 400, json: { error: "Partida ainda não começou." } };
+      }
+      const wc = lobby.wsCount || { w: 0, b: 0 };
+      if (wc[seat] > 0) {
+        return { status: 400, json: { error: "Esse lugar já está ocupado no tempo real." } };
+      }
+      const t0 = lobby.disconnectStartedAt?.[seat];
+      if (!t0 || Date.now() - t0 > DISCONNECT_AWARD_MS) {
+        return {
+          status: 400,
+          json: {
+            error: "Não há lugar livre para ocupar (ou passaram 2 minutos — vitória por ausência)."
+          }
+        };
+      }
+      if (spectatorSecret && lobby.wsSecrets.spectators?.[spectatorSecret]) {
+        const meta = lobby.wsSecrets.spectators[spectatorSecret];
+        lobby.spectators = lobby.spectators.filter((s) => s.id !== meta.id);
+        delete lobby.wsSecrets.spectators[spectatorSecret];
+      }
+      const nm = sanitizeLobbyName(playerName) || (seat === "w" ? "Brancas" : "Pretas");
+      if (seat === "w") lobby.names.white = nm;
+      else lobby.names.black = nm;
+      const newSec = makeSecret();
+      lobby.wsSecrets[seat] = newSec;
+      lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
+      lobby.disconnectStartedAt[seat] = null;
+      lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
+      lobby.everHadWs[seat] = false;
+      lobby.updatedAt = Date.now();
+      claimNewSec = newSec;
+      claimName = nm;
+      return null;
+    };
+    if (usePersistedLobbies()) {
+      const tr = await transactionLobbyUpdate(lobbyId, mutator);
+      if (!tr.ok) return res.status(tr.error.status).json(tr.error.json);
+      const lobby = tr.lobby;
+      try {
+        lobbyBroadcastToLobby(lobbyId, {
+          type: "seat_claimed",
+          seat,
+          name: claimName,
+          names: { ...lobby.names }
+        });
+      } catch (_) {
+        /* ignore */
+      }
+      return res.json({
+        ok: true,
+        color: seat,
+        wsSecret: claimNewSec,
+        names: lobby.names,
+        fen: lobby.fen,
+        realtimePath: "/api/lobby/socket"
+      });
+    }
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    const err = mutator(lobby);
+    if (err) return res.status(err.status).json(err.json);
+    await persistLobby(memoryLobbies, lobbyId, lobby);
+    try {
+      lobbyBroadcastToLobby(lobbyId, {
+        type: "seat_claimed",
+        seat,
+        name: claimName,
+        names: { ...lobby.names }
+      });
+    } catch (_) {
+      /* ignore */
+    }
+    return res.json({
+      ok: true,
+      color: seat,
+      wsSecret: claimNewSec,
+      names: lobby.names,
+      fen: lobby.fen,
+      realtimePath: "/api/lobby/socket"
     });
-  } catch (_) {
-    /* ignore */
+  } catch (e) {
+    console.error("[lobby/claim-seat]", e.message);
+    return res.status(500).json({ error: "Erro ao ocupar lugar." });
   }
-  return res.json({
-    ok: true,
-    color: seat,
-    wsSecret: newSec,
-    names: lobby.names,
-    fen: lobby.fen,
-    realtimePath: "/api/lobby/socket"
-  });
 });
 
-app.get("/api/lobby/status/:lobbyId", (req, res) => {
-  const { lobbyId } = req.params;
-  const lobby = memoryLobbies[lobbyId];
-  if (!lobby) return res.status(404).json({ error: "Lobby não encontrado" });
-  lobbyEnsureExtras(lobby);
-  const names = lobby.names || { white: null, black: null, opponentExpected: null };
-  const wc = lobby.wsCount || { w: 0, b: 0 };
-  const canClaim = (seat) =>
-    !lobby.finished &&
-    lobby.players.length >= 2 &&
-    wc[seat] === 0 &&
-    lobbyClaimMsLeft(lobby, seat) > 0;
-  return res.json({
-    ok: true,
-    playersCount: lobby.players.length,
-    maxPlayers: lobby.maxPlayers || 2,
-    spectatorsCount: lobby.spectators.length,
-    maxSpectators: lobby.maxSpectators || 8,
-    hasPassword: Boolean(lobby.password),
-    fen: lobby.fen,
-    lastMove: lobby.lastMove,
-    names,
-    finished: Boolean(lobby.finished),
-    winner: lobby.finished ? lobby.winnerColor || "draw" : null,
-    endReason: lobby.endReason || null,
-    endReasonLabel: lobby.endReasonLabel || null,
-    seatClaimable: { w: canClaim("w"), b: canClaim("b") },
-    claimMsLeft: { w: lobbyClaimMsLeft(lobby, "w"), b: lobbyClaimMsLeft(lobby, "b") }
-  });
+app.get("/api/lobby/status/:lobbyId", async (req, res) => {
+  try {
+    const { lobbyId } = req.params;
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    if (!lobby) return res.status(404).json({ error: "Lobby não encontrado" });
+    lobbyEnsureExtras(lobby);
+    const names = lobby.names || { white: null, black: null, opponentExpected: null };
+    const wc = lobby.wsCount || { w: 0, b: 0 };
+    const canClaim = (seat) =>
+      !lobby.finished &&
+      lobby.players.length >= 2 &&
+      wc[seat] === 0 &&
+      lobbyClaimMsLeft(lobby, seat) > 0;
+    return res.json({
+      ok: true,
+      playersCount: lobby.players.length,
+      maxPlayers: lobby.maxPlayers || 2,
+      spectatorsCount: lobby.spectators.length,
+      maxSpectators: lobby.maxSpectators || 8,
+      hasPassword: Boolean(lobby.password),
+      fen: lobby.fen,
+      lastMove: lobby.lastMove,
+      names,
+      finished: Boolean(lobby.finished),
+      winner: lobby.finished ? lobby.winnerColor || "draw" : null,
+      endReason: lobby.endReason || null,
+      endReasonLabel: lobby.endReasonLabel || null,
+      seatClaimable: { w: canClaim("w"), b: canClaim("b") },
+      claimMsLeft: { w: lobbyClaimMsLeft(lobby, "w"), b: lobbyClaimMsLeft(lobby, "b") }
+    });
+  } catch (e) {
+    console.error("[lobby/status]", e.message);
+    return res.status(500).json({ error: "Erro ao ler sala." });
+  }
 });
 
 app.get("/api/lobby/ranking", async (req, res) => {
@@ -589,53 +717,75 @@ app.get("/api/lobby/ranking", async (req, res) => {
   }
 });
 
-app.post("/api/lobby/finish", (req, res) => {
+app.post("/api/lobby/finish", async (req, res) => {
   const { lobbyId, fen } = req.body || {};
-  const lobby = memoryLobbies[lobbyId];
-  if (!lobby || lobby.finished) {
-    return res.status(400).json({ error: "Sala inválida ou partida já terminada" });
+  try {
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    if (!lobby || lobby.finished) {
+      return res.status(400).json({ error: "Sala inválida ou partida já terminada" });
+    }
+    const chess = new Chess();
+    if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
+    if (!chess.isGameOver()) return res.status(400).json({ error: "A partida ainda não terminou" });
+    let winner = "draw";
+    let reasonCode = "draw";
+    let reasonLabel = "Empate.";
+    if (chess.isCheckmate()) {
+      winner = chess.turn() === "w" ? "b" : "w";
+      reasonCode = "checkmate";
+      reasonLabel =
+        winner === "w"
+          ? "Xeque-mate — vitória das brancas."
+          : "Xeque-mate — vitória das pretas.";
+    } else if (chess.isStalemate()) {
+      reasonCode = "stalemate";
+      reasonLabel = "Afogamento — empate.";
+    } else if (chess.isInsufficientMaterial()) {
+      reasonCode = "insufficient";
+      reasonLabel = "Material insuficiente — empate.";
+    } else if (chess.isThreefoldRepetition()) {
+      reasonCode = "repetition";
+      reasonLabel = "Tripla repetição — empate.";
+    } else if (chess.isDrawByFiftyMoves()) {
+      reasonCode = "fifty";
+      reasonLabel = "Regra dos 50 lances — empate.";
+    }
+    await finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel);
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[lobby/finish]", e.message);
+    return res.status(500).json({ error: "Erro ao finalizar." });
   }
-  const chess = new Chess();
-  if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
-  if (!chess.isGameOver()) return res.status(400).json({ error: "A partida ainda não terminou" });
-  let winner = "draw";
-  let reasonCode = "draw";
-  let reasonLabel = "Empate.";
-  if (chess.isCheckmate()) {
-    winner = chess.turn() === "w" ? "b" : "w";
-    reasonCode = "checkmate";
-    reasonLabel =
-      winner === "w"
-        ? "Xeque-mate — vitória das brancas."
-        : "Xeque-mate — vitória das pretas.";
-  } else if (chess.isStalemate()) {
-    reasonCode = "stalemate";
-    reasonLabel = "Afogamento — empate.";
-  } else if (chess.isInsufficientMaterial()) {
-    reasonCode = "insufficient";
-    reasonLabel = "Material insuficiente — empate.";
-  } else if (chess.isThreefoldRepetition()) {
-    reasonCode = "repetition";
-    reasonLabel = "Tripla repetição — empate.";
-  } else if (chess.isDrawByFiftyMoves()) {
-    reasonCode = "fifty";
-    reasonLabel = "Regra dos 50 lances — empate.";
-  }
-  finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel);
-  return res.json({ ok: true });
 });
 
-app.post("/api/lobby/move", (req, res) => {
+app.post("/api/lobby/move", async (req, res) => {
   const { lobbyId, move, fen } = req.body;
-  const lobby = memoryLobbies[lobbyId];
-  if (lobby) {
-    if (lobby.finished) return res.status(400).json({ error: "Partida terminada" });
-    lobby.fen = fen;
-    lobby.lastMove = move;
-    lobby.updatedAt = Date.now();
-    return res.json({ ok: true });
+  try {
+    if (usePersistedLobbies()) {
+      const tr = await transactionLobbyUpdate(lobbyId, (lobby) => {
+        if (lobby.finished) return { status: 400, json: { error: "Partida terminada" } };
+        lobby.fen = fen;
+        lobby.lastMove = move;
+        lobby.updatedAt = Date.now();
+        return null;
+      });
+      if (!tr.ok) return res.status(tr.error.status).json(tr.error.json);
+      return res.json({ ok: true });
+    }
+    const lobby = await loadLobby(memoryLobbies, lobbyId);
+    if (lobby) {
+      if (lobby.finished) return res.status(400).json({ error: "Partida terminada" });
+      lobby.fen = fen;
+      lobby.lastMove = move;
+      lobby.updatedAt = Date.now();
+      await persistLobby(memoryLobbies, lobbyId, lobby);
+      return res.json({ ok: true });
+    }
+    return res.status(404).json({ error: "Lobby não encontrado" });
+  } catch (e) {
+    console.error("[lobby/move]", e.message);
+    return res.status(500).json({ error: "Erro ao registar lance." });
   }
-  return res.status(404).json({ error: "Lobby não encontrado" });
 });
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
@@ -677,7 +827,9 @@ function listenHttp() {
   }
   server.listen(PORT, () => {
     console.log(`Interface Sator Engine: http://localhost:${PORT}`);
-    setInterval(tickLobbyDisconnectAwards, 10000);
+    setInterval(() => {
+      void tickLobbyDisconnectAwards();
+    }, 10000);
     scheduleMasterContinuousSeed();
   });
 }
@@ -706,7 +858,9 @@ function listenHttps() {
   }
   server.listen(PORT, () => {
     console.log(`Interface Sator Engine: https://localhost:${PORT} (certificado autoassinado — aceite o aviso no browser para o PWA)`);
-    setInterval(tickLobbyDisconnectAwards, 10000);
+    setInterval(() => {
+      void tickLobbyDisconnectAwards();
+    }, 10000);
     scheduleMasterContinuousSeed();
   });
 }
