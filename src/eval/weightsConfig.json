@@ -16,7 +16,7 @@
       "suntzu": 0.55
     },
     "BAL": {
-      "sator": 1.0,
+      "sator": 1,
       "kasparov": 0.8,
       "suntzu": 0.6
     }
@@ -25,27 +25,27 @@
     "OPERA": {
       "sator": 0.05,
       "kasparov": 0.1,
-      "suntzu": 0.0
+      "suntzu": 0
     },
     "AREPO": {
-      "sator": 0.0,
+      "sator": 0,
       "kasparov": 0.05,
-      "suntzu": 0.0
+      "suntzu": 0
     },
     "ROTAS": {
-      "sator": 0.0,
-      "kasparov": 0.0,
+      "sator": 0,
+      "kasparov": 0,
       "suntzu": 0.1
     },
     "TENET": {
-      "sator": 0.0,
-      "kasparov": 0.0,
-      "suntzu": 0.0
+      "sator": 0,
+      "kasparov": 0,
+      "suntzu": 0
     },
     "SATOR": {
-      "sator": 0.0,
-      "kasparov": 0.0,
-      "suntzu": 0.0
+      "sator": 0,
+      "kasparov": 0,
+      "suntzu": 0
     }
   }
 }

@@ -145,8 +145,22 @@ function tickClock() {
 
 function updateClockDisplays() {
   const whiteTurn = game.turn() === 'w';
-  renderClockTexture(clockWhiteTex, fmtClock(clockWhiteSecs), 'SATOR ENGINE', whiteTurn);
-  renderClockTexture(clockBlackTex, fmtClock(clockBlackSecs), 'HUMAN PLAYER', !whiteTurn);
+  const playerColor = getMode() === "human" ? "w" : getPlayerColor();
+  
+  // Panel R is always closer to the player, Panel L is further away.
+  // Player is at -Z when playing White (clock at +X), or +Z when playing Black (clock at -X).
+  // Thus, Panel R always corresponds to the Player, and Panel L to the Opponent/Engine.
+  const p1Time = playerColor === 'w' ? clockWhiteSecs : clockBlackSecs;
+  const p2Time = playerColor === 'w' ? clockBlackSecs : clockWhiteSecs;
+  
+  const p1Active = playerColor === 'w' ? whiteTurn : !whiteTurn;
+  const p2Active = playerColor === 'w' ? !whiteTurn : whiteTurn;
+  
+  const p1Label = getMode() === "human" ? "WHITE PLAYER" : "HUMAN PLAYER";
+  const p2Label = getMode() === "human" ? "BLACK PLAYER" : "SATOR ENGINE";
+
+  renderClockTexture(clockBlackTex /* which is texR */, fmtClock(p1Time), p1Label, p1Active);
+  renderClockTexture(clockWhiteTex /* which is texL */, fmtClock(p2Time), p2Label, p2Active);
 }
 
 function startClock() {
@@ -546,11 +560,11 @@ function syncChessClockPlacement() {
   const whiteSide = getMode() === "human" || getPlayerColor() === "w";
   if (whiteSide) {
     // À direita do jogador (+X), na borda da mesa, bem paralelo ao tabuleiro
-    chessClockRootRef.position.set(5.6, 0.22, 0);
+    chessClockRootRef.position.set(5.6, 0.0, 0);
     chessClockRootRef.rotation.y = -Math.PI / 2; // Virado para a esquerda (-X), para o tabuleiro
   } else {
     // À esquerda do jogador (-X), borda da mesa, paralelo
-    chessClockRootRef.position.set(-5.6, 0.22, 0);
+    chessClockRootRef.position.set(-5.6, 0.0, 0);
     chessClockRootRef.rotation.y = Math.PI / 2; // Virado para a direita (+X), para o tabuleiro
   }
 }
