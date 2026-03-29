@@ -1,11 +1,10 @@
 /**
  * Salas em memória (Node long-running) vs PostgreSQL (Vercel + DATABASE_URL).
  */
-const { getPrisma } = require("./aiLearningStore");
+const { getPrisma, getPostgresConnectionString } = require("./aiLearningStore");
 
 function usePersistedLobbies() {
-  const url = process.env.DATABASE_URL || "";
-  return Boolean(process.env.VERCEL && /^postgres(ql)?:\/\//i.test(url));
+  return Boolean(process.env.VERCEL && getPostgresConnectionString());
 }
 
 /**

@@ -243,4 +243,4 @@ function attachLobbyRealtime(server, { memoryLobbies }) {
   return { wss, broadcastToLobby };
 }
 
-module.exports = { attachLobbyRealtime, makeSecret, WS_PATH };
+module.exports = { attachLobbyRealtime, makeSecret, WS_PATH, sanitizeChat };

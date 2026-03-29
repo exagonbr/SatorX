@@ -11,12 +11,26 @@ const SNAPSHOT_EVERY_UPDATES = 100;
 
 let prisma = null;
 
+/** Vercel Postgres / Neon muitas vezes expõem POSTGRES_URL ou PRISMA_DATABASE_URL em vez de DATABASE_URL. */
+function getPostgresConnectionString() {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.POSTGRES_URL,
+    process.env.PRISMA_DATABASE_URL,
+    process.env.POSTGRES_PRISMA_URL
+  ];
+  for (const u of candidates) {
+    if (u && /^postgres(ql)?:\/\//i.test(String(u))) return String(u);
+  }
+  return "";
+}
+
 function getPrisma() {
   if (!prisma) {
-    const url = process.env.DATABASE_URL;
-    if (!url || !/^postgres(ql)?:\/\//i.test(url)) {
+    const url = getPostgresConnectionString();
+    if (!url) {
       throw new Error(
-        "[aiLearningStore] Defina DATABASE_URL com a connection string PostgreSQL (ex.: no .env)."
+        "[aiLearningStore] Defina DATABASE_URL (ou POSTGRES_URL) com a connection string PostgreSQL (ex.: no .env)."
       );
     }
     const adapter = new PrismaPg({ connectionString: url });
@@ -86,6 +100,7 @@ async function closeDb() {
 
 module.exports = {
   getPrisma,
+  getPostgresConnectionString,
   recordTdStep,
   maybeRecordWeightsSnapshot,
   initSchema,

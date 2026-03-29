@@ -989,16 +989,20 @@
       if (started) return;
       started = true;
       ctx = new (window.AudioContext || window.webkitAudioContext)();
-      if (ctx.state === 'suspended') ctx.resume();
-      buildAmbience(ctx);
+      void ctx.resume().then(function () {
+        buildAmbience(ctx);
+      });
     }
 
-    const startEvents = ['click', 'keydown', 'touchstart', 'pointerdown'];
-    function onFirstInteraction() {
+    const startEvents = ["click", "keydown", "touchstart", "pointerdown"];
+    function onFirstInteraction(e) {
+      if (!e || !e.isTrusted) return;
       startAudio();
-      startEvents.forEach(ev => document.removeEventListener(ev, onFirstInteraction));
+      startEvents.forEach((ev) => document.removeEventListener(ev, onFirstInteraction));
     }
-    startEvents.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true, passive: true }));
+    startEvents.forEach((ev) =>
+      document.addEventListener(ev, onFirstInteraction, { passive: true })
+    );
   })();
   </script>
   <script src="/js/pwa-register.js" defer></script>

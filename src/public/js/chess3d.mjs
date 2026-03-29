@@ -68,10 +68,24 @@ let mpSocket = null;
 let mpWsSecret = null;
 let mpPingIntervalId = null;
 let mpLastRttMs = null;
+/** Evita duplicar linhas do chat quando o mesmo evento chega por WS e por poll HTTP. */
+const mpChatSeenIds = new Set();
 
-/** @type {{ ok: boolean, persistentLobbies?: boolean, websocketLobby?: boolean } | null} */
+/** @type {{ ok: boolean, persistentLobbies?: boolean, websocketLobby?: boolean, httpPollFallback?: boolean } | null} */
 let mpCaps = null;
 let mpCapsPromise = null;
+
+function defaultMpCapsWhenUnknown() {
+  const h = typeof location !== "undefined" ? location.hostname : "";
+  const localDev =
+    h === "localhost" ||
+    h === "127.0.0.1" ||
+    (h.length > 0 && h.endsWith(".local"));
+  if (localDev) {
+    return { ok: true, persistentLobbies: true, websocketLobby: true };
+  }
+  return { ok: true, persistentLobbies: false, websocketLobby: false };
+}
 
 function ensureLobbyCapabilities() {
   if (mpCaps) return Promise.resolve(mpCaps);
@@ -87,19 +101,19 @@ function ensureLobbyCapabilities() {
       if (r.ok && j && j.ok && typeof j.persistentLobbies === "boolean") {
         mpCaps = j;
       } else {
-        mpCaps = { ok: true, persistentLobbies: true, websocketLobby: true };
+        mpCaps = defaultMpCapsWhenUnknown();
       }
       return mpCaps;
     })
     .catch(() => {
-      mpCaps = { ok: true, persistentLobbies: true, websocketLobby: true };
+      mpCaps = defaultMpCapsWhenUnknown();
       return mpCaps;
     });
   return mpCapsPromise;
 }
 
 const MP_LOBBY_UNSUPPORTED_MSG =
-  "O lobby online não está disponível: no Vercel é necessário PostgreSQL (variável DATABASE_URL + migrações). Em alternativa, execute `npm run server` num VPS, Railway ou Fly.io.";
+  "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
 
 const LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
 const MP_HOST_SKIP_JOIN_MSG =
@@ -164,6 +178,57 @@ function resetMpMatchReporting() {
 let mpOpponentReady = false;
 
 let mpIsSpectator = false;
+
+function closeMpGameOverOverlay() {
+  const overlay = document.getElementById("gameOverOverlay");
+  if (overlay) {
+    overlay.classList.remove("open");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+}
+
+function applyMpRematchBoard(fen) {
+  const startFen =
+    fen || "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  mpServerEndShown = false;
+  mpResultPosted = false;
+  try {
+    game.load(startFen);
+    syncPiecesFromGame();
+    syncCheckKingHighlight();
+  } catch (_) {
+    /* ignore */
+  }
+  updateStatus();
+  updateGameOverOverlay();
+  closeMpGameOverOverlay();
+  resetClock();
+  startClock();
+}
+
+async function requestMpRematch() {
+  if (!currentLobbyId) return;
+  const pass = (document.getElementById("mpJoinPassword")?.value || "").trim();
+  showToast("A reiniciar a partida na sala…", "info");
+  try {
+    const r = await fetch("/api/lobby/rematch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lobbyId: currentLobbyId, password: pass })
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) {
+      showToast(res.error || "Não foi possível iniciar nova partida.", "error");
+      return;
+    }
+    applyMpRematchBoard(res.fen);
+    if (!mpSocket || mpSocket.readyState !== WebSocket.OPEN) {
+      showToast("Nova partida na mesma sala.", "success");
+    }
+  } catch (e) {
+    showToast("Erro de rede.", "error");
+  }
+}
 
 function openMpServerEndOverlay(reasonLabel, winner) {
   mpServerEndShown = true;
@@ -707,19 +772,65 @@ function clearMpChatUi() {
   if (log) log.textContent = "";
   const input = document.getElementById("mpChatInput");
   if (input) input.value = "";
+  mpChatSeenIds.clear();
 }
 
-function sendMpChat() {
+function mergeMpChatFromPoll(entries) {
+  if (!Array.isArray(entries)) return;
+  for (const e of entries) {
+    if (!e || !e.text) continue;
+    const id = e.id;
+    if (id) {
+      if (mpChatSeenIds.has(id)) continue;
+      mpChatSeenIds.add(id);
+    }
+    appendMpChatLine(e);
+  }
+}
+
+async function sendMpChat() {
   const input = document.getElementById("mpChatInput");
   if (!input) return;
-  if (!mpSocket || mpSocket.readyState !== WebSocket.OPEN) {
+  const text = (input.value || "").trim();
+  if (!text) return;
+
+  if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
+    mpSocket.send(JSON.stringify({ type: "chat", text }));
+    input.value = "";
+    return;
+  }
+
+  const caps = await ensureLobbyCapabilities();
+  const allowHttpChat =
+    caps.httpPollFallback === true ||
+    (caps.persistentLobbies === true && caps.websocketLobby === false);
+  if (!allowHttpChat || !currentLobbyId || !mpWsSecret) {
     showToast("Abra o canal em tempo real (reconecte à sala) para usar o chat.", "info");
     return;
   }
-  const text = (input.value || "").trim();
-  if (!text) return;
-  mpSocket.send(JSON.stringify({ type: "chat", text }));
-  input.value = "";
+
+  try {
+    const r = await fetch("/api/lobby/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lobbyId: currentLobbyId, secret: mpWsSecret, text })
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.ok) {
+      showToast(j.error || "Não foi possível enviar a mensagem.", "error");
+      return;
+    }
+    input.value = "";
+    if (j.entry && j.entry.text) {
+      if (j.entry.id) {
+        if (mpChatSeenIds.has(j.entry.id)) return;
+        mpChatSeenIds.add(j.entry.id);
+      }
+      appendMpChatLine(j.entry);
+    }
+  } catch (_) {
+    showToast("Erro de rede ao enviar mensagem.", "error");
+  }
 }
 
 function disconnectMpRealtime() {
@@ -797,7 +908,11 @@ function connectMpRealtime(lobbyId, secret) {
       const log = document.getElementById("mpChatLog");
       if (log && Array.isArray(msg.chat)) {
         log.textContent = "";
-        for (const e of msg.chat) appendMpChatLine(e);
+        mpChatSeenIds.clear();
+        for (const e of msg.chat) {
+          if (e && e.id) mpChatSeenIds.add(e.id);
+          appendMpChatLine(e);
+        }
       }
       scheduleMultiplayerPoll();
       return;
@@ -825,6 +940,10 @@ function connectMpRealtime(lobbyId, secret) {
       return;
     }
     if (msg.type === "chat" && msg.text) {
+      if (msg.id) {
+        if (mpChatSeenIds.has(msg.id)) return;
+        mpChatSeenIds.add(msg.id);
+      }
       appendMpChatLine(msg);
       return;
     }
@@ -845,6 +964,13 @@ function connectMpRealtime(lobbyId, secret) {
       mpResultPosted = true;
       if (!mpServerEndShown) {
         openMpServerEndOverlay(msg.reasonLabel, msg.winner);
+      }
+      return;
+    }
+    if (msg.type === "rematch" && msg.fen) {
+      applyMpRematchBoard(msg.fen);
+      if (!mpIsSpectator) {
+        showToast("Nova partida na mesma sala.", "success");
       }
       return;
     }
@@ -890,6 +1016,7 @@ async function pollLobbyOnce() {
         showToast("Oponente ligado à sala — pode jogar.", "success");
       }
       mpLastPlayersPollCount = res.playersCount;
+      if (Array.isArray(res.chat)) mergeMpChatFromPoll(res.chat);
       if (res.fen && res.fen !== game.fen()) {
         try {
           game.load(res.fen);
@@ -1738,6 +1865,10 @@ window.addEventListener("DOMContentLoaded", () => {
   });
 
   document.getElementById("btnGoNew")?.addEventListener("click", () => {
+    if (getMode() === "multiplayer" && currentLobbyId && mpServerEndShown && !mpIsSpectator) {
+      void requestMpRematch();
+      return;
+    }
     document.getElementById("btnNew")?.click();
   });
 
@@ -1783,21 +1914,24 @@ window.addEventListener("DOMContentLoaded", () => {
     const wrapColor = document.getElementById("wrapColor");
     if (wrapColor) wrapColor.style.display = "none";
     if (urlLobby === "new") {
-      setTimeout(() => document.getElementById("btnCreateLobby")?.click(), 500);
+      setTimeout(() => {
+        void createLobby();
+      }, 500);
     } else {
-      const code =
-        (urlJoin && urlJoin.trim()) ||
-        (urlLobby && urlLobby !== "new" ? urlLobby.trim() : "") ||
-        "";
+      const codeFromJoin = urlJoin && urlJoin.trim();
+      const codeFromLobby = urlLobby && urlLobby !== "new" ? urlLobby.trim() : "";
+      const code = codeFromJoin || codeFromLobby || "";
       if (code) {
         const idInput = document.getElementById("lobbyIdInput");
         if (idInput) idInput.value = code;
         if (isMpHostOfLobby(code)) {
           const st = document.getElementById("lobbyStatus");
-          if (st) st.textContent = "Anfitrião — aguarde o oponente (link com ?join=…).";
+          if (st) st.textContent = "Anfitrião — aguarde oponente (link com ?join= ou ?lobby=).";
           showToast(MP_HOST_SKIP_JOIN_MSG, "info");
         } else {
-          setTimeout(() => document.getElementById("btnJoinLobby")?.click(), 500);
+          setTimeout(() => {
+            void joinLobby(code);
+          }, 500);
         }
       }
     }

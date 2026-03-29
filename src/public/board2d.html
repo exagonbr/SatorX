@@ -535,6 +535,8 @@
     var LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
     var MP_HOST_SKIP_JOIN_MSG =
       "É o anfitrião desta sala — já está nas brancas à espera. Envie o link de convite ao oponente; não use «Entrar na sala».";
+    var MP_LOBBY_URL_HINT_MSG =
+      "ID da sala preenchido. Oponente: «Entrar na sala». Se já houver dois jogadores, use «Assistir» ou «Reclamar lugar» (após desconexão).";
     function rememberMpHostLobby(lobbyId) {
       try {
         if (lobbyId) localStorage.setItem(LS_MP_HOST_LOBBY, lobbyId);
@@ -1283,20 +1285,21 @@
           document.getElementById("btnCreateLobby").click();
         }, 500);
       } else {
-        var code =
-          (urlJoin && urlJoin.trim()) ||
-          (urlLobby && urlLobby !== "new" ? urlLobby.trim() : "") ||
-          "";
+        var codeFromJoin = urlJoin && urlJoin.trim();
+        var codeFromLobby = urlLobby && urlLobby !== "new" ? urlLobby.trim() : "";
+        var code = codeFromJoin || codeFromLobby || "";
         if (code) {
           document.getElementById("lobbyIdInput").value = code;
           if (isMpHostOfLobby(code)) {
             document.getElementById("lobbyStatus").textContent =
               "Anfitrião — aguarde o oponente (link com ?join=…).";
             alert(MP_HOST_SKIP_JOIN_MSG);
-          } else {
+          } else if (codeFromJoin) {
             setTimeout(function () {
               document.getElementById("btnJoinLobby").click();
             }, 500);
+          } else {
+            alert(MP_LOBBY_URL_HINT_MSG);
           }
         }
       }
