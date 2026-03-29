@@ -1623,36 +1623,6 @@ function buildChessClubEnvironment(scene) {
   winCrossH.position.set(-12.28, 5.2, 4.5);
   winCrossH.material = mognoDark;
 
-  // --- CADEIRA DO ADVERSÁRIO (atrás do tabuleiro) ---
-  const chairLeatherMat = new StandardMaterial("chairLeather", scene);
-  chairLeatherMat.diffuseColor  = new Color3(0.18, 0.10, 0.055);
-  chairLeatherMat.specularColor = new Color3(0.22, 0.16, 0.10);
-  chairLeatherMat.specularPower = 45;
-
-  // Encosto
-  const chairBack = MeshBuilder.CreateBox("chairBack", { width: 2.2, height: 3.2, depth: 0.22 }, scene);
-  chairBack.position.set(0, 2.8, -7.8);
-  chairBack.material = chairLeatherMat;
-  // Assento
-  const chairSeat = MeshBuilder.CreateBox("chairSeat", { width: 2.2, height: 0.22, depth: 1.8 }, scene);
-  chairSeat.position.set(0, 0.8, -7.2);
-  chairSeat.material = chairLeatherMat;
-  // Pernas
-  for (const [lx, lz] of [[-0.9, -6.4], [0.9, -6.4], [-0.9, -8.0], [0.9, -8.0]]) {
-    const leg = MeshBuilder.CreateCylinder(`chairLeg_${lx}_${lz}`, { diameter: 0.12, height: 0.85, tessellation: 10 }, scene);
-    leg.position.set(lx, 0.42, lz);
-    leg.material = mognoDark;
-  }
-  // Ornamento no topo do encosto: símbolo dourado
-  const chairOrb = MeshBuilder.CreateSphere("chairOrb", { diameter: 0.28, segments: 16 }, scene);
-  chairOrb.position.set(0, 4.5, -7.72);
-  const chairOrbMat = new StandardMaterial("chairOrbMat", scene);
-  chairOrbMat.diffuseColor  = new Color3(0.62, 0.48, 0.18);
-  chairOrbMat.specularColor = new Color3(0.92, 0.78, 0.38);
-  chairOrbMat.emissiveColor = new Color3(0.08, 0.055, 0.012);
-  chairOrbMat.specularPower = 160;
-  chairOrb.material = chairOrbMat;
-
   // --- LUMINÁRIA DE PAREDE (arandela) ---
   for (const [lx, lz, ry] of [[-11.8, -8.0, Math.PI/2], [11.8, -8.0, -Math.PI/2]]) {
     const sconce = MeshBuilder.CreateBox(`sconce_${lx}`, { width: 0.12, height: 0.55, depth: 0.38 }, scene);
@@ -1927,13 +1897,6 @@ function createScene(canvas) {
   boardLight.specular = new Color3(1.0, 0.85, 0.55);
   boardLight.range = 14;
 
-  // Luz do orbe de IA (dourada, sobre a cadeira do adversário)
-  const orbLight = new PointLight("orbLight", new Vector3(0, 8.5, -12.0), scene);
-  orbLight.intensity = 0.55;
-  orbLight.diffuse = new Color3(1.0, 0.82, 0.28);
-  orbLight.specular = new Color3(0.9, 0.72, 0.22);
-  orbLight.range = 14;
-
   // Luz de preenchimento fria (janela vitral à esquerda)
   const windowLight = new PointLight("windowLight", new Vector3(-11.5, 5.2, 4.5), scene);
   windowLight.intensity = 0.38;
@@ -2004,68 +1967,6 @@ function createScene(canvas) {
   }
 
   addBoardBrassFrame(scene);
-
-  // --- ORB DE IA (flutuando sobre a cadeira do adversário, fora do tabuleiro) ---
-  (function buildAIOrb() {
-    const orbRoot = new TransformNode("aiOrbRoot", scene);
-    orbRoot.position.set(0, 8.5, -12.0); // acima da cadeira do adversário, bem ao fundo
-
-    // Núcleo luminoso
-    const core = MeshBuilder.CreateSphere("aiOrbCore", { diameter: 0.18, segments: 20 }, scene);
-    core.parent = orbRoot;
-    const coreMat = new StandardMaterial("aiOrbCoreMat", scene);
-    coreMat.diffuseColor  = new Color3(1.0, 0.92, 0.55);
-    coreMat.emissiveColor = new Color3(1.0, 0.82, 0.22);
-    coreMat.specularColor = Color3.Black();
-    core.material = coreMat;
-
-    // Hálo externo
-    const halo = MeshBuilder.CreateSphere("aiOrbHalo", { diameter: 0.32, segments: 16 }, scene);
-    halo.parent = orbRoot;
-    const haloMat = new StandardMaterial("aiOrbHaloMat", scene);
-    haloMat.diffuseColor  = new Color3(0.88, 0.62, 0.12);
-    haloMat.emissiveColor = new Color3(0.42, 0.26, 0.04);
-    haloMat.alpha = 0.28;
-    haloMat.specularColor = Color3.Black();
-    halo.material = haloMat;
-
-    // Anéis orbitais (Merkabah/átomo) — menores
-    const ringMat = new StandardMaterial("aiRingMat", scene);
-    ringMat.diffuseColor  = new Color3(0.88, 0.68, 0.18);
-    ringMat.emissiveColor = new Color3(0.65, 0.44, 0.08);
-    ringMat.specularColor = new Color3(0.9, 0.75, 0.3);
-    ringMat.specularPower = 120;
-
-    const ring1 = MeshBuilder.CreateTorus("aiRing1", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
-    ring1.parent = orbRoot; ring1.rotation.x = Math.PI / 2; ring1.material = ringMat;
-    const ring2 = MeshBuilder.CreateTorus("aiRing2", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
-    ring2.parent = orbRoot; ring2.rotation.x = Math.PI / 4; ring2.rotation.y = Math.PI / 4; ring2.material = ringMat;
-    const ring3 = MeshBuilder.CreateTorus("aiRing3", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
-    ring3.parent = orbRoot; ring3.rotation.x = -Math.PI / 4; ring3.rotation.y = Math.PI / 4; ring3.material = ringMat;
-
-    // Orbe visível em todos os modos de câmera
-    // Posicionado atrás do tabuleiro (Z=-5.8, Y=4.2) — visível na perspectiva first-person
-    const orbMeshes = [core, halo, ring1, ring2, ring3];
-    orbMeshes.forEach(m => { m.isVisible = true; });
-
-    // Rotação e flutuação animadas
-    let orbT = 0;
-    // Orbe posicionado atrás do tabuleiro, acima das peças pretas
-    // Visível na câmera first-person (Z negativo = lado das pretas)
-    orbRoot.position.set(0, 4.2, -5.8);
-    scene.registerBeforeRender(() => {
-      orbT += 0.012;
-      orbRoot.rotation.y = orbT * 0.4;
-      ring1.rotation.z = orbT * 0.8;
-      ring2.rotation.z = -orbT * 0.6;
-      ring3.rotation.z = orbT * 0.5;
-      orbRoot.position.y = 4.2 + Math.sin(orbT * 0.5) * 0.18;
-      // Pulsação do núcleo
-      const pulse = 0.9 + 0.1 * Math.sin(orbT * 2.2);
-      core.scaling.setAll(pulse);
-      coreMat.emissiveColor = new Color3(1.0 * pulse, 0.75 * pulse, 0.18 * pulse);
-    });
-  })();
 
   // --- MÃO DO JOGADOR (first-person, borda inferior) ---
   (function buildPlayerHand() {

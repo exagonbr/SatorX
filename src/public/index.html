@@ -31,17 +31,13 @@
     .bg-layer {
       position: fixed; inset: 0; z-index: 0;
       background:
-        radial-gradient(ellipse 80% 60% at 50% 110%, rgba(201,168,76,0.07) 0%, transparent 70%),
-        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(20,14,6,0.95) 0%, transparent 60%),
-        #060810;
+        radial-gradient(ellipse 80% 60% at 50% 110%, rgba(201,168,76,0.15) 0%, transparent 80%),
+        radial-gradient(ellipse 120% 80% at 50% 50%, rgba(20,14,6,0.2) 0%, rgba(4,6,10,0.95) 100%),
+        url('/img/panel1_fundo.png') no-repeat center center;
+      background-size: cover;
     }
     .bg-chess {
-      position: fixed; inset: 0; z-index: 0;
-      background-image: repeating-conic-gradient(rgba(201,168,76,0.03) 0% 25%, transparent 0% 50%);
-      background-size: 90px 90px;
-      background-position: center center;
-      mask-image: radial-gradient(ellipse 110% 110% at 50% 100%, black 0%, transparent 65%);
-      -webkit-mask-image: radial-gradient(ellipse 110% 110% at 50% 100%, black 0%, transparent 65%);
+      display: none;
     }
 
     /* Canvas de constelacao */
@@ -56,37 +52,38 @@
       gap: 0;
     }
 
-    /* Logo */
+    /* Logo & Elementos do Menu */
     .logo-wrap {
       position: relative;
-      width: min(560px, 88vw);
-      margin-bottom: -8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(800px, 95vw);
+      margin-bottom: -16px;
       animation: logoReveal 1.5s cubic-bezier(0.22,1,0.36,1) both;
     }
     @keyframes logoReveal {
       from { opacity: 0; transform: translateY(32px) scale(0.95); filter: blur(8px); }
       to   { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0);   }
     }
-    .logo-wrap img {
-      width: 100%; display: block;
-      filter: drop-shadow(0 0 40px rgba(201,168,76,0.5)) drop-shadow(0 0 90px rgba(201,168,76,0.22));
+    .peca-central {
+      width: min(540px, 80vw);
+      display: block;
+      mix-blend-mode: screen;
       animation: logoFloat 7s ease-in-out infinite;
     }
     @keyframes logoFloat {
-      0%,100% { transform: translateY(0);    filter: drop-shadow(0 0 40px rgba(201,168,76,0.5)) drop-shadow(0 0 90px rgba(201,168,76,0.22)); }
-      50%      { transform: translateY(-9px); filter: drop-shadow(0 0 60px rgba(201,168,76,0.7)) drop-shadow(0 0 110px rgba(201,168,76,0.35)); }
+      0%,100% { transform: translateY(0);    filter: drop-shadow(0 0 10px rgba(201,168,76,0.2)); }
+      50%     { transform: translateY(-9px); filter: drop-shadow(0 0 20px rgba(201,168,76,0.5)); }
+    }
+    .texto-principal {
+      width: min(600px, 95vw);
+      display: block;
+      mix-blend-mode: screen;
+      margin-top: -65px;
     }
     .logo-halo {
-      position: absolute; bottom: 8%; left: 50%;
-      transform: translateX(-50%);
-      width: 55%; height: 28px;
-      background: radial-gradient(ellipse, rgba(201,168,76,0.55) 0%, transparent 70%);
-      filter: blur(14px);
-      animation: haloBreath 7s ease-in-out infinite;
-    }
-    @keyframes haloBreath {
-      0%,100% { opacity: 0.55; transform: translateX(-50%) scaleX(1);    }
-      50%      { opacity: 1.0;  transform: translateX(-50%) scaleX(1.25); }
+      display: none;
     }
 
     /* Divisor */
@@ -219,8 +216,8 @@
 
   <main class="screen">
     <div class="logo-wrap">
-      <img src="/img/sator-engine-logo.webp" alt="Sator Engine — A Fundacao Inteligente" draggable="false"/>
-      <div class="logo-halo"></div>
+      <img src="/img/panel2_peca.png" class="peca-central" alt="Peca Central" draggable="false"/>
+      <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" draggable="false"/>
     </div>
 
     <div class="divider"></div>
