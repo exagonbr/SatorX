@@ -1173,93 +1173,170 @@ function createPieceMesh(scene, type, color) {
     parts.push(head);
   } else if (type === "r") {
     const stemH = 0.36;
-    y = addLatheStem(scene, parts, y, stemH);
-    y = addDoubleCollar(scene, parts, y + 0.01);
-    const headH = 0.1;
-    const headR = 0.165;
-    const head = MeshBuilder.CreateCylinder(`rt_${Math.random()}`, { diameter: headR * 2, height: headH, tessellation: 48 }, scene);
+    const shape = [
+      new Vector3(0.25, 0, 0),
+      new Vector3(0.24, 0.06, 0),
+      new Vector3(0.19, stemH * 0.5, 0),
+      new Vector3(0.18, stemH * 0.8, 0),
+      new Vector3(0.21, stemH, 0)
+    ];
+    const stem = MeshBuilder.CreateLathe(`rst_${Math.random()}`, { shape, tessellation: 52 }, scene);
+    stem.position.y = y;
+    parts.push(stem);
+    y += stemH;
+
+    const collar = MeshBuilder.CreateTorus(`rc_${Math.random()}`, { diameter: 0.44, thickness: 0.035, tessellation: 44 }, scene);
+    collar.position.y = y;
+    collar.rotation.x = Math.PI / 2;
+    parts.push(collar);
+    y += 0.018;
+
+    const flareH = 0.08;
+    const flare = MeshBuilder.CreateCylinder(`rf_${Math.random()}`, { diameterTop: 0.44, diameterBottom: 0.36, height: flareH, tessellation: 48 }, scene);
+    flare.position.y = y + flareH * 0.5;
+    parts.push(flare);
+    y += flareH;
+
+    const headH = 0.14;
+    const headR = 0.22;
+    const head = MeshBuilder.CreateCylinder(`rh_${Math.random()}`, { diameter: headR * 2, height: headH, tessellation: 48 }, scene);
     head.position.y = y + headH * 0.5;
     parts.push(head);
-    const topDeck = MeshBuilder.CreateCylinder(`rtd_${Math.random()}`, { diameter: headR * 2 - 0.04, height: 0.022, tessellation: 40 }, scene);
-    topDeck.position.y = y + headH + 0.011;
-    parts.push(topDeck);
-    const merlons = 8;
-    const mr = headR * 0.88;
-    const yMer = y + headH + 0.056;
-    for (let i = 0; i < merlons; i++) {
-      const ang = (i / merlons) * Math.PI * 2;
-      const tooth = MeshBuilder.CreateBox(`rc_${i}_${Math.random()}`, { width: 0.088, height: 0.1, depth: 0.052 }, scene);
+    
+    const merlons = 6;
+    const merlonH = 0.07;
+    const merlonW = (headR * 2 * Math.PI) / (merlons * 2.2);
+    const mr = headR - 0.025;
+    const yMer = y + headH + merlonH * 0.5;
+    
+    const deck = MeshBuilder.CreateCylinder(`rd_${Math.random()}`, { diameter: headR * 2 - 0.08, height: 0.02, tessellation: 32 }, scene);
+    deck.position.y = y + headH;
+    parts.push(deck);
+
+    for (let i = 0; i < merlons * 2; i++) {
+      if (i % 2 !== 0) continue;
+      const ang = (i / (merlons * 2)) * Math.PI * 2;
+      const tooth = MeshBuilder.CreateBox(`rm_${i}_${Math.random()}`, { width: merlonW, height: merlonH, depth: 0.05 }, scene);
       tooth.position.set(Math.cos(ang) * mr, yMer, Math.sin(ang) * mr);
       tooth.rotation.y = -ang;
       parts.push(tooth);
     }
   } else if (type === "n") {
-    const stemH = 0.24;
-    y = addLatheStem(scene, parts, y, stemH);
-    const chest = MeshBuilder.CreateCylinder(`nb_${Math.random()}`, { diameterTop: 0.26, diameterBottom: 0.34, height: 0.2, tessellation: 36 }, scene);
-    chest.position.y = y + 0.1;
-    parts.push(chest);
-    y += 0.2;
-    const neck = MeshBuilder.CreateCylinder(`nn_${Math.random()}`, { diameterTop: 0.2, diameterBottom: 0.27, height: 0.16, tessellation: 28 }, scene);
-    neck.position.set(0.015, y + 0.06, 0.04);
-    neck.rotation.z = 0.42;
-    neck.rotation.x = -0.32;
+    const stemH = 0.22;
+    const shape = [
+      new Vector3(0.22, 0, 0),
+      new Vector3(0.21, 0.04, 0),
+      new Vector3(0.18, stemH * 0.5, 0),
+      new Vector3(0.19, stemH * 0.8, 0),
+      new Vector3(0.21, stemH, 0)
+    ];
+    const stem = MeshBuilder.CreateLathe(`nst_${Math.random()}`, { shape, tessellation: 40 }, scene);
+    stem.position.y = y;
+    parts.push(stem);
+    y += stemH;
+
+    const bust = MeshBuilder.CreateCylinder(`nbust_${Math.random()}`, { diameterTop: 0.32, diameterBottom: 0.38, height: 0.12, tessellation: 36 }, scene);
+    bust.position.y = y + 0.06;
+    parts.push(bust);
+    y += 0.12;
+
+    const neck = MeshBuilder.CreateSphere(`nn_${Math.random()}`, { diameter: 0.34, segments: 24 }, scene);
+    neck.scaling = new Vector3(0.65, 1.2, 0.9);
+    neck.position.set(0, y + 0.15, 0.05);
+    neck.rotation.x = 0.15;
     parts.push(neck);
-    const skull = MeshBuilder.CreateSphere(`nsk_${Math.random()}`, { diameter: 0.22, segments: 20 }, scene);
-    skull.position.set(0.04, y + 0.15, 0.14);
-    skull.scaling = new Vector3(1.05, 0.92, 1.25);
-    skull.rotation.y = -0.38;
+
+    const upNeck = MeshBuilder.CreateCylinder(`nun_${Math.random()}`, { diameterTop: 0.22, diameterBottom: 0.28, height: 0.24, tessellation: 24 }, scene);
+    upNeck.position.set(0, y + 0.3, 0.14);
+    upNeck.rotation.x = -0.15;
+    parts.push(upNeck);
+
+    const skull = MeshBuilder.CreateSphere(`nsk_${Math.random()}`, { diameter: 0.26, segments: 24 }, scene);
+    skull.scaling = new Vector3(0.85, 0.9, 1.15);
+    skull.position.set(0, y + 0.44, 0.22);
+    skull.rotation.x = 0.2;
     parts.push(skull);
-    const snout = MeshBuilder.CreateCylinder(`nsn_${Math.random()}`, { diameterTop: 0.07, diameterBottom: 0.12, height: 0.34, tessellation: 16 }, scene);
-    snout.position.set(0.08, y + 0.1, 0.32);
-    snout.rotation.x = 1.05;
-    snout.rotation.y = -0.28;
+
+    const snout = MeshBuilder.CreateCylinder(`nsn_${Math.random()}`, { diameterTop: 0.11, diameterBottom: 0.19, height: 0.32, tessellation: 20 }, scene);
+    snout.position.set(0, y + 0.34, 0.38);
+    snout.rotation.x = 1.15;
     parts.push(snout);
-    const jaw = MeshBuilder.CreateBox(`nj_${Math.random()}`, { width: 0.1, height: 0.06, depth: 0.16 }, scene);
-    jaw.position.set(0.06, y + 0.06, 0.34);
-    jaw.rotation.x = 0.35;
-    jaw.rotation.y = -0.22;
+
+    const jaw = MeshBuilder.CreateSphere(`njw_${Math.random()}`, { diameter: 0.22, segments: 20 }, scene);
+    jaw.scaling = new Vector3(0.95, 0.8, 1.05);
+    jaw.position.set(0, y + 0.34, 0.28);
+    jaw.rotation.x = 0.4;
     parts.push(jaw);
-    const ear1 = MeshBuilder.CreateCylinder(`ne1_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.06, height: 0.1, tessellation: 8 }, scene);
-    ear1.position.set(-0.02, y + 0.22, 0.06);
-    ear1.rotation.z = -0.35;
-    ear1.rotation.x = 0.25;
-    parts.push(ear1);
-    const ear2 = MeshBuilder.CreateCylinder(`ne2_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.055, height: 0.085, tessellation: 8 }, scene);
-    ear2.position.set(0.02, y + 0.24, -0.02);
-    ear2.rotation.z = 0.28;
-    ear2.rotation.x = 0.15;
-    parts.push(ear2);
-    const maneN = 14;
+
+    for (const sx of [-1, 1]) {
+      const ear = MeshBuilder.CreateCylinder(`ne_${sx}_${Math.random()}`, { diameterTop: 0.01, diameterBottom: 0.06, height: 0.12, tessellation: 12 }, scene);
+      ear.position.set(sx * 0.07, y + 0.54, 0.14);
+      ear.rotation.x = -0.25;
+      ear.rotation.z = sx * 0.35;
+      parts.push(ear);
+    }
+
+    for (const sx of [-1, 1]) {
+      const eye = MeshBuilder.CreateSphere(`ney_${sx}_${Math.random()}`, { diameter: 0.04, segments: 12 }, scene);
+      eye.position.set(sx * 0.10, y + 0.44, 0.28);
+      parts.push(eye);
+    }
+
+    const maneN = 18;
     for (let i = 0; i < maneN; i++) {
       const t = i / (maneN - 1);
-      const ang = -0.85 + t * 1.35;
-      const my = y + 0.04 + t * 0.2;
-      const mz = -0.12 - t * 0.14;
-      const ridge = MeshBuilder.CreateBox(`nm_${i}_${Math.random()}`, { width: 0.028, height: 0.11 + t * 0.06, depth: 0.045 }, scene);
-      ridge.position.set(-0.1 - t * 0.04, my, mz);
-      ridge.rotation.y = ang;
-      ridge.rotation.z = -0.15 - t * 0.25;
+      const ang = -0.2 + t * 1.6;
+      const my = y + 0.12 + Math.sin(t * Math.PI) * 0.32;
+      const mz = -0.05 - t * 0.24;
+      const ridge = MeshBuilder.CreateBox(`nm_${i}_${Math.random()}`, { width: 0.04, height: 0.14 + Math.sin(t * Math.PI) * 0.06, depth: 0.09 }, scene);
+      ridge.position.set(0, my, mz);
+      ridge.rotation.x = ang;
       parts.push(ridge);
     }
   } else if (type === "b") {
-    const stemH = 0.3;
+    const stemH = 0.32;
     y = addLatheStem(scene, parts, y, stemH);
+    
     const lowCollar = MeshBuilder.CreateTorus(`bcl_${Math.random()}`, { diameter: 0.38, thickness: 0.026, tessellation: 44 }, scene);
     lowCollar.position.y = y + 0.014;
     lowCollar.rotation.x = Math.PI / 2;
     parts.push(lowCollar);
-    const neck = MeshBuilder.CreateCylinder(`bn_${Math.random()}`, { diameterTop: 0.19, diameterBottom: 0.24, height: 0.07, tessellation: 32 }, scene);
-    neck.position.y = y + 0.048;
+    
+    const neck = MeshBuilder.CreateCylinder(`bn_${Math.random()}`, { diameterTop: 0.20, diameterBottom: 0.25, height: 0.08, tessellation: 32 }, scene);
+    neck.position.y = y + 0.054;
     parts.push(neck);
-    const upCollar = MeshBuilder.CreateTorus(`bcu_${Math.random()}`, { diameter: 0.23, thickness: 0.012, tessellation: 36 }, scene);
-    upCollar.position.y = y + 0.09;
+    
+    const upCollar = MeshBuilder.CreateTorus(`bcu_${Math.random()}`, { diameter: 0.25, thickness: 0.018, tessellation: 36 }, scene);
+    upCollar.position.y = y + 0.1;
     upCollar.rotation.x = Math.PI / 2;
     parts.push(upCollar);
-    const yMitre = y + 0.2;
-    bishopMitreWithSlitVisual(scene, parts, yMitre);
-    const finial = MeshBuilder.CreateSphere(`bfin_${Math.random()}`, { diameter: 0.1, segments: 20 }, scene);
-    finial.position.y = yMitre + 0.26;
+    y += 0.11;
+    
+    const mitreH = 0.42;
+    const mitreShape = [
+      new Vector3(0.001, 0, 0),
+      new Vector3(0.12, 0.02, 0),
+      new Vector3(0.165, mitreH * 0.25, 0),
+      new Vector3(0.165, mitreH * 0.4, 0),
+      new Vector3(0.12, mitreH * 0.7, 0),
+      new Vector3(0.04, mitreH * 0.95, 0),
+      new Vector3(0.001, mitreH, 0)
+    ];
+    const mitre = MeshBuilder.CreateLathe(`bm_${Math.random()}`, { shape: mitreShape, tessellation: 48 }, scene);
+    mitre.position.y = y;
+    parts.push(mitre);
+    
+    const slitW = 0.045;
+    const slitH = mitreH * 0.65;
+    const slitD = 0.40;
+    const slit = MeshBuilder.CreateBox(`bm_sl_${Math.random()}`, { width: slitW, height: slitH, depth: slitD }, scene);
+    slit.position.set(0, y + mitreH * 0.55, 0);
+    slit.rotation.x = 0.52;
+    slit.metadata = { bishopSlit: true };
+    parts.push(slit);
+
+    const finial = MeshBuilder.CreateSphere(`bfin_${Math.random()}`, { diameter: 0.09, segments: 24 }, scene);
+    finial.position.y = y + mitreH + 0.02;
     parts.push(finial);
   } else if (type === "q") {
     const stemH = 0.4;
