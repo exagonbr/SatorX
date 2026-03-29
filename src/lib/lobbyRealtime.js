@@ -93,39 +93,63 @@ function attachLobbyRealtime(server, { memoryLobbies }) {
         let color = null;
         if (secret === lobby.wsSecrets.w) color = "w";
         else if (lobby.wsSecrets.b && secret === lobby.wsSecrets.b) color = "b";
-        if (!color) {
+
+        if (color) {
+          ws._lobby = { lobbyId, color, role: "player" };
+          if (!lobbySockets.has(lobbyId)) lobbySockets.set(lobbyId, new Set());
+          lobbySockets.get(lobbyId).add(ws);
+
+          lobby.wsCount = lobby.wsCount || { w: 0, b: 0 };
+          lobby.wsCount[color]++;
+          if (lobby.players.length >= 2) {
+            lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
+            lobby.everHadWs[color] = true;
+          }
+          lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
+          if (lobby.wsCount[color] > 0) lobby.disconnectStartedAt[color] = null;
+          syncBothOffline(lobby);
+
+          const names = lobby.names || {};
+          lobbySend(ws, {
+            type: "hello_ack",
+            role: "player",
+            color,
+            fen: lobby.fen,
+            names,
+            chat: Array.isArray(lobby.chat) ? lobby.chat : [],
+            serverTime: Date.now()
+          });
+          const myName = color === "w" ? names.white : names.black;
+          broadcastToLobby(lobbyId, { type: "peer_ws", color, name: myName }, ws);
+          const set = lobbySockets.get(lobbyId);
+          const playingCount = [...set].filter((c) => {
+            const z = c._lobby;
+            return z && z.lobbyId === lobbyId && (z.color === "w" || z.color === "b");
+          }).length;
+          if (playingCount >= 2) {
+            broadcastToLobby(lobbyId, { type: "handshake", peersWs: playingCount, t: Date.now() });
+          }
+          return;
+        }
+
+        const specMap = lobby.wsSecrets.spectators || {};
+        const specMeta = specMap[secret];
+        if (!specMeta) {
           return lobbySend(ws, { type: "error", code: "auth", message: "Credencial inválida." });
         }
-        ws._lobby = { lobbyId, color };
+        ws._lobby = { lobbyId, role: "spectator", spectatorId: specMeta.id, name: specMeta.name };
+        ws._spectatorSecret = secret;
         if (!lobbySockets.has(lobbyId)) lobbySockets.set(lobbyId, new Set());
         lobbySockets.get(lobbyId).add(ws);
-
-        lobby.wsCount = lobby.wsCount || { w: 0, b: 0 };
-        lobby.wsCount[color]++;
-        if (lobby.players.length >= 2) {
-          lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
-          lobby.everHadWs[color] = true;
-        }
-        lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
-        if (lobby.wsCount[color] > 0) lobby.disconnectStartedAt[color] = null;
-        syncBothOffline(lobby);
-
         const names = lobby.names || {};
         lobbySend(ws, {
           type: "hello_ack",
-          color,
+          role: "spectator",
           fen: lobby.fen,
           names,
           chat: Array.isArray(lobby.chat) ? lobby.chat : [],
           serverTime: Date.now()
         });
-        const myName = color === "w" ? names.white : names.black;
-        broadcastToLobby(lobbyId, { type: "peer_ws", color, name: myName }, ws);
-        const set = lobbySockets.get(lobbyId);
-        const wsCount = [...set].filter((c) => c._lobby && c._lobby.lobbyId === lobbyId).length;
-        if (wsCount >= 2) {
-          broadcastToLobby(lobbyId, { type: "handshake", peersWs: wsCount, t: Date.now() });
-        }
         return;
       }
 
@@ -140,6 +164,7 @@ function attachLobbyRealtime(server, { memoryLobbies }) {
       }
 
       if (type === "move") {
+        if (L.role === "spectator") return;
         if (lobby.finished) return;
         const { fen, san } = msg;
         if (typeof fen !== "string") return;
@@ -155,15 +180,28 @@ function attachLobbyRealtime(server, { memoryLobbies }) {
         const text = sanitizeChat(msg.text);
         if (!text) return;
         const names = lobby.names || {};
-        const displayName =
-          (L.color === "w" ? names.white : names.black) || (L.color === "w" ? "Brancas" : "Pretas");
-        const entry = {
-          id: crypto.randomBytes(8).toString("hex"),
-          from: L.color,
-          name: displayName,
-          text,
-          t: Date.now()
-        };
+        let entry;
+        if (L.role === "spectator") {
+          const base = L.name || "Espectador";
+          entry = {
+            id: crypto.randomBytes(8).toString("hex"),
+            from: "spectator",
+            name: base,
+            spectator: true,
+            text,
+            t: Date.now()
+          };
+        } else {
+          const displayName =
+            (L.color === "w" ? names.white : names.black) || (L.color === "w" ? "Brancas" : "Pretas");
+          entry = {
+            id: crypto.randomBytes(8).toString("hex"),
+            from: L.color,
+            name: displayName,
+            text,
+            t: Date.now()
+          };
+        }
         if (!lobby.chat) lobby.chat = [];
         lobby.chat.push(entry);
         if (lobby.chat.length > 80) lobby.chat.splice(0, lobby.chat.length - 80);
@@ -175,7 +213,9 @@ function attachLobbyRealtime(server, { memoryLobbies }) {
       const L = ws._lobby;
       if (L) {
         const lobby = memoryLobbies[L.lobbyId];
-        if (lobby && L.color) {
+        if (L.role === "spectator" && lobby?.wsSecrets?.spectators && ws._spectatorSecret) {
+          delete lobby.wsSecrets.spectators[ws._spectatorSecret];
+        } else if (lobby && L.color) {
           const c = L.color;
           lobby.wsCount = lobby.wsCount || { w: 0, b: 0 };
           lobby.wsCount[c] = Math.max(0, (lobby.wsCount[c] || 0) - 1);

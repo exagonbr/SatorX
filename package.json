@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "build": "npx prisma generate",
+    "build": "npx prisma migrate deploy && npx prisma generate",
     "db:init": "node scripts/init-ai-db.js",
     "db:migrate": "npx prisma migrate deploy",
     "db:migrate:dev": "npx prisma migrate dev",
@@ -27,11 +27,14 @@
     "pwa:icons": "node src/tools/generatePwaIcons.js"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^6.19.2",
     "@prisma/client": "^6.19.2",
     "@vercel/analytics": "^2.0.1",
     "chess.js": "^1.0.0",
     "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
     "express": "^4.19.2",
+    "pg": "^8.20.0",
     "prisma": "^6.19.2",
     "ws": "^8.20.0"
   },

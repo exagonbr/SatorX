@@ -121,7 +121,7 @@ async function randomBufferSample(limit) {
   return prisma.$queryRaw`
     SELECT replay_id AS replayId, created_at AS createdAt, result, ply, fen
     FROM replay_buffer_rows
-    ORDER BY RANDOM()
+    ORDER BY random()
     LIMIT ${take}
   `;
 }

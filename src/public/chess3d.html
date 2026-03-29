@@ -825,6 +825,9 @@
               <option value="2" selected>2 (xadrez)</option>
             </select>
           </label>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Máx. espectadores
+            <input type="number" id="mpMaxSpectators" value="8" min="1" max="32" title="Quem assiste sem jogar; pode ocupar lugar se um jogador cair" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          </label>
           <div style="display:flex; gap: 8px; margin-top: 10px; margin-bottom: 8px;">
             <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
           </div>
@@ -832,6 +835,11 @@
             <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
             <input type="password" id="mpJoinPassword" placeholder="Senha (se houver)" maxlength="64" autocomplete="current-password" style="flex:1; min-width:120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
             <button type="button" class="btn" id="btnJoinLobby">Entrar</button>
+            <button type="button" class="btn" id="btnSpectateLobby" title="Vista de cima; entre como jogador se um lugar ficar livre">Assistir</button>
+          </div>
+          <div id="mpClaimRow" style="display:none; margin-top:8px; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn" id="btnClaimW">Ocupar brancas</button>
+            <button type="button" class="btn" id="btnClaimB">Ocupar pretas</button>
           </div>
           <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
           <p id="mpConnStats" class="mp-conn-stats" aria-live="polite">Canal: — · Ping: —</p>

@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
@@ -7,22 +8,6 @@ const https = require("https");
 const crypto = require("crypto");
 const { attachLobbyRealtime, makeSecret } = require("./lib/lobbyRealtime");
 
-if (process.env.VERCEL) {
-  // Em ambiente Vercel (read-only), copia a DB para /tmp para permitir escritas temporárias
-  const dbPath = path.join(__dirname, "..", "data", "ai_learning.db");
-  const tmpDbPath = "/tmp/ai_learning.db";
-  try {
-    if (fs.existsSync(dbPath) && !fs.existsSync(tmpDbPath)) {
-      fs.copyFileSync(dbPath, tmpDbPath);
-    }
-  } catch (err) {
-    console.warn("Aviso Vercel: não foi possível copiar DB para /tmp", err);
-  }
-  process.env.DATABASE_URL = "file:/tmp/ai_learning.db";
-} else if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:../data/ai_learning.db";
-}
-
 const DATA_DIR = path.join(__dirname, "..", "data");
 const CERT_DIR = path.join(DATA_DIR, "certs");
 
@@ -31,8 +16,7 @@ if (!process.env.VERCEL) {
   if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 }
 
-const { createLobbyRankingStore } = require("./lib/lobbyRankingStore");
-const lobbyRankingStore = createLobbyRankingStore(DATA_DIR, Boolean(process.env.VERCEL));
+const { appendLobbyRanking, listLobbyRanking } = require("./db/lobbyRankingPrisma");
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -245,12 +229,38 @@ app.post("/api/nn/predict-rating", (req, res) => {
   });
 });
 
-// ---------- Multiplayer API (Memória / Polling para compatibilidade Vercel) ----------
+// ---------- Multiplayer API (memória no processo; requer Node long-running para produção) ----------
 const memoryLobbies = {};
 /** @type {(lobbyId: string, msg: object) => void} */
 let lobbyBroadcastToLobby = function () {};
 
+/** Expõe limites do alojamento (Vercel serverless = sem memória partilhada nem upgrade WebSocket no export actual). */
+app.get("/api/lobby/capabilities", (req, res) => {
+  const serverless = Boolean(process.env.VERCEL);
+  res.json({
+    ok: true,
+    persistentLobbies: !serverless,
+    websocketLobby: !serverless
+  });
+});
+
 const DISCONNECT_AWARD_MS = 120000; // 2 min — vitória de quem permanece ligado (WS)
+
+function lobbyEnsureExtras(lobby) {
+  if (!lobby) return;
+  if (!Array.isArray(lobby.spectators)) lobby.spectators = [];
+  if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null, spectators: {} };
+  if (!lobby.wsSecrets.spectators || typeof lobby.wsSecrets.spectators !== "object") {
+    lobby.wsSecrets.spectators = {};
+  }
+  if (lobby.maxSpectators == null) lobby.maxSpectators = 8;
+}
+
+function lobbyClaimMsLeft(lobby, seat) {
+  const d = lobby.disconnectStartedAt?.[seat];
+  if (!d) return 0;
+  return Math.max(0, DISCONNECT_AWARD_MS - (Date.now() - d));
+}
 
 function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
   const lobby = memoryLobbies[lobbyId];
@@ -272,7 +282,7 @@ function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
     scoreW = 0;
     scoreB = 1;
   }
-  lobbyRankingStore.append({
+  void appendLobbyRanking({
     lobbyId,
     whiteName: names.white || "Brancas",
     blackName: names.black || "Pretas",
@@ -283,8 +293,9 @@ function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
     scoreBlack: scoreB,
     durationSec,
     startedAt: new Date(started).toISOString(),
-    endedAt: new Date(lobby.endedAt).toISOString()
-  });
+    endedAt: new Date(lobby.endedAt).toISOString(),
+    recordedAt: new Date().toISOString()
+  }).catch((e) => console.error("[lobby/ranking] Prisma:", e.message));
   try {
     lobbyBroadcastToLobby(lobbyId, {
       type: "game_over",
@@ -366,9 +377,12 @@ app.post("/api/lobby/create", (req, res) => {
   const playerName = sanitizeLobbyName(req.body?.playerName);
   const opponentName = sanitizeLobbyName(req.body?.opponentName);
   const passwordRaw = sanitizeLobbyPassword(req.body?.password);
+  const maxSpectators = Math.min(32, Math.max(1, parseInt(req.body?.maxSpectators, 10) || 8));
   memoryLobbies[lobbyId] = {
     players: [1],
     maxPlayers: 2,
+    maxSpectators,
+    spectators: [],
     password: passwordRaw || null,
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     lastMove: null,
@@ -386,7 +400,7 @@ app.post("/api/lobby/create", (req, res) => {
       opponentExpected: opponentName || null
     },
     chat: [],
-    wsSecrets: { w: makeSecret(), b: null }
+    wsSecrets: { w: makeSecret(), b: null, spectators: {} }
   };
   const lobby = memoryLobbies[lobbyId];
   return res.json({
@@ -395,6 +409,7 @@ app.post("/api/lobby/create", (req, res) => {
     color: "w",
     names: lobby.names,
     maxPlayers: 2,
+    maxSpectators: lobby.maxSpectators,
     hasPassword: Boolean(lobby.password),
     wsSecret: lobby.wsSecrets.w,
     realtimePath: "/api/lobby/socket"
@@ -414,6 +429,7 @@ app.post("/api/lobby/join", (req, res) => {
   if (lobby.players.length !== 1) {
     return res.status(400).json({ error: "Sala cheia ou não existe" });
   }
+  lobbyEnsureExtras(lobby);
   lobby.players.push(2);
   lobby.updatedAt = Date.now();
   lobby.startedAt = Date.now();
@@ -421,7 +437,8 @@ app.post("/api/lobby/join", (req, res) => {
     lobby.names = { white: null, black: null, opponentExpected: null };
   }
   lobby.names.black = joinName || null;
-  if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null };
+  if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null, spectators: {} };
+  if (!lobby.wsSecrets.spectators) lobby.wsSecrets.spectators = {};
   lobby.wsSecrets.b = makeSecret();
   return res.json({
     ok: true,
@@ -430,8 +447,102 @@ app.post("/api/lobby/join", (req, res) => {
     fen: lobby.fen,
     names: lobby.names,
     maxPlayers: 2,
+    maxSpectators: lobby.maxSpectators,
     hasPassword: Boolean(lobby.password),
     wsSecret: lobby.wsSecrets.b,
+    realtimePath: "/api/lobby/socket"
+  });
+});
+
+app.post("/api/lobby/spectate", (req, res) => {
+  const lobbyId = req.body?.lobbyId;
+  const playerName = sanitizeLobbyName(req.body?.playerName);
+  const lobby = memoryLobbies[lobbyId];
+  if (!lobby || lobby.finished) {
+    return res.status(400).json({ error: "Sala inválida" });
+  }
+  lobbyEnsureExtras(lobby);
+  if (!lobbyPasswordOk(lobby, req.body?.password)) {
+    return res.status(403).json({ error: "Senha incorreta" });
+  }
+  if (lobby.players.length < 2) {
+    return res.status(400).json({ error: "Aguarde dois jogadores na sala para assistir." });
+  }
+  const cap = lobby.maxSpectators || 8;
+  if (lobby.spectators.length >= cap) {
+    return res.status(400).json({ error: "Limite de espectadores atingido." });
+  }
+  const id = crypto.randomBytes(6).toString("hex");
+  const token = makeSecret();
+  const disp = playerName || "Espectador";
+  lobby.spectators.push({ id, name: disp });
+  lobby.wsSecrets.spectators[token] = { id, name: disp };
+  return res.json({
+    ok: true,
+    wsSecret: token,
+    spectatorId: id,
+    role: "spectator",
+    realtimePath: "/api/lobby/socket"
+  });
+});
+
+app.post("/api/lobby/claim-seat", (req, res) => {
+  const { lobbyId, seat, playerName, spectatorSecret } = req.body || {};
+  if (seat !== "w" && seat !== "b") {
+    return res.status(400).json({ error: "Indique seat: \"w\" ou \"b\"." });
+  }
+  const lobby = memoryLobbies[lobbyId];
+  if (!lobby || lobby.finished) {
+    return res.status(400).json({ error: "Sala inválida" });
+  }
+  lobbyEnsureExtras(lobby);
+  if (!lobbyPasswordOk(lobby, req.body?.password)) {
+    return res.status(403).json({ error: "Senha incorreta" });
+  }
+  if (lobby.players.length < 2) {
+    return res.status(400).json({ error: "Partida ainda não começou." });
+  }
+  const wc = lobby.wsCount || { w: 0, b: 0 };
+  if (wc[seat] > 0) {
+    return res.status(400).json({ error: "Esse lugar já está ocupado no tempo real." });
+  }
+  const t0 = lobby.disconnectStartedAt?.[seat];
+  if (!t0 || Date.now() - t0 > DISCONNECT_AWARD_MS) {
+    return res.status(400).json({
+      error: "Não há lugar livre para ocupar (ou passaram 2 minutos — vitória por ausência)."
+    });
+  }
+  if (spectatorSecret && lobby.wsSecrets.spectators?.[spectatorSecret]) {
+    const meta = lobby.wsSecrets.spectators[spectatorSecret];
+    lobby.spectators = lobby.spectators.filter((s) => s.id !== meta.id);
+    delete lobby.wsSecrets.spectators[spectatorSecret];
+  }
+  const nm = sanitizeLobbyName(playerName) || (seat === "w" ? "Brancas" : "Pretas");
+  if (seat === "w") lobby.names.white = nm;
+  else lobby.names.black = nm;
+  const newSec = makeSecret();
+  lobby.wsSecrets[seat] = newSec;
+  lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
+  lobby.disconnectStartedAt[seat] = null;
+  lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
+  lobby.everHadWs[seat] = false;
+  lobby.updatedAt = Date.now();
+  try {
+    lobbyBroadcastToLobby(lobbyId, {
+      type: "seat_claimed",
+      seat,
+      name: nm,
+      names: { ...lobby.names }
+    });
+  } catch (_) {
+    /* ignore */
+  }
+  return res.json({
+    ok: true,
+    color: seat,
+    wsSecret: newSec,
+    names: lobby.names,
+    fen: lobby.fen,
     realtimePath: "/api/lobby/socket"
   });
 });
@@ -440,11 +551,20 @@ app.get("/api/lobby/status/:lobbyId", (req, res) => {
   const { lobbyId } = req.params;
   const lobby = memoryLobbies[lobbyId];
   if (!lobby) return res.status(404).json({ error: "Lobby não encontrado" });
+  lobbyEnsureExtras(lobby);
   const names = lobby.names || { white: null, black: null, opponentExpected: null };
+  const wc = lobby.wsCount || { w: 0, b: 0 };
+  const canClaim = (seat) =>
+    !lobby.finished &&
+    lobby.players.length >= 2 &&
+    wc[seat] === 0 &&
+    lobbyClaimMsLeft(lobby, seat) > 0;
   return res.json({
     ok: true,
     playersCount: lobby.players.length,
     maxPlayers: lobby.maxPlayers || 2,
+    spectatorsCount: lobby.spectators.length,
+    maxSpectators: lobby.maxSpectators || 8,
     hasPassword: Boolean(lobby.password),
     fen: lobby.fen,
     lastMove: lobby.lastMove,
@@ -452,13 +572,21 @@ app.get("/api/lobby/status/:lobbyId", (req, res) => {
     finished: Boolean(lobby.finished),
     winner: lobby.finished ? lobby.winnerColor || "draw" : null,
     endReason: lobby.endReason || null,
-    endReasonLabel: lobby.endReasonLabel || null
+    endReasonLabel: lobby.endReasonLabel || null,
+    seatClaimable: { w: canClaim("w"), b: canClaim("b") },
+    claimMsLeft: { w: lobbyClaimMsLeft(lobby, "w"), b: lobbyClaimMsLeft(lobby, "b") }
   });
 });
 
-app.get("/api/lobby/ranking", (req, res) => {
+app.get("/api/lobby/ranking", async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 50;
-  return res.json({ ok: true, entries: lobbyRankingStore.list(limit) });
+  try {
+    const entries = await listLobbyRanking(limit);
+    return res.json({ ok: true, entries });
+  } catch (e) {
+    console.error("[lobby/ranking]", e.message);
+    return res.status(500).json({ ok: false, error: "Falha ao ler ranking (corra: npx prisma migrate deploy)" });
+  }
 });
 
 app.post("/api/lobby/finish", (req, res) => {

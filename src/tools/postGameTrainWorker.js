@@ -2,9 +2,7 @@
  * Processo em background: treina pesos heurísticos a partir do buffer na BD.
  * Chamado pelo servidor após guardar replay (ver postGameTrainScheduler).
  */
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:../data/ai_learning.db";
-}
+require("dotenv").config();
 
 const { countBufferRows } = require("../db/replayStore");
 const { runTrainFromBuffer } = require("./trainFromBuffer");

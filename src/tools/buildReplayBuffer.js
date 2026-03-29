@@ -1,9 +1,6 @@
+require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
-
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:../data/ai_learning.db";
-}
 
 const { rebuildAllBufferRows } = require("../db/replayStore");
 const { getPrisma, closeDb } = require("../db/aiLearningStore");

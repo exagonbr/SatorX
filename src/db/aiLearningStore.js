@@ -1,31 +1,27 @@
 /**
- * Persistência local do aprendizado (TD + snapshots) via Prisma + SQLite.
+ * Persistência (TD + snapshots + replays + lobby) via Prisma + PostgreSQL.
  */
-const fs = require("fs");
-const path = require("path");
+require("dotenv").config();
 
-const DATA_DIR = path.join(__dirname, "..", "..", "data");
-const DB_FILE = path.join(DATA_DIR, "ai_learning.db");
+const path = require("path");
+const { PrismaPg } = require("@prisma/adapter-pg");
+const { PrismaClient } = require(path.join(__dirname, "..", "..", "generated", "prisma-client"));
 
 /** Um snapshot completo a cada N atualizações (além de nnWeights.json). */
 const SNAPSHOT_EVERY_UPDATES = 100;
 
 let prisma = null;
 
-function ensureDataDir() {
-  if (process.env.VERCEL) return;
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
 function getPrisma() {
   if (!prisma) {
-    ensureDataDir();
-    if (!process.env.DATABASE_URL) {
-      // Relativo a prisma/schema.prisma → raiz do projeto /data/ai_learning.db
-      process.env.DATABASE_URL = "file:../data/ai_learning.db";
+    const url = process.env.DATABASE_URL;
+    if (!url || !/^postgres(ql)?:\/\//i.test(url)) {
+      throw new Error(
+        "[aiLearningStore] Defina DATABASE_URL com a connection string PostgreSQL (ex.: no .env)."
+      );
     }
-    const { PrismaClient } = require("@prisma/client");
-    prisma = new PrismaClient();
+    const adapter = new PrismaPg({ connectionString: url });
+    prisma = new PrismaClient({ adapter });
   }
   return prisma;
 }
@@ -73,13 +69,9 @@ function maybeRecordWeightsSnapshot(weightsPayload, createdAt, updates) {
 
 /** Garante Prisma Client e ligação (útil após migrate). */
 async function initSchema() {
-  ensureDataDir();
-  if (!process.env.DATABASE_URL) {
-    process.env.DATABASE_URL = "file:../data/ai_learning.db";
-  }
   const client = getPrisma();
   await client.$connect();
-  return DB_FILE;
+  return null;
 }
 
 async function closeDb() {
@@ -99,6 +91,6 @@ module.exports = {
   maybeRecordWeightsSnapshot,
   initSchema,
   closeDb,
-  DB_PATH: DB_FILE,
+  DB_PATH: null,
   SNAPSHOT_EVERY_UPDATES
 };

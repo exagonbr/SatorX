@@ -3,8 +3,7 @@
 # Requer: Node 18+, git, PM2 instalado globalmente (npm i -g pm2).
 # Uso: bash scripts/deploy-prod.sh
 #
-# Se já existia ai_learning.db criado fora do Prisma e migrate deploy falhar por
-# tabelas duplicadas, uma vez: node scripts/prisma-run.js migrate resolve --applied 20250329120000_init
+# Requer DATABASE_URL com PostgreSQL (exporte antes do script ou use .env na raiz).
 #
 # Acesso pelo IP público (menos avisos no browser): exporte antes do deploy, por exemplo:
 #   CERT_EXTRA_SAN="IP:203.0.113.5,DNS:meu.dominio"
@@ -14,7 +13,17 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
-export DATABASE_URL="${DATABASE_URL:-file:../data/ai_learning.db}"
+if [ -f "$ROOT/.env" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ROOT/.env"
+  set +a
+fi
+
+if [ -z "${DATABASE_URL:-}" ]; then
+  echo "Erro: defina DATABASE_URL (PostgreSQL) no ambiente ou em .env" >&2
+  exit 1
+fi
 
 need_cmd() {
   if ! command -v "$1" >/dev/null 2>&1; then
