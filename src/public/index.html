@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>Sator Engine — A Fundação Inteligente</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preload" href="/img/panel1_fundo.webp" as="image" type="image/webp" fetchpriority="high"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
@@ -33,7 +34,7 @@
       background:
         radial-gradient(ellipse 80% 60% at 50% 110%, rgba(201,168,76,0.15) 0%, transparent 80%),
         radial-gradient(ellipse 120% 80% at 50% 50%, rgba(20,14,6,0.2) 0%, rgba(4,6,10,0.95) 100%),
-        url('/img/panel1_fundo.png') no-repeat center center;
+        url('/img/panel1_fundo.webp') no-repeat center center;
       background-size: cover;
     }
     .bg-chess {
@@ -63,8 +64,8 @@
       animation: logoReveal 1.5s cubic-bezier(0.22,1,0.36,1) both;
     }
     @keyframes logoReveal {
-      from { opacity: 0; transform: translateY(32px) scale(0.95); filter: blur(8px); }
-      to   { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0);   }
+      from { opacity: 0; transform: translateY(20px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);   }
     }
     .peca-central {
       width: min(540px, 80vw);
@@ -217,8 +218,14 @@
 
   <main class="screen">
     <div class="logo-wrap">
-      <img src="/img/panel2_peca.png" class="peca-central" alt="Peca Central" draggable="false"/>
-      <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" draggable="false"/>
+      <picture>
+        <source type="image/webp" srcset="/img/panel2_peca.webp"/>
+        <img src="/img/panel2_peca.png" class="peca-central" alt="Peca Central" width="482" height="327" decoding="async" draggable="false"/>
+      </picture>
+      <picture>
+        <source type="image/webp" srcset="/img/panel3_texto.webp"/>
+        <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" width="482" height="97" decoding="async" draggable="false"/>
+      </picture>
     </div>
 
     <div class="divider"></div>
@@ -292,7 +299,7 @@
 
       function initNodes() {
         nodes = [];
-        const count = Math.floor((W * H) / 16000);
+        const count = Math.min(72, Math.floor((W * H) / 24000));
         for (let i = 0; i < count; i++) {
           nodes.push({
             x: Math.random() * W, y: Math.random() * H,
