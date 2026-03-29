@@ -17,7 +17,7 @@ module.exports = {
       cwd: root,
       script: "src/server.js",
       // Um processo: mesma porta (HTTPS) + SQLite/Prisma num único ficheiro.
-      instances: 5,
+      instances: 1,
       exec_mode: "fork",
       autorestart: true,
       max_memory_restart: "500M",
