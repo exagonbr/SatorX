@@ -6,8 +6,18 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
 
-/** Coloque `library-room.glb` em `/public/models/` para substituir o conjunto procedural. */
+/** Só é pedido à rede se `shouldTryLibraryGlb()` for true (evita 404 no consola sem o ficheiro). */
 const OPTIONAL_LIBRARY_GLB = "/models/library-room.glb";
+
+function shouldTryLibraryGlb() {
+  if (typeof document === "undefined") return false;
+  if (document.documentElement.dataset.tryLibraryGltf === "true") return true;
+  try {
+    return new URLSearchParams(window.location.search).get("libglb") === "1";
+  } catch {
+    return false;
+  }
+}
 
 const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
@@ -57,8 +67,8 @@ let cameraRef = null;
 let controlsRef = null;
 let rendererRef = null;
 let composerRef = null;
-/** @type {{ orb: THREE.Group | null, fireLight: THREE.PointLight | null, firePhase: number }} */
-const libraryAnim = { orb: null, fireLight: null, firePhase: 0 };
+/** @type {{ fireLight: THREE.PointLight | null, firePhase: number }} */
+const libraryAnim = { fireLight: null, firePhase: 0 };
 let pieceNodes = [];
 let busy = false;
 
@@ -729,7 +739,7 @@ function createBloomComposer(renderer, scene, camera, w, h) {
   return composer;
 }
 
-function addProceduralLibraryRoom(parent, orbPointLight) {
+function addProceduralLibraryRoom(parent) {
   const stone = new THREE.MeshStandardMaterial({
     color: 0x6a635c,
     roughness: 0.91,
@@ -819,42 +829,6 @@ function addProceduralLibraryRoom(parent, orbPointLight) {
   chair.add(studRow);
   parent.add(chair);
 
-  // Orb + anéis (referência “magical core”)
-  const orbGroup = new THREE.Group();
-  orbGroup.position.set(0, 2.38, -3.95);
-  const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.2, 40, 28),
-    new THREE.MeshPhysicalMaterial({
-      color: 0xffb040,
-      emissive: 0xff8800,
-      emissiveIntensity: 2.8,
-      metalness: 0.25,
-      roughness: 0.12,
-      toneMapped: true
-    })
-  );
-  core.name = "orbCore";
-  orbGroup.add(core);
-  const ringMat = new THREE.MeshStandardMaterial({
-    color: 0xd4af37,
-    metalness: 0.85,
-    roughness: 0.25,
-    emissive: 0x664400,
-    emissiveIntensity: 0.35
-  });
-  for (let i = 0; i < 3; i++) {
-    const torus = new THREE.Mesh(
-      new THREE.TorusGeometry(0.34 + i * 0.09, 0.018, 10, 64),
-      ringMat
-    );
-    torus.rotation.x = Math.PI / 2 + (i - 1) * 0.45;
-    torus.rotation.y = i * 0.6;
-    orbGroup.add(torus);
-  }
-  parent.add(orbGroup);
-  libraryAnim.orb = orbGroup;
-  orbPointLight.position.set(0, 2.38, -3.95);
-
   // Estantes laterais simplificadas
   function bookWall(side) {
     const x = side * 9.2;
@@ -911,15 +885,16 @@ function installLibraryEnvironment(scene) {
   root.name = "libraryFurniture";
   scene.add(root);
 
-  const fireLight = new THREE.PointLight(0xff6620, 16, 24, 2);
+  const fireLight = new THREE.PointLight(0xff6620, 9, 24, 2.2);
   fireLight.position.set(0, 1.28, -10.5);
   fireLight.castShadow = false;
   scene.add(fireLight);
   libraryAnim.fireLight = fireLight;
 
-  const orbLight = new THREE.PointLight(0xffcc88, 7, 15, 1.7);
-  orbLight.position.set(0, 2.38, -3.95);
-  scene.add(orbLight);
+  if (!shouldTryLibraryGlb()) {
+    addProceduralLibraryRoom(root);
+    return;
+  }
 
   const loader = new GLTFLoader();
   loader.load(
@@ -933,11 +908,10 @@ function installLibraryEnvironment(scene) {
         }
       });
       root.add(gltf.scene);
-      libraryAnim.orb = null;
     },
     undefined,
     () => {
-      addProceduralLibraryRoom(root, orbLight);
+      addProceduralLibraryRoom(root);
     }
   );
 }
@@ -1003,7 +977,7 @@ function createScene() {
   controls.dampingFactor = 0.05;
   controlsRef = controls;
 
-  // Luzes (ambiente + key; lareira e orb em installLibraryEnvironment)
+  // Luzes (ambiente + key; lareira suave em installLibraryEnvironment)
   const hemiLight = new THREE.HemisphereLight(0xfff5ee, 0x2a2420, 0.48);
   hemiLight.position.set(0, 20, 0);
   scene.add(hemiLight);
@@ -1179,13 +1153,7 @@ function createScene() {
     if (libraryAnim.fireLight) {
       libraryAnim.firePhase += dt * 10;
       const f = libraryAnim.firePhase;
-      libraryAnim.fireLight.intensity = 16 + Math.sin(f) * 3.2 + Math.sin(f * 2.7) * 1.8;
-    }
-    if (libraryAnim.orb) {
-      libraryAnim.orb.rotation.y += dt * 0.42;
-      for (const ch of libraryAnim.orb.children) {
-        if (ch.name !== "orbCore") ch.rotation.z += dt * 0.28;
-      }
+      libraryAnim.fireLight.intensity = 9 + Math.sin(f) * 1.4 + Math.sin(f * 2.7) * 0.9;
     }
     if (composerRef) composerRef.render();
     else renderer.render(scene, camera);
