@@ -1,23 +1,9 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
-
-/** Só é pedido à rede se `shouldTryLibraryGlb()` for true (evita 404 no consola sem o ficheiro). */
-const OPTIONAL_LIBRARY_GLB = "/models/library-room.glb";
-
-function shouldTryLibraryGlb() {
-  if (typeof document === "undefined") return false;
-  if (document.documentElement.dataset.tryLibraryGltf === "true") return true;
-  try {
-    return new URLSearchParams(window.location.search).get("libglb") === "1";
-  } catch {
-    return false;
-  }
-}
 
 const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
@@ -725,7 +711,7 @@ function syncChessClockPlacement() {
   }
 }
 
-// ── Cena da biblioteca (procedural + GLTF opcional) + bloom ─────────────────────────────
+// ── Cena da biblioteca (procedural) + bloom ───────────────────────────────────────────────
 function setupRendererColorPipeline(renderer) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -891,29 +877,7 @@ function installLibraryEnvironment(scene) {
   scene.add(fireLight);
   libraryAnim.fireLight = fireLight;
 
-  if (!shouldTryLibraryGlb()) {
-    addProceduralLibraryRoom(root);
-    return;
-  }
-
-  const loader = new GLTFLoader();
-  loader.load(
-    OPTIONAL_LIBRARY_GLB,
-    (gltf) => {
-      while (root.children.length) root.remove(root.children[0]);
-      gltf.scene.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = true;
-          o.receiveShadow = true;
-        }
-      });
-      root.add(gltf.scene);
-    },
-    undefined,
-    () => {
-      addProceduralLibraryRoom(root);
-    }
-  );
+  addProceduralLibraryRoom(root);
 }
 
 // ── Iniciação Three.js ───────────────────────────────────────────────────────────────────
