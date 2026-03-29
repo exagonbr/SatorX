@@ -13,6 +13,8 @@
   <link rel="manifest" href="/manifest.webmanifest"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preload" href="/img/library-panorama.webp" as="image" type="image/webp"/>
+  <link rel="preload" href="/img/library-bg.webp" as="image" type="image/webp"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
@@ -49,7 +51,11 @@
      * evita “faixas pretas” de % auto em panorâmicas. O pan horizontal usa quase 0–100% da imagem.
      */
     #library-parallax-root {
-      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      overflow: hidden;
+      pointer-events: none;
     }
     #library-parallax-root .library-parallax-layer {
       position: absolute;
@@ -66,17 +72,31 @@
       transition: none;
     }
     #library-bg-far {
-      background-image: url('/img/library-parallax-1.png');
+      background-image: url("/img/library-parallax-1.png");
       filter: blur(1px) brightness(1) saturate(1);
     }
     #library-bg-near {
-      background-image: url('/img/library-parallax-2.png');
+      background-image: url("/img/library-parallax-2.png");
       opacity: 0.55;
       width: 132%;
       height: 132%;
       left: -16%;
       top: -16%;
       filter: blur(0.5px) brightness(1.02) saturate(1.02);
+    }
+    @supports (background-image: image-set(url("x.webp") type("image/webp"))) {
+      #library-bg-far {
+        background-image: image-set(
+          url("/img/library-panorama.webp") type("image/webp"),
+          url("/img/library-parallax-1.png") type("image/png")
+        );
+      }
+      #library-bg-near {
+        background-image: image-set(
+          url("/img/library-bg.webp") type("image/webp"),
+          url("/img/library-parallax-2.png") type("image/png")
+        );
+      }
     }
 
     /* Um único gradiente suave: menos composição GPU que radial + linear empilhados */
@@ -597,10 +617,52 @@
     .chess3d-loading__bg {
       position: absolute;
       inset: 0;
+      overflow: hidden;
+    }
+    .chess3d-loading__bg::before {
+      content: "";
+      position: absolute;
+      inset: -16px;
+      background-image: url("/img/library-parallax-1.png");
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      background-size: cover;
+      filter: blur(8px);
+      transform: scale(1.06);
+    }
+    @supports (background-image: image-set(url("x.webp") type("image/webp"))) {
+      .chess3d-loading__bg::before {
+        background-image: image-set(
+          url("/img/library-panorama.webp") type("image/webp"),
+          url("/img/library-parallax-1.png") type("image/png")
+        );
+      }
+    }
+    .chess3d-loading__bg::after {
+      content: "";
+      position: absolute;
+      inset: 0;
       background:
         radial-gradient(ellipse 85% 75% at 50% 38%, rgba(55, 44, 32, 0.55) 0%, transparent 52%),
         radial-gradient(ellipse 120% 90% at 50% 100%, rgba(12, 9, 6, 0.9) 0%, transparent 45%),
-        linear-gradient(165deg, #241c14 0%, #15100c 45%, #0a0806 100%);
+        linear-gradient(165deg, rgba(36, 28, 20, 0.82) 0%, rgba(21, 16, 12, 0.9) 45%, rgba(10, 8, 6, 0.94) 100%);
+      pointer-events: none;
+    }
+    @media (prefers-reduced-data: reduce) {
+      .chess3d-loading__bg::before { display: none; }
+      .chess3d-loading__bg::after {
+        background:
+          radial-gradient(ellipse 85% 75% at 50% 38%, rgba(55, 44, 32, 0.55) 0%, transparent 52%),
+          radial-gradient(ellipse 120% 90% at 50% 100%, rgba(12, 9, 6, 0.9) 0%, transparent 45%),
+          linear-gradient(165deg, #241c14 0%, #15100c 45%, #0a0806 100%);
+      }
+      #library-bg-far,
+      #library-bg-near {
+        background-image: none;
+      }
+      #library-parallax-root {
+        background: #1a1510;
+      }
     }
     .chess3d-loading__pieces {
       position: absolute;
@@ -738,13 +800,11 @@
     }
   })();
   </script>
-  <!-- Fundo desfocado: biblioteca vitoriana -->
-  <!-- Parallax substituído por cilindros 3D
+  <!-- Fundo 180° (CSS) por trás do canvas transparente; pan ligado à câmera em chess3d.mjs -->
   <div id="library-parallax-root" aria-hidden="true">
     <div id="library-bg-far" class="library-parallax-layer"></div>
     <div id="library-bg-near" class="library-parallax-layer"></div>
   </div>
-  -->
   <div id="library-vignette" aria-hidden="true"></div>
   <canvas id="renderCanvas"></canvas>
 

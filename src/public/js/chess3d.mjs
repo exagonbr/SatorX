@@ -31,14 +31,25 @@ const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
 const FILES = "abcdefgh";
 
-/** Até ~900px (celular paisagem / tablet estreito): sem PNG panorâmico + menos pixels no WebGL. */
-function preferLightBackdrop() {
+/** Utilizador pediu menos dados: cilindro com gradiente procedural em vez do PNG (o parallax CSS continua com imagem, salvo reduced-data no HTML). */
+function prefersReducedData() {
   if (typeof window === "undefined" || typeof matchMedia === "undefined") return false;
   try {
-    return (
-      matchMedia("(max-width: 900px)").matches ||
-      matchMedia("(prefers-reduced-data: reduce)").matches
-    );
+    return matchMedia("(prefers-reduced-data: reduce)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function preferLightBackdrop() {
+  return prefersReducedData();
+}
+
+/** Menos pixels no WebGL em ecrã estreito ou com reduced-data. */
+function preferMobileLowPixelRatio() {
+  if (typeof window === "undefined" || typeof matchMedia === "undefined") return false;
+  try {
+    return matchMedia("(max-width: 900px)").matches || prefersReducedData();
   } catch {
     return false;
   }
@@ -313,8 +324,8 @@ function applySelectionGlow(sq, enable) {
       } else {
         const isWhite = meta.color === "w";
         m.material.emissiveColor = isWhite
-          ? new Color3(0.018, 0.018, 0.022)
-          : new Color3(0.006, 0.006, 0.008);
+          ? new Color3(0.04, 0.035, 0.028)
+          : new Color3(0.02, 0.018, 0.024);
       }
     }
     break;
@@ -797,16 +808,17 @@ function makePieceMaterial(scene, color) {
   const mat = new PBRMetallicRoughnessMaterial(`pm_${color}_${Math.random()}`, scene);
   if (pieceReflectionProbe) {
     mat.environmentTexture = pieceReflectionProbe.cubeTexture;
-    mat.environmentIntensity = color === "w" ? 1.25 : 1.35;
+    // Menos reflexo de ambiente = menos “vidro”; leitura clara brancas vs pretas
+    mat.environmentIntensity = color === "w" ? 0.72 : 0.78;
   }
-  mat.metallic = 0.06;
-  mat.roughness = color === "w" ? 0.2 : 0.18;
+  mat.metallic = 0.05;
+  mat.roughness = color === "w" ? 0.38 : 0.34;
   if (color === "w") {
-    mat.baseColor = new Color3(0.97, 0.97, 0.99);
-    mat.emissiveColor = new Color3(0.018, 0.018, 0.022);
+    mat.baseColor = new Color3(0.94, 0.91, 0.86);
+    mat.emissiveColor = new Color3(0.04, 0.035, 0.028);
   } else {
-    mat.baseColor = new Color3(0.035, 0.035, 0.04);
-    mat.emissiveColor = new Color3(0.006, 0.006, 0.008);
+    mat.baseColor = new Color3(0.14, 0.13, 0.17);
+    mat.emissiveColor = new Color3(0.02, 0.018, 0.024);
   }
   return mat;
 }
@@ -1044,9 +1056,9 @@ function makeBishopSlitMaterial(scene, color) {
   m.metallic = 0.02;
   m.roughness = 0.88;
   if (color === "w") {
-    m.baseColor = new Color3(0.03, 0.03, 0.035);
+    m.baseColor = new Color3(0.06, 0.055, 0.05);
   } else {
-    m.baseColor = new Color3(0.015, 0.015, 0.02);
+    m.baseColor = new Color3(0.05, 0.048, 0.055);
   }
   m.emissiveColor = Color3.Black();
   return m;
@@ -1912,7 +1924,7 @@ function buildChessClubEnvironment(scene) {
     farMat.emissiveColor = new Color3(0.92, 0.86, 0.78);
     farMat.emissiveTexture = gradTex;
   } else {
-    farMat.diffuseTexture = new Texture("/img/library-parallax-1.png", scene);
+    farMat.diffuseTexture = new Texture("/img/library-panorama.webp", scene);
     farMat.diffuseTexture.uScale = -2;
     farMat.diffuseTexture.vScale = -1;
     farMat.diffuseTexture.uOffset = 0.5;
@@ -2121,12 +2133,12 @@ function createScene(canvas) {
     adaptToDeviceRatio: true,
     alpha: true
   });
-  if (preferLightBackdrop()) {
+  if (preferMobileLowPixelRatio()) {
     const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     engine.setHardwareScalingLevel(dpr >= 2 ? 1.5 : 1.25);
   }
   const scene = new Scene(engine);
-  // Transparente: o fundo são as duas camadas CSS (parallax) por trás do canvas
+  // Transparente: camadas #library-parallax-root (z-index 1) por trás do canvas (z-index 2)
   scene.clearColor = new Color4(0, 0, 0, 0);
   buildChessClubEnvironment(scene);
 
@@ -2510,11 +2522,10 @@ if (getMode() === "engine" && getPlayerColor() === "b") {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PARALLAX 3D no HTML foi desativado (usamos cilindros no WebGL agora)
+// Parallax CSS 180° (camadas por trás do canvas); pan derivado da ArcRotateCamera
 // ─────────────────────────────────────────────────────────────────────────────
 
 (function initParallaxBackground() {
-  return; // DESATIVADO
   const bgFar = document.getElementById('library-bg-far');
   const bgNear = document.getElementById('library-bg-near');
   if (!bgFar || !bgNear) return;
