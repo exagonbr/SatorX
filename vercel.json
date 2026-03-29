@@ -16,5 +16,10 @@
       "dest": "/$1"
     }
   ],
+  "functions": {
+    "src/server.js": {
+      "excludeFiles": "src/public/**"
+    }
+  },
   "outputDirectory": "src/public"
 }
