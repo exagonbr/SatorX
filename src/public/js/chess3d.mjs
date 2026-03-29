@@ -970,7 +970,11 @@ function buildClassicChessClock(scene) {
 }
 
 function createScene(canvas) {
-  const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
+  const engine = new Engine(canvas, true, {
+    preserveDrawingBuffer: true,
+    stencil: true,
+    adaptToDeviceRatio: true
+  });
   const scene = new Scene(engine);
   buildSalonBackdrop(scene);
 
@@ -1049,8 +1053,9 @@ function createScene(canvas) {
   addBoardBrassFrame(scene);
 
   const shadow = new ShadowGenerator(2048, dir);
-  shadow.useBlurExponentialShadowMap = true;
-  shadow.blurKernel = 32;
+  // Blur ESM falha ou trava em alguns drivers (Linux/Mesa); PCF é bem mais estável.
+  shadow.usePercentageCloserFiltering = true;
+  shadow.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
   shadowGenRef = shadow;
 
   scene.onPointerObservable.add((pi) => {
@@ -1108,7 +1113,20 @@ function createScene(canvas) {
   });
 
   engine.runRenderLoop(() => scene.render());
-  window.addEventListener("resize", () => engine.resize());
+  const kickResize = () => {
+    try {
+      engine.resize();
+    } catch (_) {}
+  };
+  window.addEventListener("resize", kickResize);
+  kickResize();
+  requestAnimationFrame(() => {
+    kickResize();
+    requestAnimationFrame(kickResize);
+  });
+  if (typeof ResizeObserver !== "undefined" && canvas) {
+    new ResizeObserver(kickResize).observe(canvas);
+  }
 
   sceneRef = scene;
   syncPiecesFromGame();

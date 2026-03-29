@@ -166,6 +166,35 @@
       flex-shrink: 0;
       box-shadow: 0 0 6px rgba(0,0,0,0.35);
     }
+    .engine-tune {
+      margin-top: 12px;
+      border-top: 1px solid var(--border);
+      padding-top: 10px;
+    }
+    .engine-tune summary {
+      cursor: pointer;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      list-style: none;
+      user-select: none;
+    }
+    .engine-tune summary::-webkit-details-marker { display: none; }
+    .engine-tune summary::after {
+      content: " ▸";
+      font-size: 0.7rem;
+      opacity: 0.85;
+    }
+    .engine-tune[open] summary::after { content: " ▾"; }
+    .engine-tune__help {
+      margin: 10px 0 10px;
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .engine-tune__help strong { color: var(--text); font-weight: 600; }
   </style>
   <script type="importmap">
   {
@@ -206,10 +235,17 @@
           </select>
         </label>
       </div>
-      <div class="row">
-        <label>Prof. <input id="depth" type="number" value="7" min="1" max="10"/></label>
-        <label>ms <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
-      </div>
+      <details class="engine-tune">
+        <summary>Profundidade e tempo do motor</summary>
+        <p class="engine-tune__help">
+          <strong>Prof.</strong> é a profundidade da busca: quantas <em>meia-jogadas</em> (plies) o motor tenta olhar à frente — valores maiores deixam o jogo mais forte e mais pesado.
+          <strong>ms</strong> é o teto de tempo por lance em milissegundos; a busca pode parar antes se a profundidade for atingida.
+        </p>
+        <div class="row" style="margin-top:0">
+          <label>Prof. <input id="depth" type="number" value="7" min="1" max="10"/></label>
+          <label>ms <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+        </div>
+      </details>
       <div class="row">
         <label class="toggle"><input type="checkbox" id="trainOnline" checked/> Treino TD online (cada lance)</label>
       </div>
