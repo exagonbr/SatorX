@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Sator"/>
-  <title>Sator Engine — A Fundação Inteligente</title>
+  <title>SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI</title>
   <link rel="manifest" href="/manifest.webmanifest"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -219,6 +219,24 @@
     .modal::-webkit-scrollbar-track { background: transparent; }
     .modal::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
 
+    /* Estilos específicos Modal IA */
+    .modal h3 {
+      font-family: "Cinzel", serif; font-size: 0.85rem; font-weight: 700;
+      letter-spacing: 0.15em; color: var(--gold-bright); text-transform: uppercase;
+      margin-top: 24px; margin-bottom: 12px;
+    }
+    .modal--ia p { margin-bottom: 10px; }
+    .ia-section { margin-bottom: 24px; }
+    .ia-section:last-of-type { margin-bottom: 0; }
+    .ia-stats-list { list-style: none; padding-left: 0; margin-top: 10px; }
+    .ia-stats-list li { margin-bottom: 8px; font-size: 0.85rem; color: rgba(232,224,208,0.9); }
+    .ia-stats-list span { color: var(--gold-bright); font-family: monospace; font-size: 0.95rem; }
+    .masters-list { padding-left: 0 !important; list-style: none; }
+    .masters-list > li { margin-bottom: 16px; background: rgba(0,0,0,0.25); border: 1px solid rgba(201,168,76,0.1); border-radius: 4px; padding: 12px; }
+    .masters-list > li > strong { color: var(--gold); display: block; margin-bottom: 6px; font-family: "Cinzel", serif; font-size: 0.9rem; letter-spacing: 0.08em; }
+    .masters-list ul { padding-left: 18px !important; margin-top: 4px; }
+    .masters-list ul li { font-size: 0.8rem; color: rgba(232,224,208,0.75); margin-bottom: 4px; line-height: 1.4; }
+
     /* Modal regras: layout + demonstrações */
     .modal--rules {
       width: min(640px, 94vw);
@@ -361,17 +379,65 @@
 
   <!-- Modal: IA -->
   <div class="overlay" id="overlayIA" role="dialog" aria-modal="true">
-    <div class="modal">
+    <div class="modal modal--ia">
       <h2>IA &amp; Rede Neural</h2>
-      <p>O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).</p>
-      <ul>
-        <li><strong>Motor híbrido</strong>: heurísticas posicionais + rede neural de valor.</li>
-        <li><strong>TD online</strong>: a rede aprende em tempo real durante a partida.</li>
-        <li><strong>Buffer de replay</strong>: partidas salvas como pares (estado, resultado) para treino supervisionado.</li>
-        <li><strong>Geometria sagrada</strong>: avaliação baseada no quadrado SATOR — padrões de simetria e conectividade no tabuleiro.</li>
-      </ul>
-      <p>Para treinar a rede com suas partidas:</p>
-      <code>npm run build-buffer<br/>npm run train-buffer -- 30 4 500</code>
+      
+      <div class="ia-section">
+        <h3>Estado Atual da IA</h3>
+        <p id="iaStatusLoading">A ligar ao Sator Engine...</p>
+        <div id="iaStatusData" style="display: none;">
+          <ul class="ia-stats-list">
+            <li><strong>Updates de Treino:</strong> <span id="iaUpdates">-</span></li>
+            <li><strong>Último Erro (TD-λ):</strong> <span id="iaTdError">-</span></li>
+            <li><strong>Média de Ranking (Elo):</strong> <span id="iaElo">~1850</span> <em>(Referência inicial)</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="ia-section">
+        <h3>Como são feitos os cálculos</h3>
+        <p>O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).</p>
+        <p>A avaliação utiliza uma <strong>curva logística (Sigmoid)</strong> que converte a saída linear da rede neural (V) numa probabilidade de vitória e Elo estimado. Além disso, usa heurísticas híbridas e <strong>Geometria Sagrada</strong> (Quadrado SATOR) para analisar simetria e conectividade.</p>
+        <ul>
+          <li><strong>TD online</strong>: a rede aprende em tempo real durante as partidas.</li>
+          <li><strong>Buffer de replay</strong>: partidas salvas para treino supervisionado.</li>
+        </ul>
+      </div>
+
+      <div class="ia-section">
+        <h3>Modelos Base (Mestres)</h3>
+        <p>Durante o aprendizado contínuo, a IA simula partidas baseadas no estilo de 3 Grandes Mestres, absorvendo os seus padrões táticos e posicionais:</p>
+        <ul class="masters-list">
+          <li>
+            <strong>Garry Kasparov</strong>
+            <ul>
+              <li>Preparação de abertura profunda e variantes agressivas</li>
+              <li>Pressão dinâmica e luta pela iniciativa em todas as fases</li>
+              <li>Cálculo de variantes táticas e sacrifícios posicionais calculados</li>
+              <li>Psicologia competitiva: forçar decisões difíceis ao adversário</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Magnus Carlsen</strong>
+            <ul>
+              <li>Pragmatismo: escolher posições jogáveis e pouco claras</li>
+              <li>Finais e técnica: converter vantagens mínimas com paciência</li>
+              <li>Versatilidade de aberturas e evitar preparação estreita do adversário</li>
+              <li>Resistência e precisão sob pressão de tempo e cansaço</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Judit Polgár</strong>
+            <ul>
+              <li>Xadrez de ataque e tática: buscar complicações quando favorece o talento</li>
+              <li>Aberturas agressivas com brancas; defesas dinâmicas com pretas</li>
+              <li>Confiança no cálculo e em posições desequilibradas</li>
+              <li>Estilo de luta constante — evitar simplificações cedendo iniciativa</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
       <button class="modal-close" data-close="overlayIA">Fechar</button>
     </div>
   </div>
@@ -835,7 +901,23 @@
 
     document.getElementById("btnRules").onclick   = function() { openModal("overlayRules"); };
     document.getElementById("btnOptions").onclick  = function() { openModal("overlayOptions"); };
-    document.getElementById("btnIA").onclick       = function() { openModal("overlayIA"); };
+    document.getElementById("btnIA").onclick       = function() { 
+      openModal("overlayIA"); 
+      fetch('/api/nn/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          if (data && data.ok) {
+            document.getElementById("iaStatusLoading").style.display = "none";
+            document.getElementById("iaStatusData").style.display = "block";
+            document.getElementById("iaUpdates").textContent = data.updates || 0;
+            document.getElementById("iaTdError").textContent = data.lastTdError != null ? Number(data.lastTdError).toFixed(4) : "N/D";
+          }
+        })
+        .catch(function(err) {
+          document.getElementById("iaStatusLoading").textContent = "Erro ao carregar os dados da IA.";
+          console.error(err);
+        });
+    };
 
     document.querySelectorAll(".modal-close").forEach(function(b) {
       b.onclick = function() { closeModal(b.dataset.close); };
