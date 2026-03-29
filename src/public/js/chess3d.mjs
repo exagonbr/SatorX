@@ -61,6 +61,85 @@ let busy = false;
 let multiplayerPollId = null;
 let myMultiplayerColor = "w";
 let currentLobbyId = null;
+let chess3dToastTimer = null;
+/** Contagem de jogadores no último poll (anfitrião vê toast quando passa de 1 a 2). */
+let mpLastPlayersPollCount = 0;
+let mpSocket = null;
+let mpWsSecret = null;
+let mpPingIntervalId = null;
+let mpLastRttMs = null;
+
+function showToast(message, variant = "info") {
+  const el = document.getElementById("chess3dToast");
+  if (!el || !message) return;
+  el.textContent = message;
+  el.classList.remove("toast--success", "toast--error");
+  if (variant === "success") el.classList.add("toast--success");
+  else if (variant === "error") el.classList.add("toast--error");
+  el.classList.add("toast--show");
+  if (chess3dToastTimer) clearTimeout(chess3dToastTimer);
+  chess3dToastTimer = setTimeout(() => {
+    chess3dToastTimer = null;
+    el.classList.remove("toast--show");
+  }, variant === "error" ? 5200 : 3800);
+}
+
+function lobbyNamesLine(names, playersCount, lobbyId) {
+  const n = names || {};
+  const w = n.white || "Brancas";
+  const b = n.black || n.opponentExpected || null;
+  const base = "Sala " + lobbyId + " — ";
+  if (playersCount > 1 && n.black) {
+    return base + w + " vs " + n.black;
+  }
+  if (b) {
+    return base + w + " vs " + b + " (a aguardar ligação)";
+  }
+  return base + w + " (a aguardar oponente)";
+}
+
+let mpResultPosted = false;
+let mpServerEndShown = false;
+
+function resetMpMatchReporting() {
+  mpResultPosted = false;
+  mpServerEndShown = false;
+}
+
+function openMpServerEndOverlay(reasonLabel, winner) {
+  mpServerEndShown = true;
+  const overlay = document.getElementById("gameOverOverlay");
+  const title = document.getElementById("goTitle");
+  const detail = document.getElementById("goDetail");
+  if (!overlay || !title || !detail) return;
+  if (winner === "draw") {
+    title.textContent = "Fim de partida";
+  } else if (winner === myMultiplayerColor) {
+    title.textContent = "Vitória";
+  } else {
+    title.textContent = "Derrota";
+  }
+  detail.textContent = reasonLabel || "A partida terminou.";
+  overlay.classList.add("open");
+  overlay.setAttribute("aria-hidden", "false");
+  stopClock();
+}
+
+function postMpFinishIfNeeded() {
+  if (getMode() !== "multiplayer" || !currentLobbyId || !game.isGameOver() || mpResultPosted) return;
+  mpResultPosted = true;
+  fetch("/api/lobby/finish", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ lobbyId: currentLobbyId, fen: game.fen() })
+  })
+    .then(async (r) => {
+      if (!r.ok) mpResultPosted = false;
+    })
+    .catch(() => {
+      mpResultPosted = false;
+    });
+}
 
 // ── Relógio ─────────────────────────────────────────────────────────────────────────────
 let clockWhiteSecs = 0;
@@ -287,6 +366,9 @@ function updateGameOverOverlay() {
   const detail = document.getElementById("goDetail");
   if (!overlay || !title || !detail) return;
   if (!game.isGameOver()) {
+    if (getMode() === "multiplayer" && mpServerEndShown) {
+      return;
+    }
     overlay.classList.remove("open");
     overlay.setAttribute("aria-hidden", "true");
     return;
@@ -357,6 +439,7 @@ function updateStatus() {
   }
   syncCheckKingHighlight();
   updateGameOverOverlay();
+  if (getMode() === "multiplayer") postMpFinishIfNeeded();
 }
 
 // ── Geometria das Peças ─────────────────────────────────────────────────────────────────
@@ -500,94 +583,320 @@ document.querySelectorAll(".promo-btns button").forEach((btn) => {
   btn.addEventListener("click", () => closePromotionPicker(btn.getAttribute("data-p")));
 });
 
-function startMultiplayerPolling() {
-  if (multiplayerPollId) clearInterval(multiplayerPollId);
-  multiplayerPollId = setInterval(async () => {
-    if (!currentLobbyId || getMode() !== "multiplayer") return;
+function updateMpConnStats() {
+  const el = document.getElementById("mpConnStats");
+  if (!el) return;
+  if (!currentLobbyId || getMode() !== "multiplayer") {
+    el.textContent = "Canal: — · Ping: —";
+    return;
+  }
+  const wsOk = mpSocket && mpSocket.readyState === WebSocket.OPEN;
+  const ch = wsOk ? "tempo real (WS)" : "HTTP (reserva)";
+  const ping = mpLastRttMs != null ? `${Math.round(mpLastRttMs)} ms` : "—";
+  el.textContent = `Canal: ${ch} · Ping: ${ping}`;
+}
+
+function appendMpChatLine(entry) {
+  const log = document.getElementById("mpChatLog");
+  if (!log || !entry || !entry.text) return;
+  const row = document.createElement("div");
+  row.className = "mp-chat-line";
+  const who = entry.name || (entry.from === "w" ? "Brancas" : "Pretas");
+  const time = entry.t
+    ? new Date(entry.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const meta = document.createElement("span");
+  meta.className = "mp-chat-meta";
+  meta.textContent = (time ? `${time} · ` : "") + who + ": ";
+  const body = document.createElement("span");
+  body.className = "mp-chat-text";
+  body.textContent = entry.text;
+  row.appendChild(meta);
+  row.appendChild(body);
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function clearMpChatUi() {
+  const log = document.getElementById("mpChatLog");
+  if (log) log.textContent = "";
+  const input = document.getElementById("mpChatInput");
+  if (input) input.value = "";
+}
+
+function sendMpChat() {
+  const input = document.getElementById("mpChatInput");
+  if (!input) return;
+  if (!mpSocket || mpSocket.readyState !== WebSocket.OPEN) {
+    showToast("Abra o canal em tempo real (reconecte à sala) para usar o chat.", "info");
+    return;
+  }
+  const text = (input.value || "").trim();
+  if (!text) return;
+  mpSocket.send(JSON.stringify({ type: "chat", text }));
+  input.value = "";
+}
+
+function disconnectMpRealtime() {
+  if (mpPingIntervalId) {
+    clearInterval(mpPingIntervalId);
+    mpPingIntervalId = null;
+  }
+  if (mpSocket) {
     try {
-      const res = await fetch("/api/lobby/status/" + currentLobbyId).then(r => r.json());
-      if (res.ok) {
-        if (res.playersCount > 1) {
-          const st = document.getElementById("lobbyStatus");
-          if (st && st.textContent.includes("aguardando")) {
-            st.textContent = "Oponente conectado!";
-          }
+      mpSocket.close();
+    } catch (_) {
+      /* ignore */
+    }
+    mpSocket = null;
+  }
+  mpWsSecret = null;
+  mpLastRttMs = null;
+  updateMpConnStats();
+  scheduleMultiplayerPoll();
+}
+
+function connectMpRealtime(lobbyId, secret) {
+  disconnectMpRealtime();
+  if (!lobbyId || !secret || typeof WebSocket === "undefined") {
+    scheduleMultiplayerPoll();
+    updateMpConnStats();
+    return;
+  }
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const url = `${proto}//${window.location.host}/api/lobby/socket`;
+  mpWsSecret = secret;
+  const ws = new WebSocket(url);
+  mpSocket = ws;
+
+  ws.addEventListener("open", () => {
+    ws.send(JSON.stringify({ type: "auth", lobbyId, secret: mpWsSecret }));
+    mpPingIntervalId = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      const id = Date.now();
+      ws._lastPingId = id;
+      ws.send(JSON.stringify({ type: "ping", id }));
+    }, 2800);
+    updateMpConnStats();
+    scheduleMultiplayerPoll();
+  });
+
+  ws.addEventListener("message", (ev) => {
+    let msg;
+    try {
+      msg = JSON.parse(ev.data);
+    } catch {
+      return;
+    }
+    if (msg.type === "hello_ack") {
+      if (msg.fen && msg.fen !== game.fen()) {
+        try {
+          game.load(msg.fen);
+          syncPiecesFromGame();
+          updateStatus();
+        } catch (_) {
+          /* ignore */
         }
-        if (res.fen && res.fen !== game.fen()) {
+      }
+      const log = document.getElementById("mpChatLog");
+      if (log && Array.isArray(msg.chat)) {
+        log.textContent = "";
+        for (const e of msg.chat) appendMpChatLine(e);
+      }
+      scheduleMultiplayerPoll();
+      return;
+    }
+    if (msg.type === "pong" && msg.id === ws._lastPingId) {
+      mpLastRttMs = Date.now() - msg.id;
+      updateMpConnStats();
+      return;
+    }
+    if (msg.type === "state" && msg.fen && msg.fromColor && msg.fromColor !== myMultiplayerColor) {
+      if (msg.fen !== game.fen()) {
+        try {
+          game.load(msg.fen);
+          syncPiecesFromGame();
+          updateStatus();
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      return;
+    }
+    if (msg.type === "chat" && msg.text) {
+      appendMpChatLine(msg);
+      return;
+    }
+    if (msg.type === "handshake") {
+      showToast("Handshake com o oponente: canal em tempo real ativo.", "success");
+      updateMpConnStats();
+      return;
+    }
+    if (msg.type === "game_over") {
+      mpResultPosted = true;
+      if (!mpServerEndShown) {
+        openMpServerEndOverlay(msg.reasonLabel, msg.winner);
+      }
+      return;
+    }
+    if (msg.type === "error" && msg.message) {
+      showToast(msg.message, "error");
+    }
+  });
+
+  ws.addEventListener("close", () => {
+    if (mpPingIntervalId) {
+      clearInterval(mpPingIntervalId);
+      mpPingIntervalId = null;
+    }
+    if (mpSocket === ws) mpSocket = null;
+    updateMpConnStats();
+    scheduleMultiplayerPoll();
+  });
+
+  ws.addEventListener("error", () => {
+    /* fallback para HTTP; sem toast para evitar spam */
+  });
+}
+
+async function pollLobbyOnce() {
+  if (!currentLobbyId || getMode() !== "multiplayer") return;
+  try {
+    const res = await fetch("/api/lobby/status/" + currentLobbyId).then((r) => r.json());
+    if (res.ok) {
+      const st = document.getElementById("lobbyStatus");
+      if (st) {
+        st.textContent = lobbyNamesLine(res.names, res.playersCount, currentLobbyId);
+      }
+      if (res.playersCount > 1 && mpLastPlayersPollCount === 1 && myMultiplayerColor === "w") {
+        showToast("Oponente ligado à sala.", "success");
+      }
+      mpLastPlayersPollCount = res.playersCount;
+      if (res.fen && res.fen !== game.fen()) {
+        try {
           game.load(res.fen);
           syncPiecesFromGame();
           updateStatus();
+        } catch (_) {
+          /* ignore */
         }
       }
-    } catch (e) {
-      console.error("Polling error", e);
+      if (res.finished && res.endReasonLabel && !mpServerEndShown) {
+        openMpServerEndOverlay(res.endReasonLabel, res.winner);
+        mpResultPosted = true;
+      }
     }
-  }, 2000);
+  } catch (e) {
+    console.error("Polling error", e);
+  }
+}
+
+function scheduleMultiplayerPoll() {
+  if (multiplayerPollId) {
+    clearInterval(multiplayerPollId);
+    multiplayerPollId = null;
+  }
+  if (!currentLobbyId || getMode() !== "multiplayer") return;
+  const ms = mpSocket && mpSocket.readyState === WebSocket.OPEN ? 12000 : 2000;
+  multiplayerPollId = setInterval(pollLobbyOnce, ms);
+  pollLobbyOnce();
 }
 
 async function createLobby() {
+  const nameEl = document.getElementById("mpPlayerName");
+  const oppEl = document.getElementById("mpOpponentName");
+  const passEl = document.getElementById("mpRoomPassword");
+  const maxEl = document.getElementById("mpMaxPlayers");
+  const playerName = (nameEl?.value || "").trim();
+  const opponentName = (oppEl?.value || "").trim();
+  const password = (passEl?.value || "").trim();
+  const maxPlayers = maxEl ? parseInt(maxEl.value, 10) || 2 : 2;
+  showToast("A ligar ao servidor…", "info");
   try {
-    const res = await fetch("/api/lobby/create", { method: "POST" }).then(r => r.json());
-    if (res.ok) {
-      currentLobbyId = res.lobbyId;
-      myMultiplayerColor = res.color;
-      
-      const st = document.getElementById("lobbyStatus");
-      if(st) st.textContent = "Sala: " + res.lobbyId + " (aguardando)";
-      const idInput = document.getElementById("lobbyIdInput");
-      if(idInput) idInput.value = res.lobbyId;
-
-      let shareBtn = document.getElementById("btnShareLink");
-      if (!shareBtn) {
-        shareBtn = document.createElement("button");
-        shareBtn.id = "btnShareLink";
-        shareBtn.className = "btn";
-        shareBtn.style.marginTop = "8px";
-        document.getElementById("multiplayerSetup").appendChild(shareBtn);
-      }
-      const inviteLink = window.location.origin + window.location.pathname + "?lobby=" + res.lobbyId;
-      shareBtn.textContent = "Copiar Link de Convite";
-      shareBtn.onclick = () => {
-        navigator.clipboard.writeText(inviteLink);
-        shareBtn.textContent = "Copiado!";
-        setTimeout(() => shareBtn.textContent = "Copiar Link de Convite", 2000);
-      };
-
-      game.reset();
-      syncPiecesFromGame();
-      applyBoardCamera();
-      updateStatus();
-      startMultiplayerPolling();
+    const r = await fetch("/api/lobby/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerName, opponentName, password, maxPlayers })
+    });
+    const res = await r.json();
+    if (!r.ok || !res.ok) {
+      showToast(res.error || "Não foi possível criar a sala.", "error");
+      return;
     }
+    resetMpMatchReporting();
+    currentLobbyId = res.lobbyId;
+    myMultiplayerColor = res.color;
+    showToast("Ligação estabelecida. Sala criada — partilhe o código ou o link.", "success");
+
+    mpLastPlayersPollCount = 1;
+    const st = document.getElementById("lobbyStatus");
+    if (st) {
+      st.textContent = lobbyNamesLine(res.names, 1, res.lobbyId);
+    }
+    const idInput = document.getElementById("lobbyIdInput");
+    if (idInput) idInput.value = res.lobbyId;
+
+    let shareBtn = document.getElementById("btnShareLink");
+    if (!shareBtn) {
+      shareBtn = document.createElement("button");
+      shareBtn.id = "btnShareLink";
+      shareBtn.className = "btn";
+      shareBtn.style.marginTop = "8px";
+      document.getElementById("multiplayerSetup").appendChild(shareBtn);
+    }
+    const inviteLink = window.location.origin + window.location.pathname + "?lobby=" + res.lobbyId;
+    shareBtn.textContent = "Copiar Link de Convite";
+    shareBtn.onclick = () => {
+      navigator.clipboard.writeText(inviteLink);
+      shareBtn.textContent = "Copiado!";
+      setTimeout(() => shareBtn.textContent = "Copiar Link de Convite", 2000);
+    };
+
+    clearMpChatUi();
+    game.reset();
+    syncPiecesFromGame();
+    applyBoardCamera();
+    updateStatus();
+    connectMpRealtime(res.lobbyId, res.wsSecret);
   } catch (e) {
-    alert("Erro ao criar sala");
+    showToast("Erro de rede ao criar a sala. Tente de novo.", "error");
   }
 }
 
 async function joinLobby(id) {
+  const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
+  const joinPass = (document.getElementById("mpJoinPassword")?.value || "").trim();
+  showToast("A ligar à sala…", "info");
   try {
-    const res = await fetch("/api/lobby/join", {
+    const r = await fetch("/api/lobby/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lobbyId: id })
-    }).then(r => r.json());
-    
-    if (res.ok) {
+      body: JSON.stringify({ lobbyId: id, playerName, password: joinPass })
+    });
+    const res = await r.json();
+
+    if (r.ok && res.ok) {
+      resetMpMatchReporting();
       currentLobbyId = res.lobbyId;
       myMultiplayerColor = res.color;
       game.load(res.fen);
       syncPiecesFromGame();
       applyBoardCamera();
+      mpLastPlayersPollCount = 2;
       const st = document.getElementById("lobbyStatus");
-      if(st) st.textContent = "Conectado à sala: " + res.lobbyId;
+      if (st) {
+        st.textContent = lobbyNamesLine(res.names, 2, res.lobbyId);
+      }
+      showToast("Ligado à sala com sucesso.", "success");
       updateStatus();
-      startMultiplayerPolling();
+      clearMpChatUi();
+      connectMpRealtime(res.lobbyId, res.wsSecret);
     } else {
-      alert("Erro: " + (res.error || "Não foi possível entrar"));
+      showToast(res.error || "Não foi possível entrar na sala.", "error");
       currentLobbyId = null;
     }
   } catch (e) {
-    alert("Erro ao entrar na sala");
+    showToast("Erro de rede ao entrar na sala.", "error");
   }
 }
 
@@ -617,11 +926,15 @@ async function tryMove(from, to) {
   updateStatus();
 
   if (getMode() === "multiplayer" && currentLobbyId) {
-    fetch("/api/lobby/move", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lobbyId: currentLobbyId, move: move.san, fen: fenAfter })
-    }).catch(e => console.error(e));
+    if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
+      mpSocket.send(JSON.stringify({ type: "move", san: move.san, fen: fenAfter }));
+    } else {
+      fetch("/api/lobby/move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lobbyId: currentLobbyId, move: move.san, fen: fenAfter })
+      }).catch((e) => console.error(e));
+    }
   }
 
   updateClockDisplays();
@@ -1176,6 +1489,16 @@ window.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  document.getElementById("btnMpChatSend")?.addEventListener("click", () => {
+    sendMpChat();
+  });
+  document.getElementById("mpChatInput")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendMpChat();
+    }
+  });
+
   const urlParams = new URLSearchParams(window.location.search);
   const urlLobby = urlParams.get('lobby');
   if (urlLobby) {
@@ -1207,6 +1530,11 @@ window.addEventListener("DOMContentLoaded", () => {
         multiplayerPollId = null;
       }
       currentLobbyId = null;
+      mpLastPlayersPollCount = 0;
+      resetMpMatchReporting();
+      disconnectMpRealtime();
+      clearMpChatUi();
+      updateMpConnStats();
     }
     
     applyBoardCamera();

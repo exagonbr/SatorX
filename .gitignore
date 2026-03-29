@@ -1,3 +1,4 @@
 # Certificados gerados no servidor (não versionar)
 data/certs/
+data/lobby_rankings.json
 node_modules/

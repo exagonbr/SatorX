@@ -4,6 +4,8 @@ const path = require("path");
 const fs = require("fs");
 const http = require("http");
 const https = require("https");
+const crypto = require("crypto");
+const { attachLobbyRealtime, makeSecret } = require("./lib/lobbyRealtime");
 
 if (process.env.VERCEL) {
   // Em ambiente Vercel (read-only), copia a DB para /tmp para permitir escritas temporárias
@@ -28,6 +30,9 @@ if (!process.env.VERCEL) {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
   if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 }
+
+const { createLobbyRankingStore } = require("./lib/lobbyRankingStore");
+const lobbyRankingStore = createLobbyRankingStore(DATA_DIR, Boolean(process.env.VERCEL));
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -242,45 +247,261 @@ app.post("/api/nn/predict-rating", (req, res) => {
 
 // ---------- Multiplayer API (Memória / Polling para compatibilidade Vercel) ----------
 const memoryLobbies = {};
+/** @type {(lobbyId: string, msg: object) => void} */
+let lobbyBroadcastToLobby = function () {};
+
+const DISCONNECT_AWARD_MS = 120000; // 2 min — vitória de quem permanece ligado (WS)
+
+function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
+  const lobby = memoryLobbies[lobbyId];
+  if (!lobby || lobby.finished) return false;
+  lobby.finished = true;
+  lobby.winnerColor = winner === "draw" ? null : winner;
+  lobby.endReason = reasonCode;
+  lobby.endReasonLabel = reasonLabel;
+  lobby.endedAt = Date.now();
+  const names = lobby.names || {};
+  const started = lobby.startedAt || lobby.createdAt || lobby.endedAt;
+  const durationSec = Math.max(0, Math.round((lobby.endedAt - started) / 1000));
+  let scoreW = 0.5;
+  let scoreB = 0.5;
+  if (winner === "w") {
+    scoreW = 1;
+    scoreB = 0;
+  } else if (winner === "b") {
+    scoreW = 0;
+    scoreB = 1;
+  }
+  lobbyRankingStore.append({
+    lobbyId,
+    whiteName: names.white || "Brancas",
+    blackName: names.black || "Pretas",
+    winner,
+    reasonCode,
+    reasonLabel,
+    scoreWhite: scoreW,
+    scoreBlack: scoreB,
+    durationSec,
+    startedAt: new Date(started).toISOString(),
+    endedAt: new Date(lobby.endedAt).toISOString()
+  });
+  try {
+    lobbyBroadcastToLobby(lobbyId, {
+      type: "game_over",
+      winner,
+      reasonCode,
+      reasonLabel,
+      durationSec
+    });
+  } catch (_) {
+    /* ignore */
+  }
+  return true;
+}
+
+function tickLobbyDisconnectAwards() {
+  const now = Date.now();
+  for (const lobbyId of Object.keys(memoryLobbies)) {
+    const lobby = memoryLobbies[lobbyId];
+    if (!lobby || lobby.finished || lobby.players.length < 2) continue;
+    const wW = lobby.wsCount?.w ?? 0;
+    const wB = lobby.wsCount?.b ?? 0;
+    const d = lobby.disconnectStartedAt || { w: null, b: null };
+    const e = lobby.everHadWs || { w: false, b: false };
+    if (wW > 0 && wB === 0 && e.b && d.b && now - d.b >= DISCONNECT_AWARD_MS) {
+      finalizeLobbyMatch(
+        lobbyId,
+        "w",
+        "disconnect_timeout",
+        "Vitória das brancas — oponente ausente (tempo real) por 2+ minutos."
+      );
+      continue;
+    }
+    if (wB > 0 && wW === 0 && e.w && d.w && now - d.w >= DISCONNECT_AWARD_MS) {
+      finalizeLobbyMatch(
+        lobbyId,
+        "b",
+        "disconnect_timeout",
+        "Vitória das pretas — oponente ausente (tempo real) por 2+ minutos."
+      );
+      continue;
+    }
+    if (lobby.bothOfflineSince && now - lobby.bothOfflineSince >= DISCONNECT_AWARD_MS) {
+      finalizeLobbyMatch(
+        lobbyId,
+        "draw",
+        "dual_offline",
+        "Empate — ambos ausentes (tempo real) por 2+ minutos."
+      );
+    }
+  }
+}
+
+function sanitizeLobbyName(s) {
+  if (typeof s !== "string") return "";
+  return s.trim().slice(0, 48);
+}
+
+function sanitizeLobbyPassword(s) {
+  if (typeof s !== "string") return "";
+  return s.trim().slice(0, 64);
+}
+
+function lobbyPasswordOk(lobby, provided) {
+  const stored = lobby.password;
+  if (!stored) return true;
+  const p = typeof provided === "string" ? provided : "";
+  try {
+    const a = Buffer.from(p, "utf8");
+    const b = Buffer.from(stored, "utf8");
+    if (a.length !== b.length) return false;
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 app.post("/api/lobby/create", (req, res) => {
   const lobbyId = Math.random().toString(36).substring(2, 8);
+  const playerName = sanitizeLobbyName(req.body?.playerName);
+  const opponentName = sanitizeLobbyName(req.body?.opponentName);
+  const passwordRaw = sanitizeLobbyPassword(req.body?.password);
   memoryLobbies[lobbyId] = {
     players: [1],
+    maxPlayers: 2,
+    password: passwordRaw || null,
     fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
     lastMove: null,
-    updatedAt: Date.now()
+    updatedAt: Date.now(),
+    createdAt: Date.now(),
+    startedAt: null,
+    finished: false,
+    wsCount: { w: 0, b: 0 },
+    disconnectStartedAt: { w: null, b: null },
+    everHadWs: { w: false, b: false },
+    bothOfflineSince: null,
+    names: {
+      white: playerName || null,
+      black: null,
+      opponentExpected: opponentName || null
+    },
+    chat: [],
+    wsSecrets: { w: makeSecret(), b: null }
   };
-  return res.json({ ok: true, lobbyId, color: "w" });
+  const lobby = memoryLobbies[lobbyId];
+  return res.json({
+    ok: true,
+    lobbyId,
+    color: "w",
+    names: lobby.names,
+    maxPlayers: 2,
+    hasPassword: Boolean(lobby.password),
+    wsSecret: lobby.wsSecrets.w,
+    realtimePath: "/api/lobby/socket"
+  });
 });
 
 app.post("/api/lobby/join", (req, res) => {
   const { lobbyId } = req.body;
+  const joinName = sanitizeLobbyName(req.body?.playerName);
   const lobby = memoryLobbies[lobbyId];
-  if (lobby && lobby.players.length === 1) {
-    lobby.players.push(2);
-    lobby.updatedAt = Date.now();
-    return res.json({ ok: true, lobbyId, color: "b", fen: lobby.fen });
+  if (!lobby) {
+    return res.status(400).json({ error: "Sala não existe" });
   }
-  return res.status(400).json({ error: "Lobby cheio ou não existe" });
+  if (!lobbyPasswordOk(lobby, req.body?.password)) {
+    return res.status(403).json({ error: "Senha incorreta" });
+  }
+  if (lobby.players.length !== 1) {
+    return res.status(400).json({ error: "Sala cheia ou não existe" });
+  }
+  lobby.players.push(2);
+  lobby.updatedAt = Date.now();
+  lobby.startedAt = Date.now();
+  if (!lobby.names) {
+    lobby.names = { white: null, black: null, opponentExpected: null };
+  }
+  lobby.names.black = joinName || null;
+  if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null };
+  lobby.wsSecrets.b = makeSecret();
+  return res.json({
+    ok: true,
+    lobbyId,
+    color: "b",
+    fen: lobby.fen,
+    names: lobby.names,
+    maxPlayers: 2,
+    hasPassword: Boolean(lobby.password),
+    wsSecret: lobby.wsSecrets.b,
+    realtimePath: "/api/lobby/socket"
+  });
 });
 
 app.get("/api/lobby/status/:lobbyId", (req, res) => {
   const { lobbyId } = req.params;
   const lobby = memoryLobbies[lobbyId];
   if (!lobby) return res.status(404).json({ error: "Lobby não encontrado" });
+  const names = lobby.names || { white: null, black: null, opponentExpected: null };
   return res.json({
     ok: true,
     playersCount: lobby.players.length,
+    maxPlayers: lobby.maxPlayers || 2,
+    hasPassword: Boolean(lobby.password),
     fen: lobby.fen,
-    lastMove: lobby.lastMove
+    lastMove: lobby.lastMove,
+    names,
+    finished: Boolean(lobby.finished),
+    winner: lobby.finished ? lobby.winnerColor || "draw" : null,
+    endReason: lobby.endReason || null,
+    endReasonLabel: lobby.endReasonLabel || null
   });
+});
+
+app.get("/api/lobby/ranking", (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 50;
+  return res.json({ ok: true, entries: lobbyRankingStore.list(limit) });
+});
+
+app.post("/api/lobby/finish", (req, res) => {
+  const { lobbyId, fen } = req.body || {};
+  const lobby = memoryLobbies[lobbyId];
+  if (!lobby || lobby.finished) {
+    return res.status(400).json({ error: "Sala inválida ou partida já terminada" });
+  }
+  const chess = new Chess();
+  if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
+  if (!chess.isGameOver()) return res.status(400).json({ error: "A partida ainda não terminou" });
+  let winner = "draw";
+  let reasonCode = "draw";
+  let reasonLabel = "Empate.";
+  if (chess.isCheckmate()) {
+    winner = chess.turn() === "w" ? "b" : "w";
+    reasonCode = "checkmate";
+    reasonLabel =
+      winner === "w"
+        ? "Xeque-mate — vitória das brancas."
+        : "Xeque-mate — vitória das pretas.";
+  } else if (chess.isStalemate()) {
+    reasonCode = "stalemate";
+    reasonLabel = "Afogamento — empate.";
+  } else if (chess.isInsufficientMaterial()) {
+    reasonCode = "insufficient";
+    reasonLabel = "Material insuficiente — empate.";
+  } else if (chess.isThreefoldRepetition()) {
+    reasonCode = "repetition";
+    reasonLabel = "Tripla repetição — empate.";
+  } else if (chess.isDrawByFiftyMoves()) {
+    reasonCode = "fifty";
+    reasonLabel = "Regra dos 50 lances — empate.";
+  }
+  finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel);
+  return res.json({ ok: true });
 });
 
 app.post("/api/lobby/move", (req, res) => {
   const { lobbyId, move, fen } = req.body;
   const lobby = memoryLobbies[lobbyId];
   if (lobby) {
+    if (lobby.finished) return res.status(400).json({ error: "Partida terminada" });
     lobby.fen = fen;
     lobby.lastMove = move;
     lobby.updatedAt = Date.now();
@@ -320,8 +541,15 @@ function scheduleMasterContinuousSeed() {
 
 function listenHttp() {
   const server = http.createServer(app);
+  try {
+    const rt = attachLobbyRealtime(server, { memoryLobbies });
+    lobbyBroadcastToLobby = (lobbyId, msg) => rt.broadcastToLobby(lobbyId, msg);
+  } catch (e) {
+    console.warn("[Sator] WebSocket lobby não disponível:", e.message);
+  }
   server.listen(PORT, () => {
     console.log(`Interface Sator Engine: http://localhost:${PORT}`);
+    setInterval(tickLobbyDisconnectAwards, 10000);
     scheduleMasterContinuousSeed();
   });
 }
@@ -342,8 +570,15 @@ function listenHttps() {
     cert: fs.readFileSync(SSL_CERT_PATH)
   };
   const server = https.createServer(opts, app);
+  try {
+    const rt = attachLobbyRealtime(server, { memoryLobbies });
+    lobbyBroadcastToLobby = (lobbyId, msg) => rt.broadcastToLobby(lobbyId, msg);
+  } catch (e) {
+    console.warn("[Sator] WebSocket lobby não disponível:", e.message);
+  }
   server.listen(PORT, () => {
     console.log(`Interface Sator Engine: https://localhost:${PORT} (certificado autoassinado — aceite o aviso no browser para o PWA)`);
+    setInterval(tickLobbyDisconnectAwards, 10000);
     scheduleMasterContinuousSeed();
   });
 }

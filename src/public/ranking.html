@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#04060a"/>
+  <title>Ranking — salas online | SatorX</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #04060a;
+      --text: #e8e0d0;
+      --muted: #8a909c;
+      --gold: #c9a84c;
+      --gold-bright: #f0cc5a;
+      --border: rgba(201, 168, 76, 0.22);
+      --row: rgba(201, 168, 76, 0.06);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      line-height: 1.5;
+      padding: max(20px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+        max(28px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+    }
+    header {
+      max-width: 1100px;
+      margin: 0 auto 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      letter-spacing: 0.04em;
+    }
+    .sub {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 52rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+    a.btn, button.btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(201, 168, 76, 0.12);
+      color: var(--gold-bright);
+      font-weight: 600;
+      font-size: 0.88rem;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    a.btn:hover, button.btn:hover {
+      background: rgba(201, 168, 76, 0.2);
+    }
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    tbody tr:nth-child(even) { background: var(--row); }
+    .mono { font-family: ui-monospace, monospace; font-size: 0.82rem; }
+    .winner-w { color: #e8e0d0; }
+    .winner-b { color: #c9b896; }
+    .winner-draw { color: var(--muted); }
+    .err {
+      color: #e07070;
+      padding: 16px;
+      border: 1px solid rgba(224, 112, 112, 0.35);
+      border-radius: 10px;
+      margin-top: 16px;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 28px 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Ranking — salas online</h1>
+    <p class="sub">
+      Histórico das partidas multijogador: ID da sala, jogadores, vencedor, pontuação (1 / 0 / 0,5),
+      duração e motivo. Vitória por ausência: após <strong>2 minutos</strong> sem ligação em tempo real (WebSocket),
+      a vitória é atribuída a quem permaneceu ligado.
+    </p>
+    <div class="toolbar">
+      <a class="btn" href="/">← Menu inicial</a>
+      <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+      <span class="hint" id="loadState"></span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th>Data / hora</th>
+          <th>ID sala</th>
+          <th>Brancas</th>
+          <th>Pretas</th>
+          <th>Vencedor</th>
+          <th>Pontos (B / P)</th>
+          <th>Tempo</th>
+          <th>Motivo</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="empty" id="empty" hidden>Nenhuma partida registada ainda. Jogue online na vista 3D e os resultados aparecem aqui.</p>
+    <p class="err" id="err" hidden></p>
+  </div>
+
+  <script>
+    function fmtDuration(sec) {
+      const s = Math.max(0, Math.floor(Number(sec) || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return m > 0 ? m + "m " + String(r).padStart(2, "0") + "s" : r + "s";
+    }
+
+    function winnerLabel(w) {
+      if (w === "w") return "Brancas";
+      if (w === "b") return "Pretas";
+      return "Empate";
+    }
+
+    function winnerClass(w) {
+      if (w === "w") return "winner-w";
+      if (w === "b") return "winner-b";
+      return "winner-draw";
+    }
+
+    function fmtWhen(iso) {
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString("pt-PT", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      } catch {
+        return iso;
+      }
+    }
+
+    async function loadRanking() {
+      const tbody = document.getElementById("tbody");
+      const empty = document.getElementById("empty");
+      const errEl = document.getElementById("err");
+      const loadState = document.getElementById("loadState");
+      errEl.hidden = true;
+      loadState.textContent = "A carregar…";
+      try {
+        const r = await fetch("/api/lobby/ranking?limit=80");
+        const data = await r.json();
+        if (!r.ok || !data.ok) {
+          throw new Error(data.error || "Resposta inválida");
+        }
+        const rows = data.entries || [];
+        tbody.textContent = "";
+        if (rows.length === 0) {
+          empty.hidden = false;
+          document.getElementById("tbl").hidden = true;
+        } else {
+          empty.hidden = true;
+          document.getElementById("tbl").hidden = false;
+          for (const e of rows) {
+            const tr = document.createElement("tr");
+            const w = e.winner;
+            function addCell(text, cls) {
+              const d = document.createElement("td");
+              if (cls) d.className = cls;
+              d.textContent = text;
+              tr.appendChild(d);
+            }
+            addCell(fmtWhen(e.endedAt || e.recordedAt));
+            addCell(e.lobbyId || "—", "mono");
+            addCell(e.whiteName || "—");
+            addCell(e.blackName || "—");
+            addCell(winnerLabel(w), winnerClass(w));
+            addCell(
+              (e.scoreWhite != null ? String(e.scoreWhite) : "—") +
+                " / " +
+                (e.scoreBlack != null ? String(e.scoreBlack) : "—")
+            );
+            addCell(fmtDuration(e.durationSec));
+            addCell(e.reasonLabel || e.reasonCode || "—");
+            tbody.appendChild(tr);
+          }
+        }
+        loadState.textContent = rows.length + " registo" + (rows.length === 1 ? "" : "s");
+      } catch (e) {
+        loadState.textContent = "";
+        errEl.textContent =
+          "Não foi possível carregar o ranking. Confirme que o servidor está a correr (ex.: npm run server). " +
+          (e.message || "");
+        errEl.hidden = false;
+        document.getElementById("tbl").hidden = true;
+        empty.hidden = true;
+      }
+    }
+
+    document.getElementById("btnRefresh").addEventListener("click", loadRanking);
+    loadRanking();
+  </script>
+</body>
+</html>

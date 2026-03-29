@@ -81,29 +81,13 @@
       top: 0; left: 0; right: 0;
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
+      justify-content: flex-end;
       gap: 16px;
       padding: 18px 22px;
       pointer-events: none;
       z-index: 10;
     }
     .hud > * { pointer-events: auto; }
-
-    /* ── Marca / logo ───────────────────────────────────────────── */
-    .brand {
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 1.75rem;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-      text-shadow: 0 2px 28px rgba(0, 0, 0, 0.7), 0 0 40px rgba(0, 0, 0, 0.4);
-      user-select: none;
-      padding: 8px 0;
-    }
-    .brand span {
-      color: var(--gold);
-      font-style: italic;
-      font-weight: 400;
-    }
 
     /* ── Painel lateral ─────────────────────────────────────────── */
     .panel {
@@ -472,12 +456,79 @@
     #partidaPanel {
       animation: panelSlideIn 0.5s ease 0.2s both;
     }
-    .brand {
-      animation: fadeSlideIn 0.5s ease 0.1s both;
+
+    /* ── Toast (ligações / lobby) ───────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: max(20px, env(safe-area-inset-bottom, 0px));
+      left: 50%;
+      transform: translateX(-50%) translateY(120%);
+      z-index: 80;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      line-height: 1.45;
+      text-align: center;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      border: 1px solid var(--border);
+      background: rgba(18, 14, 10, 0.94);
+      color: var(--text);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.35s ease, transform 0.35s ease;
     }
-    @keyframes fadeSlideIn {
-      from { opacity: 0; transform: translateY(-8px); }
-      to   { opacity: 1; transform: translateY(0); }
+    .toast.toast--show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.toast--success { border-color: rgba(46, 184, 97, 0.45); }
+    .toast.toast--error { border-color: rgba(229, 56, 46, 0.5); color: #f5d0cd; }
+
+    /* ── Lobby: chat e latência ─────────────────────────────────── */
+    .mp-conn-stats {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin: 8px 0 0;
+      line-height: 1.4;
+    }
+    .mp-chat-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.25);
+    }
+    .mp-chat-log {
+      max-height: 140px;
+      overflow-y: auto;
+      padding: 8px 10px;
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: var(--text);
+    }
+    .mp-chat-line { margin-bottom: 6px; word-break: break-word; }
+    .mp-chat-meta { color: var(--gold); opacity: 0.9; }
+    .mp-chat-text { color: rgba(255, 255, 255, 0.88); }
+    .mp-chat-row {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      border-top: 1px solid var(--border);
+      align-items: center;
+    }
+    .mp-chat-row input {
+      flex: 1;
+      min-width: 0;
+      padding: 8px 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      color: white;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.8rem;
     }
 
     /* ── Scrollbar do painel ────────────────────────────────────── */
@@ -497,11 +548,6 @@
           max(12px, env(safe-area-inset-right, 0px))
           max(10px, env(safe-area-inset-bottom, 0px))
           max(12px, env(safe-area-inset-left, 0px));
-      }
-      .brand {
-        font-size: 1.28rem;
-        padding: 2px 0;
-        text-align: center;
       }
       .panel {
         width: 100%;
@@ -651,17 +697,6 @@
       padding: 28px 32px;
       max-width: 92vw;
     }
-    .chess3d-loading__logo {
-      margin: 0 auto 22px;
-      line-height: 0;
-    }
-    .chess3d-loading__logo img {
-      display: block;
-      width: min(420px, 88vw);
-      height: auto;
-      margin: 0 auto;
-      filter: drop-shadow(0 2px 28px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 36px rgba(212, 175, 55, 0.14));
-    }
     .chess3d-loading__bar {
       height: 3px;
       width: min(220px, 70vw);
@@ -712,12 +747,6 @@
     <div class="chess3d-loading__bg" aria-hidden="true"></div>
     <div class="chess3d-loading__pieces" id="chess3d-loading-pieces" aria-hidden="true"></div>
     <div class="chess3d-loading__center">
-      <div class="chess3d-loading__logo">
-        <picture>
-          <source type="image/webp" srcset="/img/panel3_texto.webp"/>
-          <img src="/img/panel3_texto.png" alt="Sator Engine" width="482" height="97" decoding="async" draggable="false"/>
-        </picture>
-      </div>
       <div class="chess3d-loading__bar" aria-hidden="true"><span></span></div>
       <p class="chess3d-loading__hint">Preparando biblioteca, tabuleiro e peças…</p>
       <p class="chess3d-loading__gesture">No celular: um dedo para jogar · dois dedos para girar e dar zoom</p>
@@ -746,8 +775,9 @@
   </script>
   <canvas id="renderCanvas"></canvas>
 
+  <div id="chess3dToast" class="toast" role="status" aria-live="polite"></div>
+
   <div class="hud">
-    <div class="brand">Sator <span>Engine</span></div>
     <div class="panel" id="partidaPanel">
       <div class="panel__head">
         <h2>Partida</h2>
@@ -781,14 +811,37 @@
         </div>
         <div id="multiplayerSetup" style="display:none; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
           <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);">Lobby Multiplayer</p>
-          <div style="display:flex; gap: 8px; margin-bottom: 8px;">
+          <label class="row" style="margin-top:8px; flex-direction:column; align-items:stretch; gap:4px;">Seu nome
+            <input type="text" id="mpPlayerName" placeholder="Ex.: Ana" maxlength="48" autocomplete="nickname" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          </label>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Nome do adversário
+            <input type="text" id="mpOpponentName" placeholder="Opcional (exibido até o oponente entrar)" maxlength="48" autocomplete="off" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          </label>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Senha da sala (opcional)
+            <input type="password" id="mpRoomPassword" placeholder="O convidado precisará desta senha" maxlength="64" autocomplete="new-password" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          </label>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Jogadores na partida
+            <select id="mpMaxPlayers" title="Xadrez: dois jogadores no tabuleiro" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
+              <option value="2" selected>2 (xadrez)</option>
+            </select>
+          </label>
+          <div style="display:flex; gap: 8px; margin-top: 10px; margin-bottom: 8px;">
             <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
           </div>
-          <div style="display:flex; gap: 8px;">
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; align-items: center;">
             <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
+            <input type="password" id="mpJoinPassword" placeholder="Senha (se houver)" maxlength="64" autocomplete="current-password" style="flex:1; min-width:120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
             <button type="button" class="btn" id="btnJoinLobby">Entrar</button>
           </div>
           <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
+          <p id="mpConnStats" class="mp-conn-stats" aria-live="polite">Canal: — · Ping: —</p>
+          <div class="mp-chat-wrap">
+            <div id="mpChatLog" class="mp-chat-log" aria-label="Mensagens do lobby"></div>
+            <div class="mp-chat-row">
+              <input type="text" id="mpChatInput" maxlength="280" placeholder="Mensagem ao oponente…" autocomplete="off"/>
+              <button type="button" class="btn" id="btnMpChatSend">Enviar</button>
+            </div>
+          </div>
         </div>
         <div class="row">
           <label>Câmera
