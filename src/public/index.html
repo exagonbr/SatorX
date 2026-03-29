@@ -3,744 +3,370 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Sator Chess — Menu</title>
+  <title>Sator Engine — A Fundação Inteligente</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cinzel+Decorative:wght@400;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg: #06080d;
-      --panel: rgba(14, 18, 28, 0.96);
-      --border: rgba(212, 175, 55, 0.2);
-      --border-hover: rgba(212, 175, 55, 0.55);
-      --text: #ede9e0;
-      --muted: #7a8090;
-      --gold: #d4af37;
-      --gold-bright: #f0cc5a;
-      --gold-dim: rgba(212, 175, 55, 0.1);
-      --gold-glow: rgba(212, 175, 55, 0.22);
+      --bg-deep:    #04060a;
+      --gold:       #c9a84c;
+      --gold-bright:#f0cc5a;
+      --gold-dim:   rgba(201,168,76,0.15);
+      --text:       #e8e0d0;
+      --muted:      #6a7080;
+      --border:     rgba(201,168,76,0.22);
     }
-    * { box-sizing: border-box; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
-      margin: 0;
-      min-height: 100%;
-      background: var(--bg);
+      width: 100%; height: 100%;
+      overflow: hidden;
+      background: var(--bg-deep);
       color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif;
-      overflow-x: hidden;
     }
 
-    /* ── Canvas de partículas ─────────────────────────────────── */
-    #particleCanvas {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-      z-index: 0;
-    }
-
-    /* ── Gradiente de fundo radial ────────────────────────────── */
-    .bg-gradient {
-      position: fixed;
-      inset: 0;
+    /* Fundo de pedra com tabuleiro */
+    .bg-layer {
+      position: fixed; inset: 0; z-index: 0;
       background:
-        radial-gradient(ellipse 140% 90% at 50% -10%, rgba(26, 34, 53, 0.9) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 40% at 50% 50%, rgba(212, 175, 55, 0.04) 0%, transparent 70%);
-      pointer-events: none;
-      z-index: 0;
+        radial-gradient(ellipse 80% 60% at 50% 110%, rgba(201,168,76,0.07) 0%, transparent 70%),
+        radial-gradient(ellipse 120% 80% at 50% -20%, rgba(20,14,6,0.95) 0%, transparent 60%),
+        #060810;
+    }
+    .bg-chess {
+      position: fixed; inset: 0; z-index: 0;
+      background-image: repeating-conic-gradient(rgba(201,168,76,0.03) 0% 25%, transparent 0% 50%);
+      background-size: 90px 90px;
+      background-position: center center;
+      mask-image: radial-gradient(ellipse 110% 110% at 50% 100%, black 0%, transparent 65%);
+      -webkit-mask-image: radial-gradient(ellipse 110% 110% at 50% 100%, black 0%, transparent 65%);
     }
 
-    /* ── Padrão de tabuleiro sutil no fundo ───────────────────── */
-    .bg-board {
-      position: fixed;
-      inset: 0;
-      background-image:
-        repeating-linear-gradient(
-          0deg,
-          transparent,
-          transparent 40px,
-          rgba(212, 175, 55, 0.018) 40px,
-          rgba(212, 175, 55, 0.018) 41px
-        ),
-        repeating-linear-gradient(
-          90deg,
-          transparent,
-          transparent 40px,
-          rgba(212, 175, 55, 0.018) 40px,
-          rgba(212, 175, 55, 0.018) 41px
-        );
-      pointer-events: none;
-      z-index: 0;
+    /* Canvas de constelacao */
+    #constellation { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+
+    /* Layout central */
+    .screen {
+      position: relative; z-index: 10;
+      width: 100%; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0;
     }
 
-    /* ── Layout principal ─────────────────────────────────────── */
-    .wrap {
+    /* Logo */
+    .logo-wrap {
       position: relative;
-      z-index: 1;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px 56px;
+      width: min(560px, 88vw);
+      margin-bottom: -8px;
+      animation: logoReveal 1.5s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes logoReveal {
+      from { opacity: 0; transform: translateY(32px) scale(0.95); filter: blur(8px); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    filter: blur(0);   }
+    }
+    .logo-wrap img {
+      width: 100%; display: block;
+      filter: drop-shadow(0 0 40px rgba(201,168,76,0.5)) drop-shadow(0 0 90px rgba(201,168,76,0.22));
+      animation: logoFloat 7s ease-in-out infinite;
+    }
+    @keyframes logoFloat {
+      0%,100% { transform: translateY(0);    filter: drop-shadow(0 0 40px rgba(201,168,76,0.5)) drop-shadow(0 0 90px rgba(201,168,76,0.22)); }
+      50%      { transform: translateY(-9px); filter: drop-shadow(0 0 60px rgba(201,168,76,0.7)) drop-shadow(0 0 110px rgba(201,168,76,0.35)); }
+    }
+    .logo-halo {
+      position: absolute; bottom: 8%; left: 50%;
+      transform: translateX(-50%);
+      width: 55%; height: 28px;
+      background: radial-gradient(ellipse, rgba(201,168,76,0.55) 0%, transparent 70%);
+      filter: blur(14px);
+      animation: haloBreath 7s ease-in-out infinite;
+    }
+    @keyframes haloBreath {
+      0%,100% { opacity: 0.55; transform: translateX(-50%) scaleX(1);    }
+      50%      { opacity: 1.0;  transform: translateX(-50%) scaleX(1.25); }
     }
 
-    /* ── Emblema / ícone de topo ──────────────────────────────── */
-    .emblem {
-      width: 64px;
-      height: 64px;
-      margin: 0 0 24px;
-      opacity: 0;
-      animation: fadeSlideDown 0.7s ease 0.1s forwards;
-    }
-    .emblem svg {
-      width: 100%;
-      height: 100%;
-      filter: drop-shadow(0 0 16px rgba(212, 175, 55, 0.35));
-    }
-
-    /* ── Título ───────────────────────────────────────────────── */
-    .title {
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: clamp(2.4rem, 7vw, 3.6rem);
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      margin: 0 0 6px;
-      text-align: center;
-      line-height: 1.1;
-      opacity: 0;
-      animation: fadeSlideDown 0.7s ease 0.2s forwards;
-    }
-    .title span {
-      color: var(--gold);
-      font-style: italic;
-      font-weight: 400;
-      position: relative;
-    }
-    .title span::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      right: 0;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      opacity: 0.5;
-    }
-
-    /* ── Subtítulo ────────────────────────────────────────────── */
-    .subtitle {
-      color: var(--muted);
-      font-size: 0.9rem;
-      font-weight: 300;
-      margin: 0 0 48px;
-      text-align: center;
-      max-width: 380px;
-      line-height: 1.6;
-      letter-spacing: 0.02em;
-      opacity: 0;
-      animation: fadeSlideDown 0.7s ease 0.3s forwards;
-    }
-
-    /* ── Divisor decorativo ───────────────────────────────────── */
+    /* Divisor */
     .divider {
-      width: 120px;
-      height: 1px;
+      width: 240px; height: 1px;
       background: linear-gradient(90deg, transparent, var(--gold), transparent);
-      margin: 0 auto 36px;
-      opacity: 0;
-      animation: fadeIn 0.8s ease 0.35s forwards;
+      margin-bottom: 32px;
+      animation: fadeUp 1.8s 0.5s cubic-bezier(0.22,1,0.36,1) both;
     }
-
-    /* ── Menu de botões ───────────────────────────────────────── */
-    .menu {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: min(300px, 100%);
-      opacity: 0;
-      animation: fadeSlideUp 0.7s ease 0.4s forwards;
-    }
-
-    .menu button,
-    .menu a.btn-link {
-      display: block;
-      width: 100%;
-      padding: 14px 22px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--gold-dim);
-      color: var(--text);
-      font-size: 0.92rem;
-      font-weight: 600;
-      font-family: inherit;
-      letter-spacing: 0.04em;
-      cursor: pointer;
-      text-align: center;
-      text-decoration: none;
-      transition:
-        border-color 0.22s ease,
-        color 0.22s ease,
-        background 0.22s ease,
-        box-shadow 0.22s ease,
-        transform 0.14s ease;
-      position: relative;
-      overflow: hidden;
-    }
-
-    /* Efeito de brilho ao passar o mouse */
-    .menu button::before,
-    .menu a.btn-link::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 60%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.12), transparent);
-      transition: left 0.4s ease;
-      pointer-events: none;
-    }
-    .menu button:hover::before,
-    .menu a.btn-link:hover::before {
-      left: 150%;
-    }
-
-    .menu button:hover,
-    .menu a.btn-link:hover {
-      border-color: var(--border-hover);
-      color: var(--gold-bright);
-      background: rgba(212, 175, 55, 0.16);
-      box-shadow: 0 0 20px rgba(212, 175, 55, 0.12), inset 0 0 20px rgba(212, 175, 55, 0.04);
-      transform: translateY(-1px);
-    }
-    .menu button:active,
-    .menu a.btn-link:active {
-      transform: translateY(0);
-    }
-
-    .menu .btn--primary {
-      background: rgba(212, 175, 55, 0.18);
-      border-color: rgba(212, 175, 55, 0.4);
-      font-size: 1rem;
-      padding: 16px 22px;
-    }
-    .menu .btn--primary:hover {
-      background: rgba(212, 175, 55, 0.26);
-      box-shadow: 0 0 28px rgba(212, 175, 55, 0.2), inset 0 0 24px rgba(212, 175, 55, 0.06);
-    }
-
-    .menu .btn--exit {
-      margin-top: 18px;
-      background: transparent;
-      color: var(--muted);
-      border-color: rgba(138, 143, 154, 0.25);
-      font-size: 0.82rem;
-      font-weight: 400;
-    }
-    .menu .btn--exit:hover {
-      color: #b0b8c4;
-      border-color: rgba(200, 205, 212, 0.4);
-      background: rgba(255, 255, 255, 0.03);
-      box-shadow: none;
-    }
-
-    /* ── Versão / rodapé ──────────────────────────────────────── */
-    .footer-note {
-      position: relative;
-      z-index: 1;
-      margin-top: 48px;
-      font-size: 0.72rem;
-      color: rgba(122, 128, 144, 0.5);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      opacity: 0;
-      animation: fadeIn 1s ease 0.8s forwards;
-    }
-
-    /* ── Modais ───────────────────────────────────────────────── */
-    .backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(4, 6, 12, 0.82);
-      z-index: 100;
-      align-items: center;
-      justify-content: center;
-      padding: clamp(10px, 3vw, 24px);
-      backdrop-filter: blur(8px);
-    }
-    .backdrop.open {
-      display: flex;
-      animation: backdropIn 0.22s ease;
-    }
-    .modal {
-      background: var(--panel);
-      border: 1px solid rgba(212, 175, 55, 0.18);
-      border-radius: 18px;
-      padding: 28px 30px;
-      max-width: 520px;
-      width: 100%;
-      max-height: min(82vh, 660px);
-      overflow: auto;
-      box-shadow:
-        0 32px 80px rgba(0, 0, 0, 0.6),
-        0 0 0 1px rgba(255, 255, 255, 0.03),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      animation: modalIn 0.25s ease;
-    }
-    .modal h2 {
-      margin: 0 0 16px;
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: 1.6rem;
-      color: var(--gold);
-      font-weight: 600;
-      letter-spacing: 0.04em;
-    }
-    .modal p,
-    .modal li {
-      color: var(--muted);
-      font-size: 0.88rem;
-      line-height: 1.6;
-    }
-    .modal ul {
-      margin: 0;
-      padding-left: 1.2rem;
-    }
-    .modal li {
-      margin: 7px 0;
-    }
-    .modal strong {
-      color: var(--text);
-    }
-    .modal pre {
-      background: rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(212, 175, 55, 0.12);
-      border-radius: 10px;
-      padding: 14px;
-      font-size: 0.75rem;
-      overflow: auto;
-      color: var(--text);
-      margin: 12px 0 0;
-    }
-    .modal .actions {
-      margin-top: 22px;
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-    .modal .actions button,
-    .modal .actions a.btn-link {
-      padding: 10px 20px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--gold-dim);
-      color: var(--text);
-      font-family: inherit;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.88rem;
-      text-decoration: none;
-      display: inline-block;
-      transition: border-color 0.18s, color 0.18s, background 0.18s;
-    }
-    .modal .actions button:hover,
-    .modal .actions a.btn-link:hover {
-      border-color: var(--gold);
-      color: var(--gold);
-      background: rgba(212, 175, 55, 0.15);
-    }
-    .modal .err {
-      color: #e07070;
-      font-size: 0.85rem;
-      margin-top: 10px;
-    }
-    .modal .loading {
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    /* ── Modal IA ─────────────────────────────────────────────── */
-    #modalIA .modal {
-      max-width: min(96vw, 46rem);
-      width: 100%;
-      min-width: 0;
-    }
-    .ia-table-wrap {
-      margin-top: 14px;
-      display: none;
-      min-width: 0;
-      overflow-x: visible;
-    }
-    .ia-table {
-      width: 100%;
-      max-width: 100%;
-      table-layout: fixed;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-    }
-    .ia-table th,
-    .ia-table td {
-      text-align: left;
-      padding: 9px 11px;
-      border-bottom: 1px solid rgba(212, 175, 55, 0.1);
-      vertical-align: top;
-      min-width: 0;
-    }
-    .ia-table th {
-      color: var(--muted);
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      font-size: 0.67rem;
-    }
-    .ia-table th:nth-child(1) { width: 26%; }
-    .ia-table th:nth-child(2) { width: 24%; }
-    .ia-table th:nth-child(3) { width: 50%; }
-    .ia-table .ia-k {
-      font-family: ui-monospace, monospace;
-      color: var(--gold);
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    .ia-table .ia-v {
-      font-family: ui-monospace, monospace;
-      color: var(--text);
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-    .ia-table .ia-d {
-      color: var(--muted);
-      line-height: 1.5;
-      overflow-wrap: anywhere;
-      hyphens: auto;
-    }
-    .ia-table tr:last-child td { border-bottom: none; }
-    @media (max-width: 540px) {
-      .ia-table thead { display: none; }
-      .ia-table tbody tr {
-        display: block;
-        margin-bottom: 12px;
-        padding: 12px 14px;
-        border: 1px solid rgba(212, 175, 55, 0.12);
-        border-radius: 12px;
-        background: rgba(0, 0, 0, 0.25);
-      }
-      .ia-table tbody td {
-        display: block;
-        width: 100% !important;
-        border-bottom: none;
-        padding: 8px 0;
-      }
-      .ia-table tbody td::before {
-        content: attr(data-label);
-        display: block;
-        font-size: 0.65rem;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: var(--muted);
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-      .ia-table tbody tr td:first-child { padding-top: 0; }
-    }
-    .ia-sub {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin: 14px 0 6px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-weight: 600;
-    }
-    details.ia-raw { margin-top: 16px; }
-    details.ia-raw summary {
-      cursor: pointer;
-      color: var(--muted);
-      font-size: 0.78rem;
-      user-select: none;
-    }
-    details.ia-raw pre {
-      margin-top: 8px;
-      max-width: 100%;
-      overflow-x: auto;
-      word-break: break-word;
-      white-space: pre-wrap;
-    }
-
-    /* ── Animações ────────────────────────────────────────────── */
-    @keyframes fadeSlideDown {
-      from { opacity: 0; transform: translateY(-14px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes fadeSlideUp {
+    @keyframes fadeUp {
       from { opacity: 0; transform: translateY(14px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to   { opacity: 1; }
+
+    /* Menu */
+    .menu {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 11px; width: min(300px, 82vw);
+      animation: fadeUp 1.8s 0.7s cubic-bezier(0.22,1,0.36,1) both;
     }
-    @keyframes backdropIn {
-      from { opacity: 0; }
-      to   { opacity: 1; }
+    .btn-menu {
+      width: 100%; padding: 13px 28px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      color: var(--text);
+      font-family: "Cinzel", serif;
+      font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      text-decoration: none; text-align: center;
+      cursor: pointer; position: relative; overflow: hidden;
+      transition: color 0.25s, border-color 0.25s, box-shadow 0.25s, background 0.25s;
+      display: block;
+    }
+    .btn-menu::before {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 0%, rgba(201,168,76,0.13) 50%, transparent 100%);
+      transform: translateX(-100%); transition: transform 0.45s ease;
+    }
+    .btn-menu:hover::before { transform: translateX(100%); }
+    .btn-menu:hover {
+      color: var(--gold-bright);
+      border-color: rgba(201,168,76,0.65);
+      box-shadow: 0 0 22px rgba(201,168,76,0.18), inset 0 0 22px rgba(201,168,76,0.06);
+    }
+    .btn-menu--primary {
+      background: linear-gradient(135deg, rgba(201,168,76,0.2) 0%, rgba(201,168,76,0.07) 100%);
+      border-color: rgba(201,168,76,0.55);
+      color: var(--gold-bright);
+      box-shadow: 0 0 28px rgba(201,168,76,0.14);
+      font-size: 0.85rem;
+      padding: 15px 28px;
+    }
+    .btn-menu--primary:hover {
+      background: linear-gradient(135deg, rgba(201,168,76,0.3) 0%, rgba(201,168,76,0.14) 100%);
+      box-shadow: 0 0 44px rgba(201,168,76,0.28), inset 0 0 32px rgba(201,168,76,0.1);
+    }
+
+    /* Rodape */
+    .footer {
+      position: fixed; bottom: 18px; left: 0; right: 0;
+      text-align: center;
+      font-family: "Cinzel", serif; font-size: 0.58rem;
+      letter-spacing: 0.32em; color: var(--muted); text-transform: uppercase;
+      animation: fadeUp 2.2s 1.1s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    /* Modais */
+    .overlay {
+      display: none; position: fixed; inset: 0; z-index: 100;
+      background: rgba(4,6,10,0.88);
+      backdrop-filter: blur(10px);
+      align-items: center; justify-content: center;
+    }
+    .overlay.open { display: flex; animation: overlayIn 0.28s ease; }
+    @keyframes overlayIn { from { opacity: 0; } to { opacity: 1; } }
+    .modal {
+      background: linear-gradient(160deg, #0d1018 0%, #080c12 100%);
+      border: 1px solid var(--border); border-radius: 5px;
+      padding: 36px 40px; width: min(500px, 90vw);
+      max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 0 70px rgba(201,168,76,0.14), 0 28px 90px rgba(0,0,0,0.65);
+      animation: modalIn 0.35s cubic-bezier(0.22,1,0.36,1);
     }
     @keyframes modalIn {
-      from { opacity: 0; transform: scale(0.96) translateY(8px); }
-      to   { opacity: 1; transform: scale(1) translateY(0); }
+      from { opacity: 0; transform: scale(0.93) translateY(18px); }
+      to   { opacity: 1; transform: scale(1)    translateY(0);    }
     }
-    @keyframes goldPulse {
-      0%, 100% { text-shadow: 0 0 20px rgba(212, 175, 55, 0.0); }
-      50%       { text-shadow: 0 0 32px rgba(212, 175, 55, 0.35), 0 0 60px rgba(212, 175, 55, 0.12); }
+    .modal h2 {
+      font-family: "Cinzel", serif; font-size: 0.95rem; font-weight: 700;
+      letter-spacing: 0.22em; color: var(--gold); text-transform: uppercase;
+      margin-bottom: 20px; padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
     }
-    .title span {
-      animation: goldPulse 4s ease-in-out infinite;
+    .modal p, .modal li {
+      font-size: 0.87rem; line-height: 1.75;
+      color: rgba(232,224,208,0.78); margin-bottom: 10px;
     }
+    .modal ul { padding-left: 18px; }
+    .modal strong { color: var(--text); }
+    .modal a { color: var(--gold); text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+    .modal code {
+      font-family: monospace; font-size: 0.78rem;
+      background: rgba(201,168,76,0.07); border: 1px solid var(--border);
+      border-radius: 3px; padding: 8px 12px;
+      display: block; margin: 10px 0; color: var(--gold-bright);
+    }
+    .modal-close {
+      display: block; margin: 24px auto 0;
+      padding: 10px 34px; background: transparent;
+      border: 1px solid var(--border); border-radius: 3px;
+      color: var(--gold); font-family: "Cinzel", serif;
+      font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
+      cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .modal-close:hover {
+      border-color: rgba(201,168,76,0.65);
+      box-shadow: 0 0 18px rgba(201,168,76,0.18);
+    }
+    .modal::-webkit-scrollbar { width: 4px; }
+    .modal::-webkit-scrollbar-track { background: transparent; }
+    .modal::-webkit-scrollbar-thumb { background: rgba(201,168,76,0.2); border-radius: 2px; }
   </style>
 </head>
 <body>
-  <canvas id="particleCanvas"></canvas>
-  <div class="bg-gradient"></div>
-  <div class="bg-board"></div>
+  <div class="bg-layer"></div>
+  <div class="bg-chess"></div>
+  <canvas id="constellation"></canvas>
 
-  <div class="wrap">
-    <div class="emblem">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-        <defs>
-          <radialGradient id="emblemGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="#d4af37" stop-opacity="0.3"/>
-            <stop offset="100%" stop-color="#d4af37" stop-opacity="0"/>
-          </radialGradient>
-        </defs>
-        <rect width="64" height="64" rx="14" fill="#0e1420"/>
-        <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="rgba(212,175,55,0.35)" stroke-width="1"/>
-        <rect x="8" y="8" width="22" height="22" rx="2" fill="#c9a785" opacity="0.9"/>
-        <rect x="34" y="8" width="22" height="22" rx="2" fill="#3a2d22" opacity="0.9"/>
-        <rect x="8" y="34" width="22" height="22" rx="2" fill="#3a2d22" opacity="0.9"/>
-        <rect x="34" y="34" width="22" height="22" rx="2" fill="#c9a785" opacity="0.9"/>
-        <text x="32" y="44" text-anchor="middle" font-size="22" fill="#d4af37" font-family="Georgia, serif" font-weight="bold">♛</text>
-        <circle cx="32" cy="32" r="30" fill="url(#emblemGlow)"/>
-      </svg>
+  <main class="screen">
+    <div class="logo-wrap">
+      <img src="/img/sator-engine-logo.webp" alt="Sator Engine — A Fundacao Inteligente" draggable="false"/>
+      <div class="logo-halo"></div>
     </div>
 
-    <h1 class="title">Sator <span>Chess</span></h1>
-    <p class="subtitle">Motor com busca clássica, rede de valor TD online e vista 3D imersiva.</p>
     <div class="divider"></div>
 
-    <nav class="menu" aria-label="Menu principal">
-      <a class="btn-link btn--primary" href="/chess3d.html">▶ Iniciar Partida</a>
-      <button type="button" id="btnRules">Regras</button>
-      <button type="button" id="btnOptions">Opções</button>
-      <button type="button" id="btnIA">IA / Rede Neural</button>
-      <button type="button" class="btn--exit" id="btnExit">Sair</button>
+    <nav class="menu" role="navigation" aria-label="Menu principal">
+      <a href="/chess3d.html" class="btn-menu btn-menu--primary">&#9654; &nbsp;Iniciar Partida</a>
+      <button type="button" class="btn-menu" id="btnRules">Regras do Xadrez</button>
+      <button type="button" class="btn-menu" id="btnOptions">Configuracoes</button>
+      <button type="button" class="btn-menu" id="btnIA">IA &amp; Rede Neural</button>
     </nav>
+  </main>
 
-    <p class="footer-note">Sator Chess · Motor Híbrido v3</p>
-  </div>
+  <footer class="footer">Sator Engine &nbsp;&middot;&nbsp; Motor Hibrido V5 &nbsp;&middot;&nbsp; Babylon.js 3D</footer>
 
   <!-- Modal: Regras -->
-  <div class="backdrop" id="modalRules" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+  <div class="overlay" id="overlayRules" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2 id="rulesTitle">Regras (resumo)</h2>
-      <p>Xadrez 8×8: brancas começam. O objetivo é dar xeque-mate ao rei adversário (rei atacado sem lance legal).</p>
+      <h2>Regras do Xadrez</h2>
+      <p>O xadrez e jogado em um tabuleiro 8x8 por dois jogadores. O objetivo e dar <strong>xeque-mate</strong> ao rei adversario.</p>
       <ul>
-        <li><strong>Peão</strong>: uma casa à frente; duas casas no primeiro movimento; captura na diagonal; en passant e promoção ao chegar à última fileira.</li>
-        <li><strong>Cavalo</strong>: movimento em "L", pode saltar peças.</li>
-        <li><strong>Bispo</strong>: diagonais. <strong>Torre</strong>: fileiras e colunas.</li>
-        <li><strong>Dama</strong>: combina torre e bispo. <strong>Rei</strong>: uma casa em qualquer direção; roque sob condições legais.</li>
-        <li><strong>Empate</strong>: afogamento, material insuficiente, repetição de posição, regra dos 50 lances, acordo, etc.</li>
+        <li><strong>Rei</strong>: move-se uma casa em qualquer direcao.</li>
+        <li><strong>Dama</strong>: move-se qualquer numero de casas em linha reta ou diagonal.</li>
+        <li><strong>Torre</strong>: move-se em linha reta (horizontal ou vertical).</li>
+        <li><strong>Bispo</strong>: move-se na diagonal.</li>
+        <li><strong>Cavalo</strong>: move-se em "L" (2+1 casas), unico que salta pecas.</li>
+        <li><strong>Peao</strong>: avanca uma casa (ou duas no primeiro lance), captura na diagonal.</li>
       </ul>
-      <div class="actions">
-        <button type="button" data-close="modalRules">Fechar</button>
-      </div>
+      <p>Lances especiais: <strong>roque</strong>, <strong>en passant</strong> e <strong>promocao</strong> (peao na ultima fileira).</p>
+      <button class="modal-close" data-close="overlayRules">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Opções -->
-  <div class="backdrop" id="modalOptions" role="dialog" aria-modal="true" aria-labelledby="optTitle">
+  <!-- Modal: Configuracoes -->
+  <div class="overlay" id="overlayOptions" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2 id="optTitle">Opções</h2>
-      <p>Profundidade e tempo do motor, modo de jogo e treino TD por lance ficam no painel da <strong>vista 3D</strong> ou no <strong>tabuleiro 2D</strong> (interface clássica).</p>
-      <p>No terminal do projeto você pode agregar replays e treinar com os scripts <code style="color:var(--gold)">npm run build-buffer</code> e <code style="color:var(--gold)">npm run train-buffer</code>.</p>
-      <div class="actions">
-        <a class="btn-link" href="/board2d.html">Abrir tabuleiro 2D</a>
-        <button type="button" data-close="modalOptions">Fechar</button>
-      </div>
+      <h2>Configuracoes</h2>
+      <p>As configuracoes de profundidade de busca, tempo por lance, modo de jogo e visao de camera estao disponiveis diretamente no painel lateral da <strong>Vista 3D</strong>.</p>
+      <p>Acesse <a href="/chess3d.html">Vista 3D</a> ou <a href="/board2d.html">Tabuleiro 2D</a> para ajustar as opcoes em tempo real durante a partida.</p>
+      <button class="modal-close" data-close="overlayOptions">Fechar</button>
     </div>
   </div>
 
   <!-- Modal: IA -->
-  <div class="backdrop" id="modalIA" role="dialog" aria-modal="true" aria-labelledby="iaTitle">
+  <div class="overlay" id="overlayIA" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2 id="iaTitle">Rede neural (valor)</h2>
-      <p style="margin-top:0">Dados vindos de <code style="color:var(--gold)">GET /api/nn/status</code> — mesma API usada na vista 3D no painel "Rede".</p>
-      <p class="loading" id="iaLoading">A carregar…</p>
-      <div class="ia-table-wrap" id="iaTableWrap">
-        <table class="ia-table" aria-label="Estado da rede neural">
-          <thead>
-            <tr>
-              <th scope="col">Campo</th>
-              <th scope="col">Valor</th>
-              <th scope="col">Descrição</th>
-            </tr>
-          </thead>
-          <tbody id="iaTbody"></tbody>
-        </table>
-        <details class="ia-raw">
-          <summary>JSON bruto</summary>
-          <pre id="iaJson"></pre>
-        </details>
-      </div>
-      <p class="err" id="iaErr" style="display:none"></p>
-      <div class="actions">
-        <button type="button" id="btnIaRefresh">Atualizar</button>
-        <button type="button" data-close="modalIA">Fechar</button>
-      </div>
+      <h2>IA &amp; Rede Neural</h2>
+      <p>O <strong>Sator Engine</strong> combina busca classica (minimax + alpha-beta) com uma rede de valor treinada por <em>Temporal Difference Learning</em> (TD-lambda).</p>
+      <ul>
+        <li><strong>Motor hibrido</strong>: heuristicas posicionais + rede neural de valor.</li>
+        <li><strong>TD online</strong>: a rede aprende em tempo real durante a partida.</li>
+        <li><strong>Replay buffer</strong>: partidas salvas como pares (estado, resultado) para treino supervisionado.</li>
+        <li><strong>Geometria Sagrada</strong>: avaliacao baseada no quadrado SATOR — padroes de simetria e conectividade no tabuleiro.</li>
+      </ul>
+      <p>Para treinar a rede com suas partidas:</p>
+      <code>npm run build-buffer<br/>npm run train-buffer -- 30 4 500</code>
+      <button class="modal-close" data-close="overlayIA">Fechar</button>
     </div>
   </div>
 
   <script>
-    /* ── Partículas flutuantes ──────────────────────────────────── */
-    (function initParticles() {
-      const canvas = document.getElementById("particleCanvas");
+    /* Constelacao animada */
+    (function () {
+      const canvas = document.getElementById("constellation");
       const ctx = canvas.getContext("2d");
-      let W, H, particles = [];
+      let W, H, nodes = [];
 
       function resize() {
-        W = canvas.width = window.innerWidth;
+        W = canvas.width  = window.innerWidth;
         H = canvas.height = window.innerHeight;
       }
-      resize();
-      window.addEventListener("resize", resize);
 
-      const GOLD = "rgba(212,175,55,";
-      const COUNT = 55;
-
-      for (let i = 0; i < COUNT; i++) {
-        particles.push({
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          r: 0.5 + Math.random() * 1.8,
-          vx: (Math.random() - 0.5) * 0.18,
-          vy: -0.08 - Math.random() * 0.22,
-          alpha: 0.08 + Math.random() * 0.28,
-          phase: Math.random() * Math.PI * 2,
-          speed: 0.4 + Math.random() * 0.8
-        });
+      function initNodes() {
+        nodes = [];
+        const count = Math.floor((W * H) / 16000);
+        for (let i = 0; i < count; i++) {
+          nodes.push({
+            x: Math.random() * W, y: Math.random() * H,
+            vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+            r: Math.random() * 1.8 + 0.4,
+            opacity: Math.random() * 0.55 + 0.2,
+            phase: Math.random() * Math.PI * 2,
+            speed: Math.random() * 0.009 + 0.004
+          });
+        }
       }
 
-      let t = 0;
       function draw() {
         ctx.clearRect(0, 0, W, H);
-        t += 0.008;
-        for (const p of particles) {
-          const a = p.alpha * (0.6 + 0.4 * Math.sin(t * p.speed + p.phase));
+        for (const n of nodes) {
+          n.x += n.vx; n.y += n.vy; n.phase += n.speed;
+          if (n.x < 0) n.x = W; if (n.x > W) n.x = 0;
+          if (n.y < 0) n.y = H; if (n.y > H) n.y = 0;
+        }
+        const maxDist = 155;
+        for (let i = 0; i < nodes.length; i++) {
+          for (let j = i + 1; j < nodes.length; j++) {
+            const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < maxDist) {
+              ctx.beginPath();
+              ctx.strokeStyle = "rgba(201,168,76," + ((1 - dist/maxDist) * 0.17) + ")";
+              ctx.lineWidth = 0.55;
+              ctx.moveTo(nodes[i].x, nodes[i].y);
+              ctx.lineTo(nodes[j].x, nodes[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+        for (const n of nodes) {
+          const pulse = 0.5 + 0.5 * Math.sin(n.phase);
+          const op = n.opacity * (0.5 + 0.5 * pulse);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = GOLD + a + ")";
+          ctx.arc(n.x, n.y, n.r * (0.8 + 0.2 * pulse), 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(201,168,76," + op + ")";
           ctx.fill();
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.y < -10) { p.y = H + 10; p.x = Math.random() * W; }
-          if (p.x < -10) p.x = W + 10;
-          if (p.x > W + 10) p.x = -10;
+          if (n.r > 1.5) {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r * 3.2 * pulse, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(201,168,76," + (op * 0.14) + ")";
+            ctx.fill();
+          }
         }
         requestAnimationFrame(draw);
       }
-      draw();
+
+      window.addEventListener("resize", function() { resize(); initNodes(); });
+      resize(); initNodes(); requestAnimationFrame(draw);
     })();
 
-    /* ── Modais ─────────────────────────────────────────────────── */
-    function openModal(id) {
-      document.getElementById(id).classList.add("open");
-    }
-    function closeModal(id) {
-      document.getElementById(id).classList.remove("open");
-    }
-    document.querySelectorAll("[data-close]").forEach((btn) => {
-      btn.addEventListener("click", () => closeModal(btn.getAttribute("data-close")));
-    });
-    document.querySelectorAll(".backdrop").forEach((bd) => {
-      bd.addEventListener("click", (e) => { if (e.target === bd) closeModal(bd.id); });
-    });
-    document.getElementById("btnRules").onclick = () => openModal("modalRules");
-    document.getElementById("btnOptions").onclick = () => openModal("modalOptions");
+    /* Modais */
+    function openModal(id)  { var el = document.getElementById(id); if (el) el.classList.add("open"); }
+    function closeModal(id) { var el = document.getElementById(id); if (el) el.classList.remove("open"); }
 
-    /* ── IA labels ──────────────────────────────────────────────── */
-    const IA_LABELS = {
-      ok: "Indica que a API devolveu o estado sem erro.",
-      inputDim: "Tamanho do vetor de características da posição (entrada da rede).",
-      hidden: "Número de neurónios na camada oculta (MLP com tanh).",
-      updates: "Quantidade de passos de aprendizagem TD(0) já aplicados e gravados.",
-      lastTdError: "Erro TD do último treino: diferença entre alvo e valor previsto (limitado por clipping).",
-      lastLearnAt: "Data e hora (UTC) do último passo de treino online.",
-      "config.useInEval": "Se verdadeiro, a saída da rede soma-se à avaliação heurística do motor.",
-      "config.scale": "Multiplicador da saída da rede ao combinar com a pontuação heurística total.",
-      "config.gamma": "Fator de desconto no alvo TD quando a partida não terminou no lance.",
-      "config.anchorBeta": "Peso da âncora heurística no alvo TD: mistura TD puro com tanh(heurística).",
-      "config.lr": "Taxa de aprendizagem do gradiente em cada passo TD (tamanho do ajuste dos pesos)."
-    };
-    function esc(s) {
-      const d = document.createElement("div");
-      d.textContent = s;
-      return d.innerHTML;
-    }
-    function row(k, v) {
-      const desc = IA_LABELS[k] || "—";
-      const val = v === null || v === undefined ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v);
-      return "<tr><td class=\"ia-k\" data-label=\"Campo\">" + esc(k) + "</td><td class=\"ia-v\" data-label=\"Valor\">" + esc(val) + "</td><td class=\"ia-d\" data-label=\"Descrição\">" + esc(desc) + "</td></tr>";
-    }
-    async function loadIaStatus() {
-      const loading = document.getElementById("iaLoading");
-      const wrap = document.getElementById("iaTableWrap");
-      const tbody = document.getElementById("iaTbody");
-      const pre = document.getElementById("iaJson");
-      const err = document.getElementById("iaErr");
-      loading.style.display = "block";
-      wrap.style.display = "none";
-      err.style.display = "none";
-      err.textContent = "";
-      try {
-        const r = await fetch("/api/nn/status");
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || r.statusText);
-        loading.style.display = "none";
-        wrap.style.display = "block";
-        const rows = [];
-        if ("ok" in j) rows.push(row("ok", j.ok));
-        if ("inputDim" in j) rows.push(row("inputDim", j.inputDim));
-        if ("hidden" in j) rows.push(row("hidden", j.hidden));
-        if ("updates" in j) rows.push(row("updates", j.updates));
-        if ("lastTdError" in j) rows.push(row("lastTdError", j.lastTdError));
-        if ("lastLearnAt" in j) rows.push(row("lastLearnAt", j.lastLearnAt));
-        const cfg = j.config;
-        if (cfg && typeof cfg === "object") {
-          if ("useInEval" in cfg) rows.push(row("config.useInEval", cfg.useInEval));
-          if ("scale" in cfg) rows.push(row("config.scale", cfg.scale));
-          if ("gamma" in cfg) rows.push(row("config.gamma", cfg.gamma));
-          if ("lr" in cfg) rows.push(row("config.lr", cfg.lr));
-          if ("anchorBeta" in cfg) rows.push(row("config.anchorBeta", cfg.anchorBeta));
-        }
-        tbody.innerHTML = rows.join("");
-        pre.textContent = JSON.stringify(j, null, 2);
-      } catch (e) {
-        loading.style.display = "none";
-        err.style.display = "block";
-        err.textContent = "Não foi possível obter o estado da rede. O servidor está a correr em http://localhost:3000? " + (e.message || String(e));
-      }
-    }
-    document.getElementById("btnIA").onclick = () => {
-      openModal("modalIA");
-      loadIaStatus();
-    };
-    document.getElementById("btnIaRefresh").onclick = () => loadIaStatus();
-    document.getElementById("btnExit").onclick = () => {
-      window.close();
-      setTimeout(() => {
-        alert("Se o navegador não fechar a janela (comportamento normal em muitos casos), feche o separador manualmente.");
-      }, 150);
-    };
+    document.getElementById("btnRules").onclick   = function() { openModal("overlayRules"); };
+    document.getElementById("btnOptions").onclick  = function() { openModal("overlayOptions"); };
+    document.getElementById("btnIA").onclick       = function() { openModal("overlayIA"); };
+
+    document.querySelectorAll(".modal-close").forEach(function(b) {
+      b.onclick = function() { closeModal(b.dataset.close); };
+    });
+    document.querySelectorAll(".overlay").forEach(function(ov) {
+      ov.onclick = function(e) { if (e.target === ov) closeModal(ov.id); };
+    });
+    document.addEventListener("keydown", function(e) {
+      if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(function(ov) { closeModal(ov.id); });
+    });
   </script>
 </body>
 </html>
