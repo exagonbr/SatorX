@@ -711,18 +711,15 @@
       max-width: 92vw;
     }
     .chess3d-loading__logo {
-      font-family: "Cormorant Garamond", Georgia, serif;
-      font-size: clamp(1.6rem, 5.5vw, 2.4rem);
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      color: var(--text);
-      text-shadow: 0 2px 32px rgba(0, 0, 0, 0.65), 0 0 40px rgba(212, 175, 55, 0.15);
-      margin-bottom: 22px;
+      margin: 0 auto 22px;
+      line-height: 0;
     }
-    .chess3d-loading__logo span {
-      color: var(--gold);
-      font-style: italic;
-      font-weight: 400;
+    .chess3d-loading__logo img {
+      display: block;
+      width: min(420px, 88vw);
+      height: auto;
+      margin: 0 auto;
+      filter: drop-shadow(0 2px 28px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 36px rgba(212, 175, 55, 0.14));
     }
     .chess3d-loading__bar {
       height: 3px;
@@ -773,7 +770,12 @@
     <div class="chess3d-loading__bg" aria-hidden="true"></div>
     <div class="chess3d-loading__pieces" id="chess3d-loading-pieces" aria-hidden="true"></div>
     <div class="chess3d-loading__center">
-      <div class="chess3d-loading__logo">Sator <span>Engine</span></div>
+      <div class="chess3d-loading__logo">
+        <picture>
+          <source type="image/webp" srcset="/img/panel3_texto.webp"/>
+          <img src="/img/panel3_texto.png" alt="Sator Engine" width="482" height="97" decoding="async" draggable="false"/>
+        </picture>
+      </div>
       <div class="chess3d-loading__bar" aria-hidden="true"><span></span></div>
       <p class="chess3d-loading__hint">Preparando biblioteca, tabuleiro e peças…</p>
       <p class="chess3d-loading__gesture">No celular: um dedo para jogar · dois dedos para girar e dar zoom</p>
