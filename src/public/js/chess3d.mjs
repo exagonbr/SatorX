@@ -29,6 +29,38 @@ const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
 const FILES = "abcdefgh";
 
+/** Até ~900px (celular paisagem / tablet estreito): sem PNG panorâmico + menos pixels no WebGL. */
+function preferLightBackdrop() {
+  if (typeof window === "undefined" || typeof matchMedia === "undefined") return false;
+  try {
+    return (
+      matchMedia("(max-width: 900px)").matches ||
+      matchMedia("(prefers-reduced-data: reduce)").matches
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Gradiente procedural minúsculo (sem download) no cilindro de fundo. */
+function createSimpleLibraryGradientTexture(scene) {
+  const w = 8;
+  const h = 256;
+  const tex = new DynamicTexture("bgGradLite", { width: w, height: h }, scene, false);
+  const ctx = tex.getContext();
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, "#2d241c");
+  g.addColorStop(0.35, "#1c1610");
+  g.addColorStop(0.7, "#14100c");
+  g.addColorStop(1, "#0c0a08");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  tex.update(true);
+  tex.wrapU = Texture.WRAP_ADDRESSMODE;
+  tex.wrapV = Texture.WRAP_ADDRESSMODE;
+  return tex;
+}
+
 function squareFromBoardRC(row, col) {
   return FILES[col] + (8 - row);
 }
@@ -1743,12 +1775,22 @@ function buildChessClubEnvironment(scene) {
 
   // --- FUNDO 180 GRAUS (PARALLAX EM 3D) ---
   const farMat = new StandardMaterial("bgFarMat", scene);
-  farMat.diffuseTexture = new Texture("/img/library-parallax-1.png", scene);
-  farMat.diffuseTexture.uScale = -2; 
-  farMat.diffuseTexture.vScale = -1;
-  farMat.diffuseTexture.uOffset = 0.5; // Centraliza a imagem no eixo Z
-  farMat.emissiveColor = new Color3(1, 1, 1);
-  farMat.emissiveTexture = farMat.diffuseTexture;
+  if (preferLightBackdrop()) {
+    const gradTex = createSimpleLibraryGradientTexture(scene);
+    farMat.diffuseTexture = gradTex;
+    farMat.diffuseTexture.uScale = -2;
+    farMat.diffuseTexture.vScale = -1;
+    farMat.diffuseTexture.uOffset = 0.5;
+    farMat.emissiveColor = new Color3(0.92, 0.86, 0.78);
+    farMat.emissiveTexture = gradTex;
+  } else {
+    farMat.diffuseTexture = new Texture("/img/library-parallax-1.png", scene);
+    farMat.diffuseTexture.uScale = -2;
+    farMat.diffuseTexture.vScale = -1;
+    farMat.diffuseTexture.uOffset = 0.5;
+    farMat.emissiveColor = new Color3(1, 1, 1);
+    farMat.emissiveTexture = farMat.diffuseTexture;
+  }
   farMat.disableLighting = true;
   farMat.backFaceCulling = false;
 
@@ -1948,6 +1990,10 @@ function createScene(canvas) {
     adaptToDeviceRatio: true,
     alpha: true
   });
+  if (preferLightBackdrop()) {
+    const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+    engine.setHardwareScalingLevel(dpr >= 2 ? 1.5 : 1.25);
+  }
   const scene = new Scene(engine);
   // Transparente: o fundo são as duas camadas CSS (parallax) por trás do canvas
   scene.clearColor = new Color4(0, 0, 0, 0);
@@ -2255,6 +2301,9 @@ function startNewGame() {
     btn.setAttribute("aria-expanded", String(!collapsed));
     btn.textContent = collapsed ? "Expandir" : "Recolher";
     btn.title = collapsed ? "Expandir painel" : "Recolher painel";
+  }
+  if (typeof matchMedia !== "undefined" && matchMedia("(max-width: 720px)").matches) {
+    applyCollapsed(true);
   }
   btn.addEventListener("click", () => {
     applyCollapsed(!panel.classList.contains("panel--collapsed"));

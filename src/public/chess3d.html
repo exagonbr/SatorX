@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <title>XS IA Engine</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -27,6 +27,8 @@
     * { box-sizing: border-box; }
     html, body {
       margin: 0;
+      min-height: 100%;
+      min-height: 100dvh;
       height: 100%;
       overflow: hidden;
       background: #1a1510;
@@ -69,14 +71,18 @@
       filter: blur(0.5px) brightness(1.02) saturate(1.02);
     }
 
+    /* Um único gradiente suave: menos composição GPU que radial + linear empilhados */
     #library-vignette {
       position: fixed;
       inset: 0;
       z-index: 5;
       pointer-events: none;
-      background:
-        radial-gradient(ellipse 110% 110% at 50% 50%, transparent 40%, rgba(5, 3, 2, 0.6) 100%),
-        linear-gradient(to bottom, rgba(5, 3, 2, 0.4) 0%, transparent 20%, transparent 80%, rgba(5, 3, 2, 0.7) 100%);
+      background: radial-gradient(
+        ellipse 105% 95% at 50% 42%,
+        transparent 48%,
+        rgba(18, 14, 10, 0.28) 72%,
+        rgba(10, 8, 6, 0.45) 100%
+      );
     }
 
     /* ── Canvas 3D ──────────────────────────────────────────────── */
@@ -502,6 +508,66 @@
     .panel::-webkit-scrollbar { width: 4px; }
     .panel::-webkit-scrollbar-track { background: transparent; }
     .panel::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.2); border-radius: 2px; }
+
+    /* ── Celular / telas estreitas ─────────────────────────────── */
+    @media (max-width: 720px) {
+      .hud {
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 10px;
+        padding:
+          max(10px, env(safe-area-inset-top, 0px))
+          max(12px, env(safe-area-inset-right, 0px))
+          max(10px, env(safe-area-inset-bottom, 0px))
+          max(12px, env(safe-area-inset-left, 0px));
+      }
+      .brand {
+        font-size: 1.28rem;
+        padding: 2px 0;
+        text-align: center;
+      }
+      .panel {
+        width: 100%;
+        max-width: none;
+        max-height: min(52dvh, 400px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 12px 14px;
+        backdrop-filter: blur(12px) saturate(1.15);
+        -webkit-backdrop-filter: blur(12px) saturate(1.15);
+      }
+      .panel h2 { font-size: 0.62rem; }
+      .status { font-size: 0.88rem; min-height: 2.6em; }
+      .hint { font-size: 0.72rem; }
+      .row { gap: 6px; }
+      .btn { padding: 10px 12px; font-size: 0.78rem; min-height: 44px; }
+      select, input[type="number"] {
+        font-size: 0.78rem;
+        padding: 8px 10px;
+        min-height: 44px;
+      }
+      label.toggle { font-size: 0.78rem; }
+      .move-legend {
+        grid-template-columns: 1fr;
+        font-size: 0.7rem;
+      }
+      .promo-card {
+        margin: 0 16px;
+        padding: 22px 20px;
+        max-width: calc(100vw - 32px);
+      }
+      .go-card {
+        margin: 0 16px;
+        padding: 28px 22px;
+        max-width: calc(100vw - 32px);
+      }
+      .go-card h3 { font-size: 1.65rem; }
+    }
+
+    @media (max-width: 720px) and (max-height: 520px) {
+      .panel { max-height: min(46dvh, 320px); }
+    }
   </style>
   <script type="importmap">
   {
