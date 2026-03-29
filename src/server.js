@@ -58,9 +58,12 @@ app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
 if (!process.env.VERCEL) {
+  // Hack: Concatenação de string evita que o Vercel File Trace (nft) agrupe os 241MB
+  // de src/public na função serverless (ultrapassando os 250MB do limite).
+  const folderName = ["p", "u", "b", "l", "i", "c"].join("");
   app.use(
     "/",
-    express.static(path.join(__dirname, "public"), {
+    express.static(path.join(__dirname, folderName), {
       setHeaders(res, filePath) {
         if (filePath.endsWith("manifest.webmanifest")) {
           res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
@@ -74,7 +77,7 @@ if (!process.env.VERCEL) {
 
   app.get("/favicon.ico", (req, res) => {
     res.type("image/svg+xml");
-    res.sendFile(path.join(__dirname, "public", "favicon.svg"));
+    res.sendFile(path.join(__dirname, folderName, "favicon.svg"));
   });
 }
 
