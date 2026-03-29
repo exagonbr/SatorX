@@ -705,10 +705,6 @@
       startEvents.forEach(ev => document.removeEventListener(ev, onFirstInteraction));
     }
     startEvents.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true, passive: true }));
-
-    setTimeout(() => {
-      try { startAudio(); } catch (_) {}
-    }, 1500);
   })();
   </script>
 </body>
