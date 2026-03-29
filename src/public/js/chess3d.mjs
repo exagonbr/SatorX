@@ -61,6 +61,82 @@ function createSimpleLibraryGradientTexture(scene) {
   return tex;
 }
 
+function hideChess3dLoadingOverlay() {
+  const el = document.getElementById("chess3d-loading");
+  if (!el || el.dataset.done === "1") return;
+  el.dataset.done = "1";
+  el.classList.add("chess3d-loading--out");
+  el.setAttribute("aria-busy", "false");
+  setTimeout(() => el.remove(), 700);
+}
+
+/** Toque primário: gestos de câmera com dois dedos (o ponteiro padrão da ArcRotate fica só botão direito). */
+function useMobileCameraGestures() {
+  try {
+    return typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function attachMobileTwoFingerCamera(canvas, camera) {
+  if (!useMobileCameraGestures()) return;
+  let prevDist = 0;
+  let prevAngle = 0;
+  let gesturing = false;
+
+  function baseline(tl) {
+    const t0 = tl[0];
+    const t1 = tl[1];
+    const dx = t1.clientX - t0.clientX;
+    const dy = t1.clientY - t0.clientY;
+    prevDist = Math.max(10, Math.hypot(dx, dy));
+    prevAngle = Math.atan2(dy, dx);
+  }
+
+  canvas.addEventListener(
+    "touchmove",
+    (e) => {
+      if (e.touches.length < 2) {
+        gesturing = false;
+        return;
+      }
+      if (!gesturing) {
+        baseline(e.touches);
+        gesturing = true;
+        e.preventDefault();
+        return;
+      }
+      const t0 = e.touches[0];
+      const t1 = e.touches[1];
+      const dx = t1.clientX - t0.clientX;
+      const dy = t1.clientY - t0.clientY;
+      const dist = Math.max(10, Math.hypot(dx, dy));
+      const ang = Math.atan2(dy, dx);
+      let da = ang - prevAngle;
+      if (da > Math.PI) da -= 2 * Math.PI;
+      if (da < -Math.PI) da += 2 * Math.PI;
+
+      const ratio = prevDist / dist;
+      let r = camera.radius * ratio;
+      r = Math.max(camera.lowerRadiusLimit, Math.min(camera.upperRadiusLimit, r));
+      camera.radius = r;
+      camera.alpha -= da * 0.62;
+
+      prevDist = dist;
+      prevAngle = ang;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
+
+  const endMulti = () => {
+    gesturing = false;
+  };
+  canvas.addEventListener("touchend", endMulti, { passive: true });
+  canvas.addEventListener("touchcancel", endMulti, { passive: true });
+}
+
 function squareFromBoardRC(row, col) {
   return FILES[col] + (8 - row);
 }
@@ -2011,6 +2087,9 @@ function buildClassicChessClock(scene) {
 }
 
 function createScene(canvas) {
+  const loadT0 = typeof performance !== "undefined" ? performance.now() : 0;
+  const LOADING_MIN_MS = 1000;
+
   const engine = new Engine(canvas, true, {
     preserveDrawingBuffer: true,
     stencil: false,
@@ -2035,6 +2114,7 @@ function createScene(canvas) {
   camera.inertia = 0.72;
   camera.attachControl(canvas, false);
   bindArcRotateRightMouseOnly(camera, scene, canvas);
+  attachMobileTwoFingerCamera(canvas, camera);
   camera.wheelPrecision = 42;
   camera.panningSensibility = 0;
   const ptrIn = camera.inputs.attached?.pointers;
@@ -2299,7 +2379,19 @@ function createScene(canvas) {
   });
   scene.executeWhenReady(() => {
     syncCanvasToEngine();
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const elapsed = typeof performance !== "undefined" ? performance.now() - loadT0 : LOADING_MIN_MS;
+        const wait = Math.max(0, LOADING_MIN_MS - elapsed);
+        setTimeout(hideChess3dLoadingOverlay, wait);
+      });
+    });
   });
+
+  setTimeout(() => {
+    const el = document.getElementById("chess3d-loading");
+    if (el && el.dataset.done !== "1") hideChess3dLoadingOverlay();
+  }, 20000);
 
   sceneRef = scene;
   syncPiecesFromGame();

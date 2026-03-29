@@ -568,6 +568,126 @@
     @media (max-width: 720px) and (max-height: 520px) {
       .panel { max-height: min(46dvh, 320px); }
     }
+
+    /* ── Loading inicial (peças flutuantes) ───────────────────── */
+    .chess3d-loading {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      overflow: hidden;
+      transition: opacity 0.55s ease, visibility 0.55s ease;
+    }
+    .chess3d-loading--out {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    .chess3d-loading__bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 85% 75% at 50% 38%, rgba(55, 44, 32, 0.55) 0%, transparent 52%),
+        radial-gradient(ellipse 120% 90% at 50% 100%, rgba(12, 9, 6, 0.9) 0%, transparent 45%),
+        linear-gradient(165deg, #241c14 0%, #15100c 45%, #0a0806 100%);
+    }
+    .chess3d-loading__pieces {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .chess3d-loading__piece {
+      position: absolute;
+      left: var(--lx, 50%);
+      top: var(--ly, 50%);
+      font-size: calc(2.2rem * var(--pscale, 1));
+      line-height: 1;
+      color: rgba(212, 175, 55, 0.22);
+      text-shadow:
+        0 0 22px rgba(212, 175, 55, 0.35),
+        0 4px 24px rgba(0, 0, 0, 0.5);
+      animation: chessLoadFloat var(--pdur, 16s) ease-in-out infinite;
+      animation-delay: var(--pdelay, 0s);
+      transform: translate(-50%, -50%) rotate(var(--prot, 0deg)) scale(var(--pscale, 1));
+      will-change: transform, opacity;
+      user-select: none;
+    }
+    @keyframes chessLoadFloat {
+      0%, 100% {
+        transform: translate(-50%, -50%) translate(0, 0) rotate(var(--prot, 0deg)) scale(var(--pscale, 1));
+        opacity: 0.35;
+      }
+      25% {
+        transform: translate(-50%, -50%) translate(12px, -28px) rotate(calc(var(--prot, 0deg) + 18deg)) scale(var(--pscale, 1));
+        opacity: 0.85;
+      }
+      50% {
+        transform: translate(-50%, -50%) translate(-18px, 14px) rotate(calc(var(--prot, 0deg) - 12deg)) scale(var(--pscale, 1));
+        opacity: 0.5;
+      }
+      75% {
+        transform: translate(-50%, -50%) translate(8px, 22px) rotate(calc(var(--prot, 0deg) + 8deg)) scale(var(--pscale, 1));
+        opacity: 0.95;
+      }
+    }
+    .chess3d-loading__center {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 28px 32px;
+      max-width: 92vw;
+    }
+    .chess3d-loading__logo {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: clamp(1.6rem, 5.5vw, 2.4rem);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      text-shadow: 0 2px 32px rgba(0, 0, 0, 0.65), 0 0 40px rgba(212, 175, 55, 0.15);
+      margin-bottom: 22px;
+    }
+    .chess3d-loading__logo span {
+      color: var(--gold);
+      font-style: italic;
+      font-weight: 400;
+    }
+    .chess3d-loading__bar {
+      height: 3px;
+      width: min(220px, 70vw);
+      margin: 0 auto 14px;
+      border-radius: 2px;
+      background: rgba(212, 175, 55, 0.12);
+      overflow: hidden;
+    }
+    .chess3d-loading__bar span {
+      display: block;
+      height: 100%;
+      width: 40%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, transparent, var(--gold-bright), var(--gold), var(--gold-bright), transparent);
+      animation: chessLoadBar 1.35s ease-in-out infinite;
+    }
+    @keyframes chessLoadBar {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(350%); }
+    }
+    .chess3d-loading__hint {
+      margin: 0;
+      font-size: 0.88rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .chess3d-loading__gesture {
+      margin-top: 10px;
+      font-size: 0.78rem;
+      color: rgba(212, 175, 55, 0.55);
+    }
+    @media (pointer: fine) {
+      .chess3d-loading__gesture { display: none; }
+    }
   </style>
   <script type="importmap">
   {
@@ -579,6 +699,37 @@
   </script>
 </head>
 <body>
+  <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="A carregar o tabuleiro 3D">
+    <div class="chess3d-loading__bg" aria-hidden="true"></div>
+    <div class="chess3d-loading__pieces" id="chess3d-loading-pieces" aria-hidden="true"></div>
+    <div class="chess3d-loading__center">
+      <div class="chess3d-loading__logo">XS IA <span>ENGINE</span></div>
+      <div class="chess3d-loading__bar" aria-hidden="true"><span></span></div>
+      <p class="chess3d-loading__hint">A preparar biblioteca, tabuleiro e peças…</p>
+      <p class="chess3d-loading__gesture">No telemóvel: um dedo para jogar · dois dedos para girar e zoom</p>
+    </div>
+  </div>
+  <script>
+  (function initChess3dLoadingPieces() {
+    var host = document.getElementById("chess3d-loading-pieces");
+    if (!host) return;
+    var glyphs = "\u2654\u2655\u2656\u2657\u2658\u2659\u265A\u265B\u265C\u265D\u265E\u265F";
+    var n = 20;
+    for (var i = 0; i < n; i++) {
+      var el = document.createElement("span");
+      el.className = "chess3d-loading__piece";
+      el.setAttribute("aria-hidden", "true");
+      el.textContent = glyphs.charAt(Math.floor(Math.random() * glyphs.length));
+      el.style.setProperty("--lx", (8 + Math.random() * 84) + "%");
+      el.style.setProperty("--ly", (6 + Math.random() * 88) + "%");
+      el.style.setProperty("--pdelay", (-Math.random() * 18).toFixed(2) + "s");
+      el.style.setProperty("--pdur", (13 + Math.random() * 11).toFixed(2) + "s");
+      el.style.setProperty("--prot", (Math.random() * 360).toFixed(1) + "deg");
+      el.style.setProperty("--pscale", (0.65 + Math.random() * 1.1).toFixed(2));
+      host.appendChild(el);
+    }
+  })();
+  </script>
   <!-- Fundo desfocado: biblioteca vitoriana -->
   <!-- Parallax substituído por cilindros 3D
   <div id="library-parallax-root" aria-hidden="true">
