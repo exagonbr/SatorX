@@ -2210,14 +2210,19 @@ if (getMode() === "engine" && getPlayerColor() === "b") {
   const bgEl = document.getElementById('library-bg');
   if (!bgEl) return;
 
-  // Parâmetros de parallax
-  const PARALLAX_H = 14;   // deslocamento horizontal máximo em % (eixo alpha da câmera)
-  const PARALLAX_V = 8;    // deslocamento vertical máximo em % (eixo beta da câmera)
-  const LERP_SPEED = 0.055; // suavização (0=sem movimento, 1=instantâneo)
+  // Parâmetros de parallax — imagem panorâmica 180°
+  // background-size: 160% => range de deslocamento: 0% a 100% (60% de espaço extra)
+  // Posicão neutra: 50% (centro da panorama = lareira ao fundo)
+  // Ao girar para esquerda: revela vitrais/glóbo (0-30%)
+  // Ao girar para direita: revela escrivaninha/estantes (70-100%)
+  const PARALLAX_H = 28;   // deslocamento horizontal máximo em % (imagem 160% wide)
+  const PARALLAX_V = 10;   // deslocamento vertical máximo em % (teto/chão)
+  const LERP_SPEED = 0.048; // suavização mais lenta para movimento mais cinematográfico
 
   // Valores alvo e atuais (interpolados)
-  let targetX = 50, targetY = 30;
-  let currentX = 50, currentY = 30;
+  // Posicão inicial: 50% H (lareira ao centro), 40% V (céu/teto visível)
+  let targetX = 50, targetY = 40;
+  let currentX = 50, currentY = 40;
   let rafId = null;
 
   // Referência de ângulo neutro (postura padrão da câmera)
@@ -2248,21 +2253,23 @@ if (getMode() === "engine" && getPlayerColor() === "b") {
     const normH = Math.max(-1, Math.min(1, dAlpha / maxAlpha));
     const normV = Math.max(-1, Math.min(1, dBeta  / maxBeta));
 
-    // background-position: 50% = centro; desvia conforme o ângulo
-    // Movimento oposto ao da câmera = efeito parallax natural
-    targetX = 50 - normH * PARALLAX_H;
-    targetY = 30 - normV * PARALLAX_V;
+    // Parallax: movimento oposto ao da câmera = efeito de perspectiva natural
+    // A panorama tem 160% de largura, então podemos deslizar de ~10% a ~90%
+    targetX = Math.max(10, Math.min(90, 50 - normH * PARALLAX_H));
+    targetY = Math.max(20, Math.min(65, 40 - normV * PARALLAX_V));
 
     // Interpolação suave (lerp)
     currentX = lerp(currentX, targetX, LERP_SPEED);
     currentY = lerp(currentY, targetY, LERP_SPEED);
 
-    // Aplica no CSS
+    // Aplica background-position no CSS
     bgEl.style.backgroundPosition = `${currentX.toFixed(2)}% ${currentY.toFixed(2)}%`;
 
-    // Efeito de zoom leve conforme inclinação (mais inclinado = mais zoom no fundo)
-    const zoomFactor = 1.06 + Math.abs(normV) * 0.04 + Math.abs(normH) * 0.03;
-    bgEl.style.transform = `scale(${zoomFactor.toFixed(3)})`;
+    // Perspectiva CSS 3D: skewX leve conforme rotação horizontal
+    // Simula distorção de perspectiva ao virar a cabeça
+    const skewDeg = normH * -1.8;  // máximo ±1.8° de skew
+    const zoomFactor = 1.08 + Math.abs(normV) * 0.035 + Math.abs(normH) * 0.025;
+    bgEl.style.transform = `scale(${zoomFactor.toFixed(3)}) skewX(${skewDeg.toFixed(2)}deg)`;
 
     rafId = requestAnimationFrame(updateParallax);
   }

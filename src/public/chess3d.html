@@ -34,16 +34,23 @@
       font-family: "Source Sans 3", system-ui, sans-serif;
     }
 
-    /* ── Fundo desfocado: biblioteca vitoriana ───────────────────────── */
+    /* ── Fundo panorâmico desfocado: biblioteca vitoriana 180° ──────────── */
     #library-bg {
       position: fixed;
-      inset: -8px; /* compensa o blur para não mostrar bordas */
-      background-image: url('/img/library-bg.webp');
-      background-size: cover;
-      background-position: center 30%;
-      filter: blur(8px) brightness(0.65) saturate(0.80);
+      inset: -12px; /* compensa o blur e o parallax para não mostrar bordas */
+      /* Imagem panorâmica: background-size maior que 100% para permitir deslocamento */
+      background-image: url('/img/library-panorama.webp');
+      background-size: 160% auto; /* 160% = espaço para deslizar ~30% para cada lado */
+      background-position: 50% 40%;
+      background-repeat: no-repeat;
+      filter: blur(7px) brightness(0.62) saturate(0.82);
+      /* Perspectiva CSS 3D: leve distorção de profundidade */
+      transform-origin: center center;
+      transform: scale(1.08);
+      will-change: background-position, transform;
       z-index: 0;
       pointer-events: none;
+      transition: none; /* transição controlada pelo JS (lerp) */
     }
 
     /* Gradiente de vinheta sobre o fundo para escurecer bordas */
