@@ -11,13 +11,13 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Sator"/>
   <title>Sator Engine — Tabuleiro 2D e aprendizado profundo</title>
-  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Source+Sans+3:wght@300;400;600&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="https://unpkg.com/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.css">
   <style>
     :root {
       --bg: #06080d;
@@ -513,9 +513,9 @@
   </div>
 
   <script src="https://unpkg.com/jquery@3.7.1/dist/jquery.min.js"></script>
-  <script src="https://unpkg.com/chess.js@1.0.0/chess.min.js"></script>
-  <script src="https://unpkg.com/chessboardjs@1.0.0/www/js/chessboard-1.0.0.min.js"></script>
-  <script>
+  <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
+  <script type="module">
+    import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
     const game = new Chess();
     let board = null;
     let busy = false;
@@ -584,6 +584,10 @@
     var LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
     var MP_HOST_SKIP_JOIN_MSG =
       "É o anfitrião desta sala — já está nas brancas à espera. Envie o link de convite ao oponente; não use «Entrar na sala».";
+    var MP_HOST_SKIP_SPECTATE_MSG =
+      "É o anfitrião desta sala — não pode assistir à própria partida. Aguarde o oponente ou partilhe o link.";
+    var MP_ALREADY_IN_LOBBY_MSG = "Já está ligado a esta sala.";
+    var mpLobbyActionBusy = false;
     var MP_LOBBY_URL_HINT_MSG =
       "ID da sala preenchido. Oponente: «Entrar na sala». Se já houver dois jogadores, use «Assistir» ou «Reclamar lugar» (após desconexão).";
     function rememberMpHostLobby(lobbyId) {
@@ -665,12 +669,25 @@
     }
 
     function connectMpRealtime(lobbyId, secret) {
-      disconnectMpRealtime();
       if (!lobbyId || !secret || typeof WebSocket === "undefined") {
+        disconnectMpRealtime();
         scheduleMultiplayerPoll();
         updateMpConnStats();
         return;
       }
+      if (
+        currentLobbyId === lobbyId &&
+        mpWsSecret === secret &&
+        mpSocket &&
+        (mpSocket.readyState === WebSocket.CONNECTING ||
+          mpSocket.readyState === WebSocket.OPEN)
+      ) {
+        scheduleMultiplayerPoll();
+        updateMpConnStats();
+        return;
+      }
+
+      disconnectMpRealtime();
 
       var myGen = ++mpRealtimeConnectGen;
 
@@ -902,14 +919,34 @@
         alert("Indique o ID da sala.");
         return;
       }
-      const caps = await ensureLobbyCapabilities();
-      if (caps.persistentLobbies === false) {
-        alert(MP_LOBBY_UNSUPPORTED_MSG);
+      if (isMpHostOfLobby(id)) {
+        alert(MP_HOST_SKIP_SPECTATE_MSG);
         return;
       }
+      if (currentLobbyId === id && !mpIsSpectator) {
+        alert("Já está a jogar nesta sala — não use «Assistir».");
+        return;
+      }
+      if (
+        currentLobbyId === id &&
+        mpIsSpectator &&
+        mpSocket &&
+        (mpSocket.readyState === WebSocket.CONNECTING ||
+          mpSocket.readyState === WebSocket.OPEN)
+      ) {
+        alert("Já está a assistir a esta sala.");
+        return;
+      }
+      if (mpLobbyActionBusy) return;
+      mpLobbyActionBusy = true;
       const pass = (document.getElementById("mpJoinPassword") && document.getElementById("mpJoinPassword").value.trim()) || "";
       const playerName = (document.getElementById("mpPlayerName") && document.getElementById("mpPlayerName").value.trim()) || "";
       try {
+        const caps = await ensureLobbyCapabilities();
+        if (caps.persistentLobbies === false) {
+          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          return;
+        }
         const r = await fetch("/api/lobby/spectate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -932,6 +969,8 @@
         connectMpRealtime(id, res.wsSecret);
       } catch (e) {
         alert("Erro de rede");
+      } finally {
+        mpLobbyActionBusy = false;
       }
     }
 
@@ -1182,7 +1221,7 @@
           body: JSON.stringify({ fen: game.fen(), depth, timeMs })
         }).then(r => r.json());
         if (res.bestMove && res.bestMove.san) {
-          game.move(res.bestMove.san, { sloppy: true });
+          game.move(res.bestMove.san);
           board.position(game.fen());
           await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
           document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
@@ -1213,13 +1252,15 @@
         onDragStart,
         onDrop,
         onSnapEnd,
-        pieceTheme: "https://unpkg.com/chessboardjs@1.0.0/www/img/chesspieces/wikipedia/{piece}.png"
+        pieceTheme: "https://cdn.jsdelivr.net/gh/oakmac/chessboardjs@1.0.0/website/img/chesspieces/wikipedia/{piece}.png"
       };
       board = Chessboard("board", cfg);
       updateStatus();
     }
 
     async function createLobby() {
+      if (mpLobbyActionBusy) return;
+      mpLobbyActionBusy = true;
       const nameEl = document.getElementById("mpPlayerName");
       const oppEl = document.getElementById("mpOpponentName");
       const passEl = document.getElementById("mpRoomPassword");
@@ -1234,6 +1275,12 @@
         const caps = await ensureLobbyCapabilities();
         if (caps.persistentLobbies === false) {
           alert(MP_LOBBY_UNSUPPORTED_MSG);
+          return;
+        }
+        if (currentLobbyId && isMpHostOfLobby(currentLobbyId)) {
+          alert(
+            "Já criou a sala «" + currentLobbyId + "». Partilhe o código ou aguarde o oponente."
+          );
           return;
         }
         const r = await fetch("/api/lobby/create", {
@@ -1284,6 +1331,8 @@
         connectMpRealtime(res.lobbyId, res.wsSecret);
       } catch (e) {
         alert("Erro ao criar sala");
+      } finally {
+        mpLobbyActionBusy = false;
       }
     }
 
@@ -1293,6 +1342,17 @@
         alert(MP_HOST_SKIP_JOIN_MSG);
         return;
       }
+      if (
+        currentLobbyId === id &&
+        mpSocket &&
+        (mpSocket.readyState === WebSocket.CONNECTING ||
+          mpSocket.readyState === WebSocket.OPEN)
+      ) {
+        alert(MP_ALREADY_IN_LOBBY_MSG);
+        return;
+      }
+      if (mpLobbyActionBusy) return;
+      mpLobbyActionBusy = true;
       const playerName = (
         (document.getElementById("mpPlayerName") && document.getElementById("mpPlayerName").value) ||
         ""
@@ -1310,12 +1370,31 @@
         var previousSecret = readMpGuestSecret(id);
         var joinBody = { lobbyId: id, playerName: playerName, password: joinPass };
         if (previousSecret) joinBody.previousSecret = previousSecret;
-        const r = await fetch("/api/lobby/join", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(joinBody)
-        });
-        const res = await r.json();
+        const maxJoinAttempts = previousSecret ? 10 : 1;
+        const joinRetryMs = 600;
+        var r = null;
+        var res = null;
+        for (var attempt = 0; attempt < maxJoinAttempts; attempt++) {
+          r = await fetch("/api/lobby/join", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(joinBody)
+          });
+          res = await r.json();
+          if (r.ok && res.ok) break;
+          var errText = typeof res.error === "string" ? res.error : "";
+          var looksLikeFullWhileReconnecting =
+            previousSecret &&
+            attempt < maxJoinAttempts - 1 &&
+            (errText.indexOf("Sala cheia") !== -1 || errText.indexOf("já está ligado") !== -1);
+          if (looksLikeFullWhileReconnecting) {
+            await new Promise(function (resolve) {
+              setTimeout(resolve, joinRetryMs);
+            });
+            continue;
+          }
+          break;
+        }
         if (r.ok && res.ok) {
           mpResultPosted = false;
           mpServerEndShown = false;
@@ -1340,6 +1419,8 @@
       } catch (e) {
         mpOpponentReady = false;
         alert("Erro ao entrar na sala");
+      } finally {
+        mpLobbyActionBusy = false;
       }
     }
 

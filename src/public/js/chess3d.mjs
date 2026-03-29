@@ -127,6 +127,10 @@ const MP_LOBBY_UNSUPPORTED_MSG =
 const LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
 const MP_HOST_SKIP_JOIN_MSG =
   "É o anfitrião desta sala — já está nas brancas à espera. Envie o link de convite ao oponente; não use «Entrar na sala».";
+const MP_HOST_SKIP_SPECTATE_MSG =
+  "É o anfitrião desta sala — não pode assistir à própria partida. Aguarde o oponente ou partilhe o link.";
+const MP_ALREADY_IN_LOBBY_MSG = "Já está ligado a esta sala.";
+let mpLobbyActionBusy = false;
 
 function rememberMpHostLobby(lobbyId) {
   try {
@@ -883,12 +887,25 @@ function disconnectMpRealtime() {
 }
 
 function connectMpRealtime(lobbyId, secret) {
-  disconnectMpRealtime();
   if (!lobbyId || !secret || typeof WebSocket === "undefined") {
+    disconnectMpRealtime();
     scheduleMultiplayerPoll();
     updateMpConnStats();
     return;
   }
+  if (
+    currentLobbyId === lobbyId &&
+    mpWsSecret === secret &&
+    mpSocket &&
+    (mpSocket.readyState === WebSocket.CONNECTING ||
+      mpSocket.readyState === WebSocket.OPEN)
+  ) {
+    scheduleMultiplayerPoll();
+    updateMpConnStats();
+    return;
+  }
+
+  disconnectMpRealtime();
 
   const myGen = ++mpRealtimeConnectGen;
 
@@ -1162,6 +1179,8 @@ function scheduleMultiplayerPoll() {
 }
 
 async function createLobby() {
+  if (mpLobbyActionBusy) return;
+  mpLobbyActionBusy = true;
   const nameEl = document.getElementById("mpPlayerName");
   const oppEl = document.getElementById("mpOpponentName");
   const passEl = document.getElementById("mpRoomPassword");
@@ -1177,6 +1196,13 @@ async function createLobby() {
     const caps = await ensureLobbyCapabilities();
     if (caps.persistentLobbies === false) {
       showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
+      return;
+    }
+    if (currentLobbyId && isMpHostOfLobby(currentLobbyId)) {
+      showToast(
+        "Já criou a sala «" + currentLobbyId + "». Partilhe o código ou aguarde o oponente.",
+        "info"
+      );
       return;
     }
     const r = await fetch("/api/lobby/create", {
@@ -1228,6 +1254,8 @@ async function createLobby() {
     connectMpRealtime(res.lobbyId, res.wsSecret);
   } catch (e) {
     showToast("Erro de rede ao criar a sala. Tente de novo.", "error");
+  } finally {
+    mpLobbyActionBusy = false;
   }
 }
 
@@ -1237,6 +1265,17 @@ async function joinLobby(id) {
     showToast(MP_HOST_SKIP_JOIN_MSG, "info");
     return;
   }
+  if (
+    currentLobbyId === id &&
+    mpSocket &&
+    (mpSocket.readyState === WebSocket.CONNECTING ||
+      mpSocket.readyState === WebSocket.OPEN)
+  ) {
+    showToast(MP_ALREADY_IN_LOBBY_MSG, "info");
+    return;
+  }
+  if (mpLobbyActionBusy) return;
+  mpLobbyActionBusy = true;
   const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
   const joinPass = (document.getElementById("mpJoinPassword")?.value || "").trim();
   showToast("A ligar à sala…", "info");
@@ -1285,6 +1324,8 @@ async function joinLobby(id) {
   } catch (e) {
     showToast("Erro de rede ao entrar na sala.", "error");
     mpOpponentReady = false;
+  } finally {
+    mpLobbyActionBusy = false;
   }
 }
 
@@ -1294,6 +1335,26 @@ async function spectateLobby() {
     showToast("Indique o ID da sala.", "error");
     return;
   }
+  if (isMpHostOfLobby(id)) {
+    showToast(MP_HOST_SKIP_SPECTATE_MSG, "info");
+    return;
+  }
+  if (currentLobbyId === id && !mpIsSpectator) {
+    showToast("Já está a jogar nesta sala — não use «Assistir».", "info");
+    return;
+  }
+  if (
+    currentLobbyId === id &&
+    mpIsSpectator &&
+    mpSocket &&
+    (mpSocket.readyState === WebSocket.CONNECTING ||
+      mpSocket.readyState === WebSocket.OPEN)
+  ) {
+    showToast("Já está a assistir a esta sala.", "info");
+    return;
+  }
+  if (mpLobbyActionBusy) return;
+  mpLobbyActionBusy = true;
   const pass = (document.getElementById("mpJoinPassword")?.value || "").trim();
   const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
   showToast("A entrar como espectador…", "info");
@@ -1326,6 +1387,8 @@ async function spectateLobby() {
     showToast("A assistir em tempo real.", "success");
   } catch (e) {
     showToast("Erro de rede.", "error");
+  } finally {
+    mpLobbyActionBusy = false;
   }
 }
 

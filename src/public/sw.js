@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 
@@ -25,7 +25,9 @@ self.addEventListener("install", function (event) {
       const cache = await caches.open(PRECACHE);
       for (const url of PRECACHE_URLS) {
         try {
-          await cache.add(new Request(url, { cache: "reload" }));
+          await cache.add(
+            new Request(url, { cache: "reload", credentials: "include" })
+          );
         } catch (e) {
           console.warn("[Sator SW] precache ignorado:", url);
         }
