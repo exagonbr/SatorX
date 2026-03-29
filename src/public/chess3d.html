@@ -760,7 +760,8 @@
   <script type="importmap">
   {
     "imports": {
-      "@babylonjs/core": "/vendor/@babylonjs/core/index.js",
+      "three": "https://esm.sh/three@0.160.0",
+      "three/addons/": "https://esm.sh/three@0.160.0/examples/jsm/",
       "chess.js": "https://esm.sh/chess.js@1.4.0"
     }
   }
@@ -803,12 +804,6 @@
     }
   })();
   </script>
-  <!-- Fundo 180° (CSS) por trás do canvas transparente; pan ligado à câmera em chess3d.mjs -->
-  <div id="library-parallax-root" aria-hidden="true">
-    <div id="library-bg-far" class="library-parallax-layer"></div>
-    <div id="library-bg-near" class="library-parallax-layer"></div>
-  </div>
-  <div id="library-vignette" aria-hidden="true"></div>
   <canvas id="renderCanvas"></canvas>
 
   <div class="hud">
@@ -832,6 +827,7 @@
             <select id="mode">
               <option value="engine">Vs motor</option>
               <option value="human">Humano vs humano</option>
+              <option value="multiplayer">Multiplayer Online</option>
             </select>
           </label>
         </div>
@@ -842,6 +838,17 @@
               <option value="b">Pretas</option>
             </select>
           </label>
+        </div>
+        <div id="multiplayerSetup" style="display:none; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
+          <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);">Lobby Multiplayer</p>
+          <div style="display:flex; gap: 8px; margin-bottom: 8px;">
+            <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
+          </div>
+          <div style="display:flex; gap: 8px;">
+            <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
+            <button type="button" class="btn" id="btnJoinLobby">Entrar</button>
+          </div>
+          <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
         </div>
         <div class="row">
           <label>Câmera

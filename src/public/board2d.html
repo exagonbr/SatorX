@@ -402,6 +402,7 @@
             <select id="mode">
               <option value="engine">Contra o motor (minimax)</option>
               <option value="human">Humano vs humano</option>
+              <option value="multiplayer">Multiplayer Online</option>
             </select>
           </label>
           <label id="wrapColor">
@@ -411,6 +412,17 @@
               <option value="b">Pretas (motor abre)</option>
             </select>
           </label>
+          <div id="multiplayerSetup" style="display:none; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-top: 10px;">
+            <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);">Lobby Multiplayer</p>
+            <div style="display:flex; gap: 8px; margin-bottom: 8px;">
+              <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
+            </div>
+            <div style="display:flex; gap: 8px;">
+              <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
+              <button type="button" class="btn" id="btnJoinLobby">Entrar</button>
+            </div>
+            <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
+          </div>
           <label class="row-inline" style="margin-top:10px;align-items:center;gap:8px;">
             <input type="checkbox" id="trainOnline" checked />
             Aprendizado TD a cada lance (rede de valor)
@@ -488,6 +500,9 @@
     const game = new Chess();
     let board = null;
     let busy = false;
+    let multiplayerPollId = null;
+    let myMultiplayerColor = "w";
+    let currentLobbyId = null;
 
     function getMode() { return document.getElementById("mode").value; }
     function getPlayerColor() { return document.getElementById("playerColor").value; }
@@ -519,13 +534,26 @@
 
     function syncModeUI() {
       const engine = getMode() === "engine";
+      const multi = getMode() === "multiplayer";
       document.getElementById("wrapColor").style.display = engine ? "flex" : "none";
       document.getElementById("depth").disabled = !engine;
       document.getElementById("timeMs").disabled = !engine;
+      const setup = document.getElementById("multiplayerSetup");
+      if(setup) setup.style.display = multi ? "block" : "none";
+      
+      if (!multi) {
+        board.orientation("white");
+        if (multiplayerPollId) {
+          clearInterval(multiplayerPollId);
+          multiplayerPollId = null;
+        }
+        currentLobbyId = null;
+      }
     }
 
     function isPlayerTurn() {
       if (getMode() === "human") return true;
+      if (getMode() === "multiplayer") return game.turn() === myMultiplayerColor;
       return game.turn() === getPlayerColor();
     }
 
@@ -615,6 +643,10 @@
         if (game.turn() === "w" && piece.startsWith("b")) return false;
         if (game.turn() === "b" && piece.startsWith("w")) return false;
       }
+      if (getMode() === "multiplayer") {
+        if (!isPlayerTurn()) return false;
+        if (piece.startsWith(myMultiplayerColor === "w" ? "b" : "w")) return false;
+      }
       return true;
     }
 
@@ -624,6 +656,15 @@
       if (!move) return "snapback";
       board.position(game.fen());
       await sendMoveLearn(fenBefore, game.fen(), move.san);
+      
+      if (getMode() === "multiplayer" && currentLobbyId) {
+        fetch("/api/lobby/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lobbyId: currentLobbyId, move: move.san, fen: game.fen() })
+        }).catch(e => console.error("Erro no multiplayer move", e));
+      }
+      
       updateStatus();
       if (game.isGameOver()) { saveReplayAuto(); return; }
       if (getMode() === "engine" && !isPlayerTurn()) {
@@ -687,10 +728,99 @@
       updateStatus();
     }
 
+    function startMultiplayerPolling() {
+      if (multiplayerPollId) clearInterval(multiplayerPollId);
+      multiplayerPollId = setInterval(async () => {
+        if (!currentLobbyId || getMode() !== "multiplayer") return;
+        try {
+          const res = await fetch("/api/lobby/status/" + currentLobbyId).then(r => r.json());
+          if (res.ok) {
+            if (res.playersCount > 1) {
+              if (document.getElementById("lobbyStatus").textContent.includes("Aguardando")) {
+                document.getElementById("lobbyStatus").textContent = "Oponente conectado!";
+              }
+            }
+            if (res.fen && res.fen !== game.fen()) {
+              game.load(res.fen);
+              board.position(res.fen);
+              updateStatus();
+            }
+          }
+        } catch (e) {
+          console.error("Polling error", e);
+        }
+      }, 2000);
+    }
+
+    async function createLobby() {
+      try {
+        const res = await fetch("/api/lobby/create", { method: "POST" }).then(r => r.json());
+        if (res.ok) {
+          currentLobbyId = res.lobbyId;
+          myMultiplayerColor = res.color;
+          document.getElementById("lobbyStatus").textContent = "Sala: " + res.lobbyId + " (Aguardando oponente)";
+          
+          let shareBtn = document.getElementById("btnShareLink");
+          if (!shareBtn) {
+            shareBtn = document.createElement("button");
+            shareBtn.id = "btnShareLink";
+            shareBtn.className = "btn";
+            shareBtn.style.marginTop = "8px";
+            document.getElementById("multiplayerSetup").appendChild(shareBtn);
+          }
+          const inviteLink = window.location.origin + window.location.pathname + "?lobby=" + res.lobbyId;
+          shareBtn.textContent = "Copiar Link de Convite";
+          shareBtn.onclick = () => {
+            navigator.clipboard.writeText(inviteLink);
+            shareBtn.textContent = "Copiado!";
+            setTimeout(() => shareBtn.textContent = "Copiar Link de Convite", 2000);
+          };
+
+          game.reset();
+          board.start();
+          board.orientation(myMultiplayerColor === "w" ? "white" : "black");
+          updateStatus();
+          startMultiplayerPolling();
+        }
+      } catch (e) {
+        alert("Erro ao criar sala");
+      }
+    }
+
+    async function joinLobby(id) {
+      try {
+        const res = await fetch("/api/lobby/join", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ lobbyId: id })
+        }).then(r => r.json());
+        
+        if (res.ok) {
+          currentLobbyId = res.lobbyId;
+          myMultiplayerColor = res.color;
+          game.load(res.fen);
+          board.position(res.fen);
+          board.orientation(myMultiplayerColor === "w" ? "white" : "black");
+          document.getElementById("lobbyStatus").textContent = "Conectado à sala: " + res.lobbyId;
+          updateStatus();
+          startMultiplayerPolling();
+        } else {
+          alert("Erro: " + (res.error || "Não foi possível entrar na sala"));
+          currentLobbyId = null;
+          document.getElementById("lobbyStatus").textContent = "";
+        }
+      } catch (e) {
+        alert("Erro ao entrar na sala");
+      }
+    }
+
     document.getElementById("btnNew").onclick = () => {
       game.reset();
       board.start();
       syncModeUI();
+      if (getMode() === "multiplayer" && currentLobbyId) {
+        // Posição inicial no lobby não é forçada a reiniciar para evitar desync sem API.
+      }
       updateStatus();
       if (getMode() === "engine" && getPlayerColor() === "b") {
         busy = true;
@@ -732,8 +862,31 @@
     document.getElementById("playerColor").onchange = () => {
       if (getMode() === "engine") document.getElementById("btnNew").click();
     };
+    
+    document.getElementById("btnCreateLobby").onclick = () => {
+      createLobby();
+    };
+    document.getElementById("btnJoinLobby").onclick = () => {
+      const id = document.getElementById("lobbyIdInput").value.trim();
+      if (id) {
+        joinLobby(id);
+      }
+    };
 
-    syncModeUI();
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlLobby = urlParams.get('lobby');
+    if (urlLobby) {
+      document.getElementById("mode").value = "multiplayer";
+      syncModeUI();
+      if (urlLobby === "new") {
+        setTimeout(() => document.getElementById("btnCreateLobby").click(), 500);
+      } else {
+        document.getElementById("lobbyIdInput").value = urlLobby;
+        setTimeout(() => document.getElementById("btnJoinLobby").click(), 500);
+      }
+    } else {
+      syncModeUI();
+    }
     initBoard();
   </script>
   <script src="/js/pwa-register.js" defer></script>

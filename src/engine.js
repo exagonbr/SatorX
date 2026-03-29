@@ -137,16 +137,23 @@ function findBestMove(chess, depth = 7, timeMs = 3000) {
     if (Date.now() - start > timeMs) break;
 
     let localBest=null, localScore=-Infinity;
+    let alpha = -Infinity;
     let moves = orderMoves(chess.moves({ verbose: true }), d);
 
     for (let i=0; i<moves.length; i++) {
       if (Date.now() - start > timeMs) break;
       const mv = moves[i];
       chess.move(mv);
-      const score = -negamax(chess, d-1, -Infinity, Infinity, 0);
+      const score = -negamax(chess, d-1, -Infinity, -alpha, 0);
       chess.undo();
 
-      if (score > localScore) { localScore = score; localBest = mv; }
+      if (score > localScore) { 
+        localScore = score; 
+        localBest = mv; 
+      }
+      if (score > alpha) {
+        alpha = score;
+      }
     }
 
     if (localBest) { best = localBest; bestScore = localScore; bestDepth = d; }

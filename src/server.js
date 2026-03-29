@@ -240,6 +240,55 @@ app.post("/api/nn/predict-rating", (req, res) => {
   });
 });
 
+// ---------- Multiplayer API (Memória / Polling para compatibilidade Vercel) ----------
+const memoryLobbies = {};
+
+app.post("/api/lobby/create", (req, res) => {
+  const lobbyId = Math.random().toString(36).substring(2, 8);
+  memoryLobbies[lobbyId] = {
+    players: [1],
+    fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    lastMove: null,
+    updatedAt: Date.now()
+  };
+  return res.json({ ok: true, lobbyId, color: "w" });
+});
+
+app.post("/api/lobby/join", (req, res) => {
+  const { lobbyId } = req.body;
+  const lobby = memoryLobbies[lobbyId];
+  if (lobby && lobby.players.length === 1) {
+    lobby.players.push(2);
+    lobby.updatedAt = Date.now();
+    return res.json({ ok: true, lobbyId, color: "b", fen: lobby.fen });
+  }
+  return res.status(400).json({ error: "Lobby cheio ou não existe" });
+});
+
+app.get("/api/lobby/status/:lobbyId", (req, res) => {
+  const { lobbyId } = req.params;
+  const lobby = memoryLobbies[lobbyId];
+  if (!lobby) return res.status(404).json({ error: "Lobby não encontrado" });
+  return res.json({
+    ok: true,
+    playersCount: lobby.players.length,
+    fen: lobby.fen,
+    lastMove: lobby.lastMove
+  });
+});
+
+app.post("/api/lobby/move", (req, res) => {
+  const { lobbyId, move, fen } = req.body;
+  const lobby = memoryLobbies[lobbyId];
+  if (lobby) {
+    lobby.fen = fen;
+    lobby.lastMove = move;
+    lobby.updatedAt = Date.now();
+    return res.json({ ok: true });
+  }
+  return res.status(404).json({ error: "Lobby não encontrado" });
+});
+
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HTTPS_ENABLED =
   process.env.HTTPS_ENABLED === "1" ||
@@ -270,7 +319,8 @@ function scheduleMasterContinuousSeed() {
 }
 
 function listenHttp() {
-  http.createServer(app).listen(PORT, () => {
+  const server = http.createServer(app);
+  server.listen(PORT, () => {
     console.log(`Interface Sator Engine: http://localhost:${PORT}`);
     scheduleMasterContinuousSeed();
   });
@@ -291,7 +341,8 @@ function listenHttps() {
     key: fs.readFileSync(SSL_KEY_PATH),
     cert: fs.readFileSync(SSL_CERT_PATH)
   };
-  https.createServer(opts, app).listen(PORT, () => {
+  const server = https.createServer(opts, app);
+  server.listen(PORT, () => {
     console.log(`Interface Sator Engine: https://localhost:${PORT} (certificado autoassinado — aceite o aviso no browser para o PWA)`);
     scheduleMasterContinuousSeed();
   });
