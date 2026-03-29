@@ -107,6 +107,7 @@ const MASTER_PROFILES = {
 };
 
 function ensureReplayDir() {
+  if (process.env.VERCEL) return;
   if (!fs.existsSync(REPLAY_DIR)) fs.mkdirSync(REPLAY_DIR, { recursive: true });
 }
 
@@ -207,7 +208,9 @@ function saveReplay({ id, chess, result, meta }) {
     moves: chess.history(),
     meta
   };
-  fs.writeFileSync(path.join(REPLAY_DIR, `${id}.json`), JSON.stringify(rec, null, 2));
+  if (!process.env.VERCEL) {
+    fs.writeFileSync(path.join(REPLAY_DIR, `${id}.json`), JSON.stringify(rec, null, 2));
+  }
 }
 
 /**

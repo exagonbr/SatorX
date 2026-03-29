@@ -34,19 +34,23 @@ let state = {
 };
 
 function ensureDirs() {
+  if (process.env.VERCEL) return;
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 function loadNNConfig() {
   ensureDirs();
   if (!fs.existsSync(CONFIG_PATH)) {
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2));
+    if (!process.env.VERCEL) {
+      fs.writeFileSync(CONFIG_PATH, JSON.stringify(DEFAULT_CONFIG, null, 2));
+    }
     return { ...DEFAULT_CONFIG };
   }
   return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, "utf-8")) };
 }
 
 function saveNNConfig(cfg) {
+  if (process.env.VERCEL) return;
   ensureDirs();
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
@@ -113,6 +117,7 @@ function saveToDisk() {
     lastTdError: state.lastTdError,
     lastLearnAt: state.lastLearnAt
   };
+  if (process.env.VERCEL) return;
   fs.writeFileSync(tmp, JSON.stringify(payload));
   fs.renameSync(tmp, WEIGHTS_PATH);
 }

@@ -5,10 +5,10 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
-    "build": "node scripts/prisma-run.js generate",
+    "build": "npx prisma generate",
     "db:init": "node scripts/init-ai-db.js",
-    "db:migrate": "node scripts/prisma-run.js migrate deploy",
-    "db:migrate:dev": "node scripts/prisma-run.js migrate dev",
+    "db:migrate": "npx prisma migrate deploy",
+    "db:migrate:dev": "npx prisma migrate dev",
     "deploy:prod": "bash scripts/deploy-prod.sh",
     "certs:self": "bash scripts/gen-selfsigned-cert.sh",
     "start": "node src/index.js bestmove",

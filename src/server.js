@@ -5,14 +5,29 @@ const fs = require("fs");
 const http = require("http");
 const https = require("https");
 
-if (!process.env.DATABASE_URL) {
+if (process.env.VERCEL) {
+  // Em ambiente Vercel (read-only), copia a DB para /tmp para permitir escritas temporárias
+  const dbPath = path.join(__dirname, "..", "data", "ai_learning.db");
+  const tmpDbPath = "/tmp/ai_learning.db";
+  try {
+    if (fs.existsSync(dbPath) && !fs.existsSync(tmpDbPath)) {
+      fs.copyFileSync(dbPath, tmpDbPath);
+    }
+  } catch (err) {
+    console.warn("Aviso Vercel: não foi possível copiar DB para /tmp", err);
+  }
+  process.env.DATABASE_URL = "file:/tmp/ai_learning.db";
+} else if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = "file:../data/ai_learning.db";
 }
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const CERT_DIR = path.join(DATA_DIR, "certs");
-if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
+
+if (!process.env.VERCEL) {
+  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
+  if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
+}
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -277,8 +292,13 @@ function listenHttps() {
   });
 }
 
-if (HTTPS_ENABLED) {
-  listenHttps();
+if (process.env.VERCEL) {
+  // Em ambiente Vercel (serverless), exportamos a app em vez de escutar portas localmente
+  module.exports = app;
 } else {
-  listenHttp();
+  if (HTTPS_ENABLED) {
+    listenHttps();
+  } else {
+    listenHttp();
+  }
 }

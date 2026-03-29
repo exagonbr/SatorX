@@ -13,6 +13,7 @@ const SNAPSHOT_EVERY_UPDATES = 100;
 let prisma = null;
 
 function ensureDataDir() {
+  if (process.env.VERCEL) return;
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
