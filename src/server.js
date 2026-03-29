@@ -32,7 +32,19 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
-app.use("/", express.static(path.join(__dirname, "public")));
+app.use(
+  "/",
+  express.static(path.join(__dirname, "public"), {
+    setHeaders(res, filePath) {
+      if (filePath.endsWith("manifest.webmanifest")) {
+        res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+      }
+      if (path.basename(filePath) === "sw.js") {
+        res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      }
+    }
+  })
+);
 
 app.get("/favicon.ico", (req, res) => {
   res.type("image/svg+xml");
@@ -161,4 +173,4 @@ app.get("/api/nn/status", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Sator engine UI: http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Interface Sator Engine: http://localhost:${PORT}`));

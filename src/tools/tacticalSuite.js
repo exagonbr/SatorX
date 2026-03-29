@@ -27,14 +27,14 @@ function main() {
     if (c.expects) ok = c.expects.includes(san);
     // quando expects=null, apenas reporta
     if (c.expects) {
-      console.log(c.name, "=>", san, ok ? "OK" : "FAIL");
+      console.log(c.name, "→", san, ok ? "ok" : "falha");
       if (ok) pass++;
     } else {
-      console.log(c.name, "=>", san, "(report)");
+      console.log(c.name, "→", san, "(relatório)");
       pass++;
     }
   }
-  console.log({ total: CASES.length, pass });
+  console.log({ total: CASES.length, aprovados: pass });
 }
 
 main();

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#04060a"/>
+  <title>Offline — Sator Engine</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <style>
+    :root { --gold: #c9a84c; --text: #e8e0d0; --bg: #04060a; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      min-height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      max-width: 420px;
+      text-align: center;
+      border: 1px solid rgba(201,168,76,0.25);
+      border-radius: 8px;
+      padding: 32px 28px;
+      background: linear-gradient(160deg, #0d1018 0%, #080c12 100%);
+      box-shadow: 0 0 40px rgba(201,168,76,0.08);
+    }
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 14px;
+    }
+    p { line-height: 1.6; opacity: 0.88; margin-bottom: 22px; font-size: 0.95rem; }
+    a {
+      display: inline-block;
+      padding: 12px 28px;
+      border: 1px solid rgba(201,168,76,0.45);
+      border-radius: 4px;
+      color: var(--gold);
+      text-decoration: none;
+      font-size: 0.82rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+    a:hover { background: rgba(201,168,76,0.1); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Sem conexão</h1>
+    <p>O Sator Engine precisa de rede para o motor e APIs. Verifique sua conexão e tente de novo.</p>
+    <a href="/">Voltar ao início</a>
+  </div>
+</body>
+</html>

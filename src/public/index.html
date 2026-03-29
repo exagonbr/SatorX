@@ -3,7 +3,15 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#04060a"/>
+  <meta name="description" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Babylon.js."/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Sator"/>
   <title>Sator Engine — A Fundação Inteligente</title>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preload" href="/img/panel1_fundo.webp" as="image" type="image/webp" fetchpriority="high"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -41,7 +49,7 @@
       display: none;
     }
 
-    /* Canvas de constelacao */
+    /* Canvas de constelação */
     #constellation { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
 
     /* Layout central */
@@ -71,7 +79,7 @@
       width: min(540px, 80vw);
       display: block;
       mix-blend-mode: screen;
-      margin-top: -65px; /* Sobe um pouco a peca para alinhar com o fundo */
+      margin-top: -65px; /* Sobe um pouco a peça para alinhar com o fundo */
       animation: logoFloat 7s ease-in-out infinite;
     }
     @keyframes logoFloat {
@@ -82,7 +90,7 @@
       width: min(600px, 95vw);
       display: block;
       mix-blend-mode: screen;
-      margin-top: -20px; /* Ajusta a distancia em relacao a peca que subiu */
+      margin-top: -20px; /* Ajusta a distância em relação à peça que subiu */
     }
     .logo-halo {
       display: none;
@@ -144,7 +152,7 @@
       box-shadow: 0 0 44px rgba(201,168,76,0.28), inset 0 0 32px rgba(201,168,76,0.1);
     }
 
-    /* Rodape */
+    /* Rodapé */
     .footer {
       position: fixed; bottom: 18px; left: 0; right: 0;
       text-align: center;
@@ -220,7 +228,7 @@
     <div class="logo-wrap">
       <picture>
         <source type="image/webp" srcset="/img/panel2_peca.webp"/>
-        <img src="/img/panel2_peca.png" class="peca-central" alt="Peca Central" width="482" height="327" decoding="async" draggable="false"/>
+        <img src="/img/panel2_peca.png" class="peca-central" alt="Peça central" width="482" height="327" decoding="async" draggable="false"/>
       </picture>
       <picture>
         <source type="image/webp" srcset="/img/panel3_texto.webp"/>
@@ -233,37 +241,37 @@
     <nav class="menu" role="navigation" aria-label="Menu principal">
       <a href="/chess3d.html" class="btn-menu btn-menu--primary">&#9654; &nbsp;Iniciar Partida</a>
       <button type="button" class="btn-menu" id="btnRules">Regras do Xadrez</button>
-      <button type="button" class="btn-menu" id="btnOptions">Configuracoes</button>
+      <button type="button" class="btn-menu" id="btnOptions">Configurações</button>
       <button type="button" class="btn-menu" id="btnIA">IA &amp; Rede Neural</button>
     </nav>
   </main>
 
-  <footer class="footer">Sator Engine &nbsp;&middot;&nbsp; Motor Hibrido V5 &nbsp;&middot;&nbsp; Babylon.js 3D</footer>
+  <footer class="footer">Sator Engine &nbsp;&middot;&nbsp; Motor híbrido V5 &nbsp;&middot;&nbsp; Babylon.js 3D</footer>
 
   <!-- Modal: Regras -->
   <div class="overlay" id="overlayRules" role="dialog" aria-modal="true">
     <div class="modal">
       <h2>Regras do Xadrez</h2>
-      <p>O xadrez e jogado em um tabuleiro 8x8 por dois jogadores. O objetivo e dar <strong>xeque-mate</strong> ao rei adversario.</p>
+      <p>O xadrez é jogado em um tabuleiro 8×8 por dois jogadores. O objetivo é dar <strong>xeque-mate</strong> ao rei adversário.</p>
       <ul>
-        <li><strong>Rei</strong>: move-se uma casa em qualquer direcao.</li>
-        <li><strong>Dama</strong>: move-se qualquer numero de casas em linha reta ou diagonal.</li>
+        <li><strong>Rei</strong>: move-se uma casa em qualquer direção.</li>
+        <li><strong>Dama</strong>: move-se qualquer número de casas em linha reta ou diagonal.</li>
         <li><strong>Torre</strong>: move-se em linha reta (horizontal ou vertical).</li>
         <li><strong>Bispo</strong>: move-se na diagonal.</li>
-        <li><strong>Cavalo</strong>: move-se em "L" (2+1 casas), unico que salta pecas.</li>
-        <li><strong>Peao</strong>: avanca uma casa (ou duas no primeiro lance), captura na diagonal.</li>
+        <li><strong>Cavalo</strong>: move-se em “L” (2+1 casas), único que salta peças.</li>
+        <li><strong>Peão</strong>: avança uma casa (ou duas no primeiro lance), captura na diagonal.</li>
       </ul>
-      <p>Lances especiais: <strong>roque</strong>, <strong>en passant</strong> e <strong>promocao</strong> (peao na ultima fileira).</p>
+      <p>Lances especiais: <strong>roque</strong>, <strong>en passant</strong> (captura em passagem) e <strong>promoção</strong> (peão na última fileira).</p>
       <button class="modal-close" data-close="overlayRules">Fechar</button>
     </div>
   </div>
 
-  <!-- Modal: Configuracoes -->
+  <!-- Modal: Configurações -->
   <div class="overlay" id="overlayOptions" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2>Configuracoes</h2>
-      <p>As configuracoes de profundidade de busca, tempo por lance, modo de jogo e visao de camera estao disponiveis diretamente no painel lateral da <strong>Vista 3D</strong>.</p>
-      <p>Acesse <a href="/chess3d.html">Vista 3D</a> ou <a href="/board2d.html">Tabuleiro 2D</a> para ajustar as opcoes em tempo real durante a partida.</p>
+      <h2>Configurações</h2>
+      <p>As configurações de profundidade de busca, tempo por lance, modo de jogo e visão de câmera estão disponíveis diretamente no painel lateral da <strong>Vista 3D</strong>.</p>
+      <p>Acesse <a href="/chess3d.html">Vista 3D</a> ou <a href="/board2d.html">Tabuleiro 2D</a> para ajustar as opções em tempo real durante a partida.</p>
       <button class="modal-close" data-close="overlayOptions">Fechar</button>
     </div>
   </div>
@@ -272,12 +280,12 @@
   <div class="overlay" id="overlayIA" role="dialog" aria-modal="true">
     <div class="modal">
       <h2>IA &amp; Rede Neural</h2>
-      <p>O <strong>Sator Engine</strong> combina busca classica (minimax + alpha-beta) com uma rede de valor treinada por <em>Temporal Difference Learning</em> (TD-lambda).</p>
+      <p>O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).</p>
       <ul>
-        <li><strong>Motor hibrido</strong>: heuristicas posicionais + rede neural de valor.</li>
+        <li><strong>Motor híbrido</strong>: heurísticas posicionais + rede neural de valor.</li>
         <li><strong>TD online</strong>: a rede aprende em tempo real durante a partida.</li>
-        <li><strong>Replay buffer</strong>: partidas salvas como pares (estado, resultado) para treino supervisionado.</li>
-        <li><strong>Geometria Sagrada</strong>: avaliacao baseada no quadrado SATOR — padroes de simetria e conectividade no tabuleiro.</li>
+        <li><strong>Buffer de replay</strong>: partidas salvas como pares (estado, resultado) para treino supervisionado.</li>
+        <li><strong>Geometria sagrada</strong>: avaliação baseada no quadrado SATOR — padrões de simetria e conectividade no tabuleiro.</li>
       </ul>
       <p>Para treinar a rede com suas partidas:</p>
       <code>npm run build-buffer<br/>npm run train-buffer -- 30 4 500</code>
@@ -286,7 +294,7 @@
   </div>
 
   <script>
-    /* Constelacao animada */
+    /* Constelação animada */
     (function () {
       const canvas = document.getElementById("constellation");
       const ctx = canvas.getContext("2d");
@@ -373,5 +381,6 @@
       if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(function(ov) { closeModal(ov.id); });
     });
   </script>
+  <script src="/js/pwa-register.js" defer></script>
 </body>
 </html>

@@ -36,9 +36,16 @@ function main() {
     if (g.result==="white_wins") w++;
     else if (g.result==="black_wins") b++;
     else d++;
-    console.log(`#${i+1}`, g.result, "plies=", g.plies);
+    console.log(`#${i + 1}`, g.result, "meia-jogadas=", g.plies);
   }
-  console.log({ games, depth, timeMs, white_wins:w, black_wins:b, draws:d });
+  console.log({
+    partidas: games,
+    profundidade: depth,
+    tempo_ms: timeMs,
+    vitorias_brancas: w,
+    vitorias_pretas: b,
+    empates: d
+  });
 }
 
 main();

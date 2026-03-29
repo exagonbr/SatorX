@@ -3,7 +3,15 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>Sator Chess – Tabuleiro & Deep Learning</title>
+  <meta name="theme-color" content="#04060a"/>
+  <meta name="description" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Sator"/>
+  <title>Sator Engine — Tabuleiro 2D e aprendizado profundo</title>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -263,7 +271,7 @@
       color: var(--text);
     }
 
-    /* ── Cards de Deep Learning ─────────────────────────────────── */
+    /* ── Cards de aprendizado profundo ──────────────────────────── */
     .dl-card {
       background: rgba(0, 0, 0, 0.3);
       border: 1px solid var(--border);
@@ -367,14 +375,14 @@
 <body>
   <div class="page-wrap">
     <div class="page-header">
-      <h1 class="page-title">Sator <span>Chess</span></h1>
-      <span class="badge">Deep Learning</span>
+      <h1 class="page-title">Sator <span>Engine</span></h1>
+      <span class="badge">Aprendizado profundo</span>
       <a class="nav-link" href="/">← Menu</a>
       <a class="nav-link" href="/chess3d.html">Vista 3D ↗</a>
     </div>
     <p class="lead">
       Jogue no navegador, salve partidas como <strong>dados</strong> e veja como isso se conecta a redes neurais
-      (policy, value, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
+      (política π, valor V, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
     </p>
 
     <div class="row">
@@ -391,7 +399,7 @@
           <label>
             Modo
             <select id="mode">
-              <option value="engine">Vs motor (minimax)</option>
+              <option value="engine">Contra o motor (minimax)</option>
               <option value="human">Humano vs humano</option>
             </select>
           </label>
@@ -417,7 +425,7 @@
       </div>
 
       <div class="panel">
-        <h2>Status</h2>
+        <h2>Estado da partida</h2>
         <div class="status-line" id="status"></div>
 
         <h3>Último lance do motor</h3>
@@ -432,22 +440,22 @@
         <h3>FEN</h3>
         <pre id="fen"></pre>
 
-        <h2 style="margin-top:20px;">Do tabuleiro ao deep learning</h2>
+        <h2 style="margin-top:20px;">Do tabuleiro ao aprendizado profundo</h2>
         <div class="dl-card">
           <p style="margin:0 0 10px; font-size:0.88rem;">
-            Em motores como AlphaZero, a <strong>rede neural</strong> não "vê" madeira: recebe tensores derivados da posição
-            (vários planos 8×8: peças, repetições, etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
+            Em motores como o AlphaZero, a <strong>rede neural</strong> não “vê” madeira: recebe tensores derivados da posição
+            (vários planos 8×8: peças, repetições etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
           </p>
           <ul class="dl-steps">
             <li><strong>Estado s</strong>: posição legal (FEN ou "planos" abaixo) — entrada da rede.</li>
-            <li><strong>Policy π(a|s)</strong>: probabilidades sobre lances legais — "para onde jogar".</li>
-            <li><strong>Value V(s)</strong>: expectativa de resultado a partir de s — "quão boa é a posição".</li>
-            <li><strong>Replay buffer</strong>: pares (estado, ação, resultado) das suas partidas — dataset para treino.</li>
+            <li><strong>Política π(a|s)</strong>: probabilidades sobre lances legais — “para onde jogar”.</li>
+            <li><strong>Valor V(s)</strong>: expectativa de resultado a partir de s — “quão boa é a posição”.</li>
+            <li><strong>Buffer de replay</strong>: pares (estado, ação, resultado) das suas partidas — conjunto para treino.</li>
           </ul>
         </div>
         <div class="dl-card">
           <p style="margin:0 0 8px; font-size:0.85rem; color:var(--muted);">
-            Neste projeto, após jogar na UI você pode agregar replays e ajustar pesos heurísticos:
+            Neste projeto, após jogar na interface você pode agregar replays e ajustar pesos heurísticos:
           </p>
           <p style="margin:0; font-size:0.85rem;">
             <code class="cli">npm run build-buffer</code> →
@@ -662,5 +670,6 @@
     syncModeUI();
     initBoard();
   </script>
+  <script src="/js/pwa-register.js" defer></script>
 </body>
 </html>

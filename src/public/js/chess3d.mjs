@@ -264,8 +264,8 @@ function updateClockDisplays() {
   const p1Active = playerColor === 'w' ? whiteTurn : !whiteTurn;
   const p2Active = playerColor === 'w' ? !whiteTurn : whiteTurn;
   
-  const p1Label = getMode() === "human" ? "WHITE PLAYER" : "HUMAN PLAYER";
-  const p2Label = getMode() === "human" ? "BLACK PLAYER" : "SATOR ENGINE";
+  const p1Label = getMode() === "human" ? "BRANCAS" : "VOCÊ";
+  const p2Label = getMode() === "human" ? "PRETAS" : "MOTOR SATOR";
 
   renderClockTexture(clockBlackTex /* which is texR */, fmtClock(p1Time), p1Label, p1Active);
   renderClockTexture(clockWhiteTex /* which is texL */, fmtClock(p2Time), p2Label, p2Active);
@@ -1342,7 +1342,7 @@ async function tryMove(from, to) {
       }).then((r) => r.json());
       if (lr.ok && lr.tdError != null) {
         document.getElementById("metrics").innerHTML =
-          `<strong>TD</strong> ${lr.tdError.toFixed(4)} · <strong>V</strong> ${lr.vBefore?.toFixed(3) ?? "—"}`;
+          `<strong>Erro TD</strong> ${lr.tdError.toFixed(4)} · <strong>Valor</strong> ${lr.vBefore?.toFixed(3) ?? "—"}`;
       }
     } catch (e) {
       console.warn("move-learn", e);
@@ -1401,7 +1401,7 @@ async function callBestMove() {
         }).then((r) => r.json());
         if (lr.ok && lr.tdError != null) {
           document.getElementById("metrics").innerHTML =
-            `<strong>TD</strong> ${lr.tdError.toFixed(4)} · motor`;
+            `<strong>Erro TD</strong> ${lr.tdError.toFixed(4)} · motor`;
         }
       } catch (e) {
         console.warn("move-learn engine", e);
@@ -1445,7 +1445,7 @@ async function refreshNNStatus() {
     const el = document.getElementById("metrics");
     const cur = el.textContent;
     if (cur === "Rede: —" || !cur.includes("TD")) {
-      el.innerHTML = `<strong>NN</strong> in=${s.inputDim} h=${s.hidden} · <strong>upd</strong> ${s.updates}`;
+      el.innerHTML = `<strong>Rede</strong> entrada=${s.inputDim} ocultas=${s.hidden} · <strong>atualiz.</strong> ${s.updates}`;
     }
   } catch (_) {}
 }
@@ -2038,7 +2038,7 @@ function buildClassicChessClock(scene) {
   divider.parent = root; divider.position.set(0, 0.52, 0); divider.material = brass;
 
   // ── Displays digitais com DynamicTexture (tempo real) ────────────────────────────────────────────
-  // Painel esquerdo: SATOR ENGINE (brancas)
+  // Display esquerdo (texL → clockWhiteTex); rótulo vem de updateClockDisplays
   const panelL = MeshBuilder.CreatePlane("clkPanelL", { width: 0.92, height: 0.60 }, scene);
   panelL.parent = root;
   panelL.position.set(-0.56, 0.60, 0.35);
@@ -2054,7 +2054,7 @@ function buildClassicChessClock(scene) {
   panelL.material = matL;
   clockWhiteTex = texL;
 
-  // Painel direito: HUMAN PLAYER (negras)
+  // Display direito (texR → clockBlackTex); rótulo vem de updateClockDisplays
   const panelR = MeshBuilder.CreatePlane("clkPanelR", { width: 0.92, height: 0.60 }, scene);
   panelR.parent = root;
   panelR.position.set(0.56, 0.60, 0.35);
@@ -2425,8 +2425,8 @@ function startNewGame() {
   function applyCollapsed(collapsed) {
     panel.classList.toggle("panel--collapsed", collapsed);
     btn.setAttribute("aria-expanded", String(!collapsed));
-    btn.textContent = collapsed ? "Expandir" : "Recolher";
-    btn.title = collapsed ? "Expandir painel" : "Recolher painel";
+    btn.textContent = collapsed ? "Mostrar" : "Ocultar";
+    btn.title = collapsed ? "Mostrar painel" : "Ocultar painel";
   }
   if (typeof matchMedia !== "undefined" && matchMedia("(max-width: 720px)").matches) {
     applyCollapsed(true);

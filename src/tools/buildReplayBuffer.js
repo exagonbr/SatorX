@@ -24,7 +24,7 @@ function extractPositionsFromMoves(moves) {
 
 function main() {
   if (!fs.existsSync(REPLAY_DIR)) {
-    console.error("Replay dir not found:", REPLAY_DIR);
+    console.error("Pasta de replays não encontrada:", REPLAY_DIR);
     process.exit(1);
   }
   const files = fs.readdirSync(REPLAY_DIR).filter(f => f.endsWith(".json"));

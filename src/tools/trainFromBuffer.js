@@ -101,23 +101,23 @@ function main() {
   const baseCfg = loadCfg();
   let bestCfg = baseCfg;
   let best = scoreOnPositions(positions, depth, timeMs, 140);
-  console.log("baseline:", best);
+  console.log("Referência inicial:", best);
 
   for (let i=1;i<=iters;i++){
     const cand = mutate(bestCfg, 0.07);
     saveCfg(cand);
     const s = scoreOnPositions(positions, depth, timeMs, 140);
-    console.log(`iter ${i}:`, s, "best=", best.score);
+    console.log(`Iteração ${i}:`, s, "melhor=", best.score);
     if (s.score > best.score) {
       best = s;
       bestCfg = cand;
-      console.log(">> accepted");
+      console.log(">> Aceito");
     } else {
       saveCfg(bestCfg);
     }
   }
 
-  console.log("finalBest:", best);
+  console.log("Melhor resultado final:", best);
 }
 
 main();

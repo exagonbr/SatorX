@@ -57,23 +57,23 @@ function main() {
   const baseCfg = loadCfg();
   let bestCfg = baseCfg;
   let bestScore = evaluateCfg(games, depth, timeMs);
-  console.log("baselineScore:", bestScore);
+  console.log("Pontuação inicial de referência:", bestScore);
 
   for (let t=1;t<=iters;t++){
     const cand = mutate(bestCfg, 0.10);
     saveCfg(cand);
     const s = evaluateCfg(games, depth, timeMs);
-    console.log(`iter ${t}: score=${s} best=${bestScore}`);
+    console.log(`Iteração ${t}: pontuação=${s} melhor=${bestScore}`);
     if (s > bestScore) {
       bestScore = s;
       bestCfg = cand;
-      console.log(">> accepted new cfg");
+      console.log(">> Nova configuração aceita");
     } else {
       saveCfg(bestCfg); // revert
     }
   }
 
-  console.log("finalBestScore:", bestScore);
+  console.log("Melhor pontuação final:", bestScore);
 }
 
 main();

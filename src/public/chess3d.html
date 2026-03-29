@@ -3,7 +3,15 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>XS IA Engine</title>
+  <meta name="theme-color" content="#04060a"/>
+  <meta name="description" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Sator"/>
+  <title>Sator Engine — Vista 3D</title>
+  <link rel="manifest" href="/manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -699,14 +707,14 @@
   </script>
 </head>
 <body>
-  <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="A carregar o tabuleiro 3D">
+  <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="Carregando o tabuleiro 3D">
     <div class="chess3d-loading__bg" aria-hidden="true"></div>
     <div class="chess3d-loading__pieces" id="chess3d-loading-pieces" aria-hidden="true"></div>
     <div class="chess3d-loading__center">
-      <div class="chess3d-loading__logo">XS IA <span>ENGINE</span></div>
+      <div class="chess3d-loading__logo">Sator <span>Engine</span></div>
       <div class="chess3d-loading__bar" aria-hidden="true"><span></span></div>
-      <p class="chess3d-loading__hint">A preparar biblioteca, tabuleiro e peças…</p>
-      <p class="chess3d-loading__gesture">No telemóvel: um dedo para jogar · dois dedos para girar e zoom</p>
+      <p class="chess3d-loading__hint">Preparando biblioteca, tabuleiro e peças…</p>
+      <p class="chess3d-loading__gesture">No celular: um dedo para jogar · dois dedos para girar e dar zoom</p>
     </div>
   </div>
   <script>
@@ -741,11 +749,11 @@
   <canvas id="renderCanvas"></canvas>
 
   <div class="hud">
-    <div class="brand">XS IA <span>ENGINE</span></div>
+    <div class="brand">Sator <span>Engine</span></div>
     <div class="panel" id="partidaPanel">
       <div class="panel__head">
         <h2>Partida</h2>
-        <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Recolher painel">Recolher</button>
+        <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Ocultar painel">Ocultar</button>
       </div>
       <div class="status" id="status">Carregando…</div>
       <div id="panelRest" class="panel__rest">
@@ -919,5 +927,6 @@
     startEvents.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true, passive: true }));
   })();
   </script>
+  <script src="/js/pwa-register.js" defer></script>
 </body>
 </html>

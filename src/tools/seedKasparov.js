@@ -99,9 +99,17 @@ function main() {
       }
     });
     if (result==="white") w++; else if (result==="black") b++; else if (result==="draw") d++; else u++;
-    console.log(`#${i+1}`, result, "plies=", chess.history().length);
+    console.log(`#${i + 1}`, result, "meia-jogadas=", chess.history().length);
   }
-  console.log({ games, maxPlies, white:w, black:b, draw:d, unknown:u, outDir: REPLAY_DIR });
+  console.log({
+    partidas: games,
+    max_meia_jogadas: maxPlies,
+    brancas: w,
+    pretas: b,
+    empates: d,
+    indefinidos: u,
+    pasta_saida: REPLAY_DIR
+  });
 }
 
 main();

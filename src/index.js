@@ -33,7 +33,7 @@ function main() {
     return;
   }
 
-  console.log("Comandos: analyze | bestmove");
+  console.log("Comandos: analyze (analisar posição) | bestmove (melhor lance)");
 }
 
 main();

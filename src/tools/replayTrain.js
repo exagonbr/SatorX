@@ -33,7 +33,7 @@ function main() {
   }
 
   saveCfg(cfg);
-  console.log("updated cfg for result:", result);
+  console.log("Configuração atualizada para o resultado:", result);
 }
 
 main();
