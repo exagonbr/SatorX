@@ -1,0 +1,24 @@
+{
+  "id": "kasparov_seed_mnb96i77_phas2h",
+  "createdAt": "2026-03-29T04:22:31.843Z",
+  "result": "unknown",
+  "fen": "rnbqr1k1/pppp1ppp/5n2/4p3/1bP5/2N2NP1/PP1PPPBP/R1BQK2R w KQ - 5 6",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. c4 e5 2. Nc3 Nf6 3. g3 Bb4 4. Bg2 O-O 5. Nf3 Re8 *",
+  "moves": [
+    "c4",
+    "e5",
+    "Nc3",
+    "Nf6",
+    "g3",
+    "Bb4",
+    "Bg2",
+    "O-O",
+    "Nf3",
+    "Re8"
+  ],
+  "meta": {
+    "source": "kasparov_seed_sim_book",
+    "note": "Seed sintético: repertório agressivo (Kasparov-style) + respostas sólidas; mantém Tabula como doutrina de treino, não como prova histórica.",
+    "maxPlies": 7
+  }
+}

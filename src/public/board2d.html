@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Sator Chess – Tabuleiro & Deep Learning</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="https://unpkg.com/chessboardjs@1.0.0/www/css/chessboard-1.0.0.min.css">
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4d;
+      --text: #e8ecf1;
+      --muted: #8b9cb3;
+      --accent: #3d9eff;
+      --accent-dim: rgba(61, 158, 255, 0.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    h1 { font-size: 1.5rem; font-weight: 600; margin: 0 0 8px; }
+    h2 { font-size: 1.1rem; margin: 0 0 12px; color: var(--accent); }
+    h3 { font-size: 0.95rem; margin: 16px 0 8px; }
+    .lead { color: var(--muted); margin: 0 0 20px; max-width: 720px; }
+    .row { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+    #board { width: min(92vw, 440px); }
+    .panel {
+      flex: 1;
+      min-width: 280px;
+      max-width: 560px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 18px;
+    }
+    .btn {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    .btn:hover:not(:disabled) { background: var(--accent-dim); border-color: var(--accent); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .controls { margin-top: 14px; display: grid; gap: 10px; }
+    label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.875rem; color: var(--muted); }
+    input[type="number"] {
+      width: 100px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+    }
+    select {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      max-width: 100%;
+    }
+    pre {
+      background: var(--bg);
+      padding: 12px;
+      overflow: auto;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      border: 1px solid var(--border);
+      margin: 0;
+      max-height: 200px;
+    }
+    .dl-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .dl-card strong { color: var(--accent); }
+    .dl-steps { margin: 0; padding-left: 1.2rem; color: var(--muted); font-size: 0.875rem; }
+    .dl-steps li { margin: 6px 0; }
+    code.cli { font-size: 0.8rem; color: #a8d4ff; }
+    details.dl-acc { margin-top: 8px; }
+    details.dl-acc summary {
+      cursor: pointer;
+      font-weight: 600;
+      padding: 8px 0;
+      color: var(--text);
+    }
+    .tensor-wrap { overflow-x: auto; margin-top: 8px; }
+    table.tensor {
+      border-collapse: collapse;
+      font-size: 0.65rem;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+    }
+    table.tensor td {
+      width: 28px;
+      height: 28px;
+      text-align: center;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    table.tensor tr:nth-child(even) td:nth-child(odd),
+    table.tensor tr:nth-child(odd) td:nth-child(even) {
+      background: #243044;
+    }
+    .piece-w { color: #f0e6d2; }
+    .piece-b { color: #6b7c93; }
+    .status-line { font-size: 0.9rem; min-height: 1.4em; }
+    .badge {
+      display: inline-block;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    a.nav-3d {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--accent);
+      margin-left: 12px;
+      text-decoration: none;
+    }
+    a.nav-3d:hover { text-decoration: underline; }
+    details.engine-tune {
+      margin-top: 4px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+    }
+    details.engine-tune summary {
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text);
+      list-style: none;
+    }
+    details.engine-tune summary::-webkit-details-marker { display: none; }
+    details.engine-tune summary::after {
+      content: " ▸";
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    details.engine-tune[open] summary::after { content: " ▾"; }
+    .engine-tune__help {
+      margin: 10px 0 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .engine-tune__help strong { color: var(--text); }
+    details.engine-tune .row-inline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 16px;
+      align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <h1>Sator Chess — tabuleiro jogável <span class="badge">Deep Learning</span> <a class="nav-3d" href="/">Menu</a> <a class="nav-3d" href="/chess3d.html">Vista 3D (Babylon)</a></h1>
+  <p class="lead">
+    Jogue no navegador, salve partidas como <strong>dados</strong> e veja como isso se conecta a redes neurais
+    (policy, value, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
+  </p>
+
+  <div class="row">
+    <div>
+      <div id="board"></div>
+      <div class="toolbar">
+        <button type="button" class="btn" id="btnNew">Novo jogo</button>
+        <button type="button" class="btn" id="btnUndo">Desfazer</button>
+        <button type="button" class="btn" id="btnAnalyze">Analisar posição</button>
+        <button type="button" class="btn" id="btnSave">Salvar replay</button>
+        <button type="button" class="btn" id="btnList">Listar replays</button>
+      </div>
+      <div class="controls">
+        <label>
+          Modo
+          <select id="mode">
+            <option value="engine">Vs motor (minimax)</option>
+            <option value="human">Humano vs humano</option>
+          </select>
+        </label>
+        <label id="wrapColor">
+          Sua cor (vs motor)
+          <select id="playerColor">
+            <option value="w">Brancas (começam)</option>
+            <option value="b">Pretas (motor abre)</option>
+          </select>
+        </label>
+        <details class="engine-tune">
+          <summary>Profundidade e tempo do motor</summary>
+          <p class="engine-tune__help">
+            <strong>Profundidade</strong>: quantas meia-jogadas (plies) o motor analisa à frente — mais profundidade costuma fortalecer o jogo e aumentar o custo.
+            <strong>Tempo (ms)</strong>: limite máximo de reflexão por lance; a busca pode terminar antes se a profundidade for alcançada.
+          </p>
+          <div class="row-inline">
+            <label>Profundidade <input id="depth" type="number" value="7" min="1" max="10"/></label>
+            <label>Tempo motor (ms) <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Status</h2>
+      <div class="status-line" id="status"></div>
+      <h3>Último lance do motor</h3>
+      <pre id="engineMove">-</pre>
+
+      <h3>Relatório (Tabula + métricas)</h3>
+      <pre id="report">{}</pre>
+
+      <h3>Replays</h3>
+      <pre id="replays">[]</pre>
+
+      <h3>FEN</h3>
+      <pre id="fen"></pre>
+
+      <h2>Do tabuleiro ao deep learning</h2>
+      <div class="dl-card">
+        <p style="margin:0 0 10px; font-size:0.9rem;">
+          Em motores como AlphaZero, a <strong>rede neural</strong> não “vê” madeira: recebe tensores derivados da posição
+          (vários planos 8×8: peças, repetições, etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
+        </p>
+        <ul class="dl-steps">
+          <li><strong>Estado s</strong>: posição legal (FEN ou “planos” abaixo) — entrada da rede.</li>
+          <li><strong>Policy π(a|s)</strong>: probabilidades sobre lances legais — “para onde jogar”.</li>
+          <li><strong>Value V(s)</strong>: expectativa de resultado a partir de s — “quão boa é a posição”.</li>
+          <li><strong>Replay buffer</strong>: pares (estado, ação, resultado) das suas partidas — dataset para treino.</li>
+        </ul>
+      </div>
+      <div class="dl-card">
+        <p style="margin:0 0 8px; font-size:0.875rem; color:var(--muted);">
+          Neste projeto, após jogar na UI você pode agregar replays e ajustar pesos heurísticos:
+        </p>
+        <p style="margin:0; font-size:0.85rem;">
+          <code class="cli">npm run build-buffer</code> →
+          <code class="cli">npm run train-buffer -- 30 4 500</code>
+        </p>
+      </div>
+      <details class="dl-acc" open>
+        <summary>Grade 8×8 (codificação simples para estudo)</summary>
+        <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;">
+          Letras = tipo de peça (maiúscula = branca). Em redes reais usam-se múltiplos canais binários por tipo e cor.
+        </p>
+        <div class="tensor-wrap" id="tensorWrap"></div>
+      </details>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script src="https://unpkg.com/chess.js@1.0.0/chess.min.js"></script>
+  <script src="https://unpkg.com/chessboardjs@1.0.0/www/js/chessboard-1.0.0.min.js"></script>
+  <script>
+    const game = new Chess();
+    let board = null;
+    let busy = false;
+
+    function getMode() { return document.getElementById("mode").value; }
+    function getPlayerColor() { return document.getElementById("playerColor").value; }
+
+    function setStatus(msg) { document.getElementById("status").textContent = msg; }
+    function setFen() { document.getElementById("fen").textContent = game.fen(); }
+
+    function renderTensorGrid() {
+      const wrap = document.getElementById("tensorWrap");
+      const b = game.board();
+      const rows = [];
+      for (let r = 7; r >= 0; r--) {
+        const cells = [];
+        for (let c = 0; c < 8; c++) {
+          const sq = b[r][c];
+          let ch = "·";
+          let cls = "";
+          if (sq) {
+            ch = sq.color === "w" ? sq.type.toUpperCase() : sq.type;
+            cls = sq.color === "w" ? "piece-w" : "piece-b";
+          }
+          cells.push("<td class=\"" + cls + "\">" + ch + "</td>");
+        }
+        rows.push("<tr>" + cells.join("") + "</tr>");
+      }
+      wrap.innerHTML = "<table class=\"tensor\" aria-label=\"Grade 8x8 da posição\">" + rows.join("") + "</table>";
+    }
+
+    function syncModeUI() {
+      const engine = getMode() === "engine";
+      document.getElementById("wrapColor").style.display = engine ? "flex" : "none";
+      document.getElementById("depth").disabled = !engine;
+      document.getElementById("timeMs").disabled = !engine;
+    }
+
+    function isPlayerTurn() {
+      if (getMode() === "human") return true;
+      return game.turn() === getPlayerColor();
+    }
+
+    function updateStatus() {
+      let status = "";
+      if (game.isCheckmate()) {
+        status = "Xeque-mate. " + (game.turn() === "w" ? "Pretas venceram." : "Brancas venceram.");
+      } else if (game.isDraw()) {
+        status = "Empate.";
+      } else {
+        status = game.turn() === "w" ? "Vez das brancas." : "Vez das pretas.";
+        if (game.inCheck()) status += " (xeque)";
+        if (getMode() === "engine" && !game.isGameOver()) {
+          status += isPlayerTurn() ? " — sua vez." : " — motor a pensar…";
+        }
+      }
+      setStatus(status);
+      setFen();
+      renderTensorGrid();
+    }
+
+    async function callBestMove() {
+      if (getMode() !== "engine" || game.isGameOver()) return;
+      busy = true;
+      updateStatus();
+      const depth = parseInt(document.getElementById("depth").value, 10);
+      const timeMs = parseInt(document.getElementById("timeMs").value, 10);
+
+      const res = await fetch("/api/bestmove", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen: game.fen(), depth, timeMs })
+      }).then(r => r.json());
+
+      document.getElementById("engineMove").textContent = JSON.stringify(res, null, 2);
+
+      if (res.bestMove && res.bestMove.san) {
+        game.move(res.bestMove.san, { sloppy: true });
+        board.position(game.fen());
+      }
+      busy = false;
+      updateStatus();
+      if (game.isGameOver()) {
+        saveReplay(true).then(() => listReplays());
+      }
+    }
+
+    function maybeEngineReply() {
+      if (getMode() !== "engine" || game.isGameOver()) return;
+      if (game.turn() !== getPlayerColor()) {
+        window.setTimeout(() => callBestMove(), 200);
+      }
+    }
+
+    async function saveReplay(auto) {
+      const pgn = game.pgn();
+      let result = "unknown";
+      if (game.isCheckmate()) result = game.turn() === "w" ? "black" : "white";
+      else if (game.isDraw()) result = "draw";
+      const payload = {
+        pgn,
+        fen: game.fen(),
+        result,
+        moves: game.history(),
+        meta: {
+          auto,
+          mode: getMode(),
+          playerColor: getPlayerColor(),
+          depth: parseInt(document.getElementById("depth").value, 10),
+          timeMs: parseInt(document.getElementById("timeMs").value, 10)
+        }
+      };
+      const res = await fetch("/api/replay/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      }).then(r => r.json());
+      if (!auto) alert("Replay salvo: " + res.id);
+      return res;
+    }
+
+    async function listReplays() {
+      const res = await fetch("/api/replay/list").then(r => r.json());
+      document.getElementById("replays").textContent = JSON.stringify(res, null, 2);
+    }
+
+    async function analyze() {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen: game.fen() })
+      }).then(r => r.json());
+      document.getElementById("report").textContent = JSON.stringify(res, null, 2);
+    }
+
+    function onDragStart(source, piece) {
+      if (busy) return false;
+      if (game.isGameOver()) return false;
+      if (!isPlayerTurn()) return false;
+      const isWhitePiece = piece.search(/^w/) !== -1;
+      if (getMode() === "human") {
+        if (game.turn() === "w" && !isWhitePiece) return false;
+        if (game.turn() === "b" && isWhitePiece) return false;
+      } else {
+        const wantWhite = getPlayerColor() === "w";
+        if (wantWhite && !isWhitePiece) return false;
+        if (!wantWhite && isWhitePiece) return false;
+      }
+    }
+
+    function onDrop(source, target) {
+      const move = game.move({ from: source, to: target, promotion: "q" });
+      if (move === null) return "snapback";
+      board.position(game.fen());
+      updateStatus();
+      if (getMode() === "engine") maybeEngineReply();
+      else if (game.isGameOver()) saveReplay(true).then(() => listReplays());
+    }
+
+    function onSnapEnd() { board.position(game.fen()); }
+
+    function startNewGame() {
+      game.reset();
+      const pc = getPlayerColor();
+      const orientation = getMode() === "human" ? "white" : pc === "w" ? "white" : "black";
+      board.orientation(orientation);
+      board.start();
+      document.getElementById("engineMove").textContent = "-";
+      document.getElementById("report").textContent = "{}";
+      updateStatus();
+      analyze();
+      if (getMode() === "engine" && pc === "b") {
+        window.setTimeout(() => callBestMove(), 250);
+      }
+    }
+
+    document.getElementById("btnNew").onclick = () => startNewGame();
+
+    document.getElementById("btnUndo").onclick = () => {
+      if (busy) return;
+      const mode = getMode();
+      if (mode === "engine") {
+        game.undo();
+        game.undo();
+      } else {
+        game.undo();
+      }
+      board.position(game.fen());
+      updateStatus();
+    };
+
+    document.getElementById("btnAnalyze").onclick = () => analyze();
+    document.getElementById("btnSave").onclick = () => saveReplay(false);
+    document.getElementById("btnList").onclick = () => listReplays();
+    document.getElementById("mode").onchange = () => {
+      syncModeUI();
+      startNewGame();
+    };
+    document.getElementById("playerColor").onchange = () => {
+      if (getMode() === "engine") startNewGame();
+    };
+
+    board = Chessboard("board", {
+      draggable: true,
+      position: "start",
+      onDragStart,
+      onDrop,
+      onSnapEnd
+    });
+
+    syncModeUI();
+    updateStatus();
+    analyze();
+  </script>
+</body>
+</html>

@@ -83,6 +83,7 @@ function pieceMetaFromPickedMesh(mesh) {
 const game = new Chess();
 let sceneRef = null;
 let cameraRef = null;
+let chessClockRootRef = null;
 let pieceNodes = [];
 let busy = false;
 /** Seleção por clique (sem arrastar). Toca-mover: após escolher peça, não pode trocar por outra própria. */
@@ -331,26 +332,65 @@ function syncModeUI() {
   document.getElementById("timeMs").disabled = !engine;
 }
 
+/** Orbitar / rodar a câmera só com botão direito (0=esquerdo, 2=direito). Zoom com a roda mantém-se. */
+function bindArcRotateRightMouseOnly(camera, scene, canvas) {
+  canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+  const setButtons = () => {
+    const ptr = camera.inputs.attached?.pointers;
+    if (ptr) ptr.buttons = [2];
+  };
+  setButtons();
+  requestAnimationFrame(setButtons);
+  requestAnimationFrame(() => requestAnimationFrame(setButtons));
+  scene.executeWhenReady(setButtons);
+}
+
 /**
- * POV ao nível do jogador: atrás das próprias peças, olhar ligeiramente para o lado adversário.
- * Brancas em z negativo; pretas em z positivo (ver sqToWorld).
+ * Vista padrão tipo “bird’s-eye” inclinada: de cima e ligeiramente de lado (como no tabuleiro clássico 3D).
+ * Beta baixo no ArcRotate = mais de cima; raio médio-alto para ver as 64 casas confortavelmente.
  */
 function applyPlayerPovCamera() {
   if (!cameraRef) return;
   const cam = cameraRef;
   const whiteSide = getMode() === "human" || getPlayerColor() === "w";
-  const targetZ = whiteSide ? 0.65 : -0.65;
-  cam.setTarget(new Vector3(0, 0.4, targetZ));
-  const alpha = whiteSide ? -Math.PI / 2 : Math.PI / 2;
-  const beta = 1.47;
-  const radius = 8.2;
-  cam.alpha = alpha;
-  cam.beta = beta;
-  cam.radius = radius;
-  cam.lowerAlphaLimit = cam.upperAlphaLimit = alpha;
-  cam.lowerBetaLimit = cam.upperBetaLimit = beta;
-  cam.lowerRadiusLimit = 5.6;
-  cam.upperRadiusLimit = 13;
+  const limA = 0.55;
+  if (whiteSide) {
+    cam.setTarget(new Vector3(0, 0.22, 0.12));
+    const alpha = -Math.PI / 2.06;
+    cam.alpha = alpha;
+    cam.beta = 0.66;
+    cam.radius = 13.1;
+    cam.lowerAlphaLimit = alpha - limA;
+    cam.upperAlphaLimit = alpha + limA;
+  } else {
+    cam.setTarget(new Vector3(0, 0.22, -0.12));
+    const alpha = Math.PI / 2.06;
+    cam.alpha = alpha;
+    cam.beta = 0.66;
+    cam.radius = 13.1;
+    cam.lowerAlphaLimit = alpha - limA;
+    cam.upperAlphaLimit = alpha + limA;
+  }
+  cam.lowerBetaLimit = 0.38;
+  cam.upperBetaLimit = 0.95;
+  cam.lowerRadiusLimit = 9.2;
+  cam.upperRadiusLimit = 22;
+  cam.fov = 0.94;
+  cam.allowUpsideDown = false;
+  syncChessClockPlacement();
+}
+
+function syncChessClockPlacement() {
+  if (!chessClockRootRef) return;
+  const whiteSide = getMode() === "human" || getPlayerColor() === "w";
+  if (whiteSide) {
+    // À direita do jogador (+X), na borda da mesa, bem fora do tabuleiro.
+    chessClockRootRef.position.set(5.95, 0.44, -5.38);
+    chessClockRootRef.rotation.y = -1.02;
+  } else {
+    chessClockRootRef.position.set(-5.95, 0.44, 5.38);
+    chessClockRootRef.rotation.y = 1.02;
+  }
 }
 
 function isPlayerTurn() {
@@ -422,17 +462,15 @@ function updateStatus() {
 function makePieceMaterial(scene, color) {
   const mat = new StandardMaterial(`pm_${color}_${Math.random()}`, scene);
   if (color === "w") {
-    // Marfim levemente quente (contrasta com o mármore claro sem ser plástico branco)
-    mat.diffuseColor = new Color3(0.97, 0.96, 0.94);
-    mat.specularColor = new Color3(0.88, 0.86, 0.82);
-    mat.emissiveColor = new Color3(0.038, 0.036, 0.034);
-    mat.specularPower = 195;
+    mat.diffuseColor = new Color3(1, 1, 1);
+    mat.specularColor = new Color3(1, 1, 1);
+    mat.emissiveColor = Color3.Black();
+    mat.specularPower = 256;
   } else {
-    // Ébano: ainda “pretas”, mas com volume visível (antes quase preto absoluto no mármore escuro)
-    mat.diffuseColor = new Color3(0.16, 0.14, 0.18);
-    mat.specularColor = new Color3(0.52, 0.5, 0.56);
-    mat.emissiveColor = new Color3(0.042, 0.038, 0.048);
-    mat.specularPower = 165;
+    mat.diffuseColor = Color3.Black();
+    mat.specularColor = new Color3(1, 1, 1);
+    mat.emissiveColor = Color3.Black();
+    mat.specularPower = 220;
   }
   return mat;
 }
@@ -506,6 +544,74 @@ function paintMarbleTexture(dynamicTex, light, seed) {
   dynamicTex.update(true);
 }
 
+/** Fundo tipo mármore escuro (faixa horizontal) para texto gravado — continua o mesmo vocabulário visual da base. */
+function paintDarkMarbleBandOnCtx(ctx, w, h, seed) {
+  const rnd = mulberry32(seed >>> 0);
+  const g = ctx.createLinearGradient(0, 0, w, h);
+  g.addColorStop(0, `rgb(${44 + ((rnd() * 12) | 0)},${42 + ((rnd() * 12) | 0)},${48 + ((rnd() * 12) | 0)})`);
+  g.addColorStop(1, `rgb(${18 + ((rnd() * 8) | 0)},${17 + ((rnd() * 8) | 0)},${22 + ((rnd() * 8) | 0)})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  const img = ctx.getImageData(0, 0, w, h);
+  const d = img.data;
+  const grain = 20;
+  for (let i = 0; i < d.length; i += 4) {
+    const n = (rnd() - 0.5) * grain;
+    d[i] = Math.max(0, Math.min(255, d[i] + n));
+    d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n));
+    d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n));
+  }
+  ctx.putImageData(img, 0, 0);
+  ctx.globalCompositeOperation = "multiply";
+  for (let k = 0; k < 14; k++) {
+    ctx.strokeStyle = `rgba(88,86,98,${0.055 + rnd() * 0.08})`;
+    ctx.lineWidth = 0.6 + rnd() * 2;
+    ctx.beginPath();
+    let x = rnd() * w;
+    let y = rnd() * h;
+    ctx.moveTo(x, y);
+    for (let s = 0; s < 6; s++) {
+      x += (rnd() - 0.5) * 160;
+      y += (rnd() - 0.5) * 80;
+      ctx.lineTo(Math.max(0, Math.min(w, x)), Math.max(0, Math.min(h, y)));
+    }
+    ctx.stroke();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/** Letras como sulcos gravados no mármore (sem “placa”). */
+function drawEngravedSatorTextOnCtx(ctx, tw, th, lines) {
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const carve = (word, cy, fs) => {
+    ctx.font = `700 ${fs}px Georgia, "Times New Roman", serif`;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = "rgba(0,0,0,0.5)";
+    ctx.strokeText(word, tw / 2 + 1.2, cy + 1.2);
+    ctx.lineWidth = 1.1;
+    ctx.strokeStyle = "rgba(0,0,0,0.22)";
+    ctx.strokeText(word, tw / 2 + 0.6, cy + 0.65);
+    ctx.fillStyle = "rgba(5,4,9,0.92)";
+    ctx.fillText(word, tw / 2, cy);
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(120,112,140,0.18)";
+    ctx.strokeText(word, tw / 2 - 0.55, cy - 0.55);
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = "rgba(255,245,220,0.06)";
+    ctx.strokeText(word, tw / 2 - 0.85, cy - 0.85);
+  };
+  if (lines.length === 1) {
+    carve(lines[0], th / 2, 74);
+  } else {
+    carve(lines[0], th * 0.34, 58);
+    carve(lines[1], th * 0.66, 58);
+  }
+  ctx.restore();
+}
+
 function createMarbleTexture(scene, name, light, seed) {
   const tex = new DynamicTexture(name, { width: 512, height: 512 }, scene, false);
   tex.wrapU = Texture.WRAP_ADDRESSMODE;
@@ -514,16 +620,103 @@ function createMarbleTexture(scene, name, light, seed) {
   return tex;
 }
 
-/** Base com disco largo + anel (efeito “torno” Staunton). */
+/**
+ * Base Staunton em dois degraus + anel (alinhada a torres/reis de conjunto clássico).
+ */
 function addPedestal(scene, parts, y0) {
-  const base = MeshBuilder.CreateCylinder(`pedb_${Math.random()}`, { diameter: 0.55, height: 0.052, tessellation: 40 }, scene);
-  base.position.y = y0 + 0.026;
-  parts.push(base);
-  const ring = MeshBuilder.CreateTorus(`pedr_${Math.random()}`, { diameter: 0.4, thickness: 0.032, tessellation: 36 }, scene);
-  ring.position.y = y0 + 0.052 + 0.016;
+  let y = y0;
+  const bot = MeshBuilder.CreateCylinder(`pedb_${Math.random()}`, { diameter: 0.58, height: 0.05, tessellation: 48 }, scene);
+  bot.position.y = y + 0.025;
+  parts.push(bot);
+  y += 0.05;
+  const mid = MeshBuilder.CreateCylinder(`pedm_${Math.random()}`, { diameterTop: 0.38, diameterBottom: 0.47, height: 0.064, tessellation: 48 }, scene);
+  mid.position.y = y + 0.032;
+  parts.push(mid);
+  y += 0.064;
+  const ring = MeshBuilder.CreateTorus(`pedr_${Math.random()}`, { diameter: 0.34, thickness: 0.024, tessellation: 42 }, scene);
+  ring.position.y = y + 0.012;
   ring.rotation.x = Math.PI / 2;
   parts.push(ring);
-  return y0 + 0.052 + 0.032;
+  y += 0.024;
+  return y;
+}
+
+/** Perfil de haste côncava (revolução); último ponto em y = stemH. */
+function stauntonStemProfile(stemH) {
+  return [
+    new Vector3(0.198, 0, 0),
+    new Vector3(0.206, 0.038, 0),
+    new Vector3(0.158, stemH * 0.48, 0),
+    new Vector3(0.148, stemH * 0.72, 0),
+    new Vector3(0.176, stemH, 0)
+  ];
+}
+
+function addLatheStem(scene, parts, y0, stemH) {
+  const shape = stauntonStemProfile(stemH);
+  const lathe = MeshBuilder.CreateLathe(`stl_${Math.random()}`, { shape, tessellation: 52 }, scene);
+  lathe.position.y = y0;
+  parts.push(lathe);
+  return y0 + stemH;
+}
+
+function addDoubleCollar(scene, parts, yBase) {
+  const d = 0.308;
+  const th = 0.017;
+  const t1 = MeshBuilder.CreateTorus(`dc1_${Math.random()}`, { diameter: d, thickness: th, tessellation: 44 }, scene);
+  t1.position.y = yBase;
+  t1.rotation.x = Math.PI / 2;
+  parts.push(t1);
+  const t2 = MeshBuilder.CreateTorus(`dc2_${Math.random()}`, { diameter: d, thickness: th, tessellation: 44 }, scene);
+  t2.position.y = yBase + th * 2 + 0.006;
+  t2.rotation.x = Math.PI / 2;
+  parts.push(t2);
+  return yBase + th * 4 + 0.012;
+}
+
+function addTripleCollar(scene, parts, yBase) {
+  const rings = [
+    { d: 0.27, th: 0.013 },
+    { d: 0.318, th: 0.022 },
+    { d: 0.27, th: 0.013 }
+  ];
+  let y = yBase;
+  for (const r of rings) {
+    const t = MeshBuilder.CreateTorus(`tc_${Math.random()}`, { diameter: r.d, thickness: r.th, tessellation: 44 }, scene);
+    t.position.y = y + r.th * 0.5;
+    t.rotation.x = Math.PI / 2;
+    parts.push(t);
+    y += r.th + 0.006;
+  }
+  return y;
+}
+
+/** Fenda do bispo (material escuro; evita CSG — segundo bundle quebrava instanceof Mesh no browser). */
+function makeBishopSlitMaterial(scene, color) {
+  const m = new StandardMaterial(`bslit_${Math.random()}`, scene);
+  if (color === "w") {
+    m.diffuseColor = new Color3(0.035, 0.035, 0.04);
+    m.specularColor = Color3.Black();
+  } else {
+    m.diffuseColor = new Color3(0.07, 0.07, 0.08);
+    m.specularColor = new Color3(0.22, 0.22, 0.24);
+  }
+  m.emissiveColor = Color3.Black();
+  return m;
+}
+
+/** Bispo: mitra + caixa fina na diagonal (mescla multimaterial). */
+function bishopMitreWithSlitVisual(scene, parts, yCenter) {
+  const mitre = MeshBuilder.CreateSphere(`bm_${Math.random()}`, { diameter: 0.32, segments: 28 }, scene);
+  mitre.scaling = new Vector3(0.86, 1.38, 0.86);
+  mitre.position.y = yCenter;
+  parts.push(mitre);
+  const slit = MeshBuilder.CreateBox(`bm_sl_${Math.random()}`, { width: 0.048, height: 0.32, depth: 0.44 }, scene);
+  slit.position.set(-0.1, yCenter + 0.045, 0.05);
+  slit.rotation.z = 0.62;
+  slit.rotation.y = -0.42;
+  slit.metadata = { bishopSlit: true };
+  parts.push(slit);
 }
 
 function addIcoOrSphere(scene, name, radius, yCenter, subdiv = 2) {
@@ -550,90 +743,148 @@ function createPieceMesh(scene, type, color) {
 
   if (type === "p") {
     const body = MeshBuilder.CreateCylinder(`pb_${Math.random()}`, { diameterTop: 0.19, diameterBottom: 0.31, height: 0.26, tessellation: 32 }, scene);
-    body.position.y = y + 0.13;
+    body.position.y = y + 0.11;
     parts.push(body);
     const collar = MeshBuilder.CreateTorus(`pc_${Math.random()}`, { diameter: 0.2, thickness: 0.038, tessellation: 28 }, scene);
-    collar.position.y = y + 0.24;
+    collar.position.y = y + 0.22;
     collar.rotation.x = Math.PI / 2;
     parts.push(collar);
-    const head = addIcoOrSphere(scene, `ph_${Math.random()}`, 0.1, y + 0.31 + 0.1, 2);
+    const head = addIcoOrSphere(scene, `ph_${Math.random()}`, 0.1, y + 0.29 + 0.1, 2);
     parts.push(head);
   } else if (type === "r") {
-    const tower = MeshBuilder.CreateCylinder(`rt_${Math.random()}`, { diameter: 0.36, height: 0.4, tessellation: 8 }, scene);
-    tower.position.y = y + 0.2;
-    tower.rotation.y = Math.PI / 8;
-    parts.push(tower);
-    const band = MeshBuilder.CreateTorus(`rb_${Math.random()}`, { diameter: 0.3, thickness: 0.028, tessellation: 24 }, scene);
-    band.position.y = y + 0.34;
-    band.rotation.x = Math.PI / 2;
-    parts.push(band);
-    for (let i = 0; i < 4; i++) {
-      const cren = MeshBuilder.CreateBox(`rc_${i}_${Math.random()}`, { width: 0.095, height: 0.14, depth: 0.095 }, scene);
-      const ox = (i % 2 === 0 ? -1 : 1) * 0.125;
-      const oz = (i < 2 ? -1 : 1) * 0.125;
-      cren.position.set(ox, y + 0.4 + 0.07, oz);
-      parts.push(cren);
+    const stemH = 0.36;
+    y = addLatheStem(scene, parts, y, stemH);
+    y = addDoubleCollar(scene, parts, y + 0.01);
+    const headH = 0.1;
+    const headR = 0.165;
+    const head = MeshBuilder.CreateCylinder(`rt_${Math.random()}`, { diameter: headR * 2, height: headH, tessellation: 48 }, scene);
+    head.position.y = y + headH * 0.5;
+    parts.push(head);
+    const topDeck = MeshBuilder.CreateCylinder(`rtd_${Math.random()}`, { diameter: headR * 2 - 0.04, height: 0.022, tessellation: 40 }, scene);
+    topDeck.position.y = y + headH + 0.011;
+    parts.push(topDeck);
+    const merlons = 8;
+    const mr = headR * 0.88;
+    const yMer = y + headH + 0.056;
+    for (let i = 0; i < merlons; i++) {
+      const ang = (i / merlons) * Math.PI * 2;
+      const tooth = MeshBuilder.CreateBox(`rc_${i}_${Math.random()}`, { width: 0.088, height: 0.1, depth: 0.052 }, scene);
+      tooth.position.set(Math.cos(ang) * mr, yMer, Math.sin(ang) * mr);
+      tooth.rotation.y = -ang;
+      parts.push(tooth);
     }
   } else if (type === "n") {
-    const chest = MeshBuilder.CreateCylinder(`nb_${Math.random()}`, { diameterTop: 0.3, diameterBottom: 0.36, height: 0.26, tessellation: 32 }, scene);
-    chest.position.y = y + 0.13;
+    const stemH = 0.24;
+    y = addLatheStem(scene, parts, y, stemH);
+    const chest = MeshBuilder.CreateCylinder(`nb_${Math.random()}`, { diameterTop: 0.26, diameterBottom: 0.34, height: 0.2, tessellation: 36 }, scene);
+    chest.position.y = y + 0.1;
     parts.push(chest);
-    const neck = MeshBuilder.CreateCylinder(`nn_${Math.random()}`, { diameterTop: 0.22, diameterBottom: 0.28, height: 0.18, tessellation: 24 }, scene);
-    neck.position.set(0.02, y + 0.28, 0.06);
-    neck.rotation.z = 0.5;
-    neck.rotation.x = -0.25;
+    y += 0.2;
+    const neck = MeshBuilder.CreateCylinder(`nn_${Math.random()}`, { diameterTop: 0.2, diameterBottom: 0.27, height: 0.16, tessellation: 28 }, scene);
+    neck.position.set(0.015, y + 0.06, 0.04);
+    neck.rotation.z = 0.42;
+    neck.rotation.x = -0.32;
     parts.push(neck);
-    const snout = MeshBuilder.CreateBox(`ns_${Math.random()}`, { width: 0.16, height: 0.14, depth: 0.42 }, scene);
-    snout.position.set(0.06, y + 0.36, 0.2);
-    snout.rotation.y = -0.35;
+    const skull = MeshBuilder.CreateSphere(`nsk_${Math.random()}`, { diameter: 0.22, segments: 20 }, scene);
+    skull.position.set(0.04, y + 0.15, 0.14);
+    skull.scaling = new Vector3(1.05, 0.92, 1.25);
+    skull.rotation.y = -0.38;
+    parts.push(skull);
+    const snout = MeshBuilder.CreateCylinder(`nsn_${Math.random()}`, { diameterTop: 0.07, diameterBottom: 0.12, height: 0.34, tessellation: 16 }, scene);
+    snout.position.set(0.08, y + 0.1, 0.32);
+    snout.rotation.x = 1.05;
+    snout.rotation.y = -0.28;
     parts.push(snout);
-    const crest = MeshBuilder.CreateBox(`nc_${Math.random()}`, { width: 0.06, height: 0.22, depth: 0.12 }, scene);
-    crest.position.set(-0.04, y + 0.42, -0.06);
-    crest.rotation.z = -0.4;
-    parts.push(crest);
+    const jaw = MeshBuilder.CreateBox(`nj_${Math.random()}`, { width: 0.1, height: 0.06, depth: 0.16 }, scene);
+    jaw.position.set(0.06, y + 0.06, 0.34);
+    jaw.rotation.x = 0.35;
+    jaw.rotation.y = -0.22;
+    parts.push(jaw);
+    const ear1 = MeshBuilder.CreateCylinder(`ne1_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.06, height: 0.1, tessellation: 8 }, scene);
+    ear1.position.set(-0.02, y + 0.22, 0.06);
+    ear1.rotation.z = -0.35;
+    ear1.rotation.x = 0.25;
+    parts.push(ear1);
+    const ear2 = MeshBuilder.CreateCylinder(`ne2_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.055, height: 0.085, tessellation: 8 }, scene);
+    ear2.position.set(0.02, y + 0.24, -0.02);
+    ear2.rotation.z = 0.28;
+    ear2.rotation.x = 0.15;
+    parts.push(ear2);
+    const maneN = 14;
+    for (let i = 0; i < maneN; i++) {
+      const t = i / (maneN - 1);
+      const ang = -0.85 + t * 1.35;
+      const my = y + 0.04 + t * 0.2;
+      const mz = -0.12 - t * 0.14;
+      const ridge = MeshBuilder.CreateBox(`nm_${i}_${Math.random()}`, { width: 0.028, height: 0.11 + t * 0.06, depth: 0.045 }, scene);
+      ridge.position.set(-0.1 - t * 0.04, my, mz);
+      ridge.rotation.y = ang;
+      ridge.rotation.z = -0.15 - t * 0.25;
+      parts.push(ridge);
+    }
   } else if (type === "b") {
-    const stem = MeshBuilder.CreateCylinder(`bs_${Math.random()}`, { diameterTop: 0.24, diameterBottom: 0.35, height: 0.4, tessellation: 32 }, scene);
-    stem.position.y = y + 0.2;
-    parts.push(stem);
-    const mitre = addIcoOrSphere(scene, `bm_${Math.random()}`, 0.16, y + 0.44, 2);
-    mitre.scaling = new Vector3(0.88, 1.22, 0.88);
-    parts.push(mitre);
-    const slot = MeshBuilder.CreateBox(`bx_${Math.random()}`, { width: 0.055, height: 0.26, depth: 0.42 }, scene);
-    slot.position.y = y + 0.46;
-    parts.push(slot);
-  } else if (type === "q") {
-    const skirt = MeshBuilder.CreateCylinder(`q1_${Math.random()}`, { diameterTop: 0.38, diameterBottom: 0.44, height: 0.22, tessellation: 36 }, scene);
-    skirt.position.y = y + 0.11;
-    parts.push(skirt);
-    const gown = MeshBuilder.CreateCylinder(`q2_${Math.random()}`, { diameterTop: 0.32, diameterBottom: 0.38, height: 0.26, tessellation: 36 }, scene);
-    gown.position.y = y + 0.28;
-    parts.push(gown);
-    const neck = addIcoOrSphere(scene, `qn_${Math.random()}`, 0.1, y + 0.45, 2);
+    const stemH = 0.3;
+    y = addLatheStem(scene, parts, y, stemH);
+    const lowCollar = MeshBuilder.CreateTorus(`bcl_${Math.random()}`, { diameter: 0.38, thickness: 0.026, tessellation: 44 }, scene);
+    lowCollar.position.y = y + 0.014;
+    lowCollar.rotation.x = Math.PI / 2;
+    parts.push(lowCollar);
+    const neck = MeshBuilder.CreateCylinder(`bn_${Math.random()}`, { diameterTop: 0.19, diameterBottom: 0.24, height: 0.07, tessellation: 32 }, scene);
+    neck.position.y = y + 0.048;
     parts.push(neck);
-    const crownR = 0.17;
+    const upCollar = MeshBuilder.CreateTorus(`bcu_${Math.random()}`, { diameter: 0.23, thickness: 0.012, tessellation: 36 }, scene);
+    upCollar.position.y = y + 0.09;
+    upCollar.rotation.x = Math.PI / 2;
+    parts.push(upCollar);
+    const yMitre = y + 0.2;
+    bishopMitreWithSlitVisual(scene, parts, yMitre);
+    const finial = MeshBuilder.CreateSphere(`bfin_${Math.random()}`, { diameter: 0.1, segments: 20 }, scene);
+    finial.position.y = yMitre + 0.26;
+    parts.push(finial);
+  } else if (type === "q") {
+    const stemH = 0.4;
+    y = addLatheStem(scene, parts, y, stemH);
+    y = addTripleCollar(scene, parts, y + 0.008);
+    const cup = MeshBuilder.CreateCylinder(`qc_${Math.random()}`, { diameterTop: 0.36, diameterBottom: 0.22, height: 0.15, tessellation: 48 }, scene);
+    cup.position.y = y + 0.075;
+    parts.push(cup);
+    y += 0.15;
+    const crownR = 0.152;
+    const ySpike = y + 0.07;
     for (let i = 0; i < 8; i++) {
       const ang = (i / 8) * Math.PI * 2;
-      const spike = MeshBuilder.CreateCylinder(`qs_${i}_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.1, height: 0.12, tessellation: 6 }, scene);
-      spike.position.set(Math.cos(ang) * crownR, y + 0.56, Math.sin(ang) * crownR);
+      const spike = MeshBuilder.CreateCylinder(`qs_${i}_${Math.random()}`, { diameterTop: 0.04, diameterBottom: 0.09, height: 0.11, tessellation: 10 }, scene);
+      spike.position.set(Math.cos(ang) * crownR, ySpike, Math.sin(ang) * crownR);
       parts.push(spike);
+      const knob = MeshBuilder.CreateSphere(`qk_${i}_${Math.random()}`, { diameter: 0.065, segments: 14 }, scene);
+      knob.position.set(Math.cos(ang) * crownR, ySpike + 0.075, Math.sin(ang) * crownR);
+      parts.push(knob);
     }
-    const jewel = addIcoOrSphere(scene, `qj_${Math.random()}`, 0.075, y + 0.62, 2);
-    parts.push(jewel);
+    const monde = MeshBuilder.CreateSphere(`qj_${Math.random()}`, { diameter: 0.09, segments: 20 }, scene);
+    monde.position.y = ySpike + 0.12;
+    parts.push(monde);
   } else if (type === "k") {
-    const robe = MeshBuilder.CreateCylinder(`kr_${Math.random()}`, { diameterTop: 0.32, diameterBottom: 0.42, height: 0.5, tessellation: 36 }, scene);
-    robe.position.y = y + 0.25;
-    parts.push(robe);
-    const collar = MeshBuilder.CreateTorus(`kt_${Math.random()}`, { diameter: 0.26, thickness: 0.03, tessellation: 28 }, scene);
-    collar.position.y = y + 0.48;
-    collar.rotation.x = Math.PI / 2;
-    parts.push(collar);
-    const head = addIcoOrSphere(scene, `kh_${Math.random()}`, 0.13, y + 0.56, 2);
-    parts.push(head);
-    const crossV = MeshBuilder.CreateBox(`kv_${Math.random()}`, { width: 0.07, height: 0.32, depth: 0.07 }, scene);
-    crossV.position.y = y + 0.78;
+    const stemH = 0.42;
+    y = addLatheStem(scene, parts, y, stemH);
+    y = addTripleCollar(scene, parts, y + 0.008);
+    const cup = MeshBuilder.CreateCylinder(`kc_${Math.random()}`, { diameterTop: 0.34, diameterBottom: 0.21, height: 0.14, tessellation: 48 }, scene);
+    cup.position.y = y + 0.07;
+    parts.push(cup);
+    y += 0.14;
+    const rimY = y + 0.02;
+    const battleR = 0.155;
+    for (let i = 0; i < 8; i++) {
+      const ang = (i / 8) * Math.PI * 2;
+      const tooth = MeshBuilder.CreateCylinder(`kt_${i}_${Math.random()}`, { diameterTop: 0.02, diameterBottom: 0.07, height: 0.095, tessellation: 8 }, scene);
+      tooth.position.set(Math.cos(ang) * battleR, rimY + 0.048, Math.sin(ang) * battleR);
+      parts.push(tooth);
+    }
+    const crossY = rimY + 0.11;
+    const crossV = MeshBuilder.CreateBox(`kv_${Math.random()}`, { width: 0.065, height: 0.3, depth: 0.065 }, scene);
+    crossV.position.y = crossY + 0.12;
     parts.push(crossV);
-    const crossH = MeshBuilder.CreateBox(`kh2_${Math.random()}`, { width: 0.24, height: 0.07, depth: 0.07 }, scene);
-    crossH.position.y = y + 0.86;
+    const crossH = MeshBuilder.CreateBox(`kh2_${Math.random()}`, { width: 0.22, height: 0.065, depth: 0.065 }, scene);
+    crossH.position.y = crossY + 0.2;
     parts.push(crossH);
     for (const [dx, dy] of [
       [0, 1],
@@ -641,15 +892,18 @@ function createPieceMesh(scene, type, color) {
       [-1, 0],
       [1, 0]
     ]) {
-      const orb = MeshBuilder.CreateSphere(`ko_${dx}_${dy}_${Math.random()}`, { diameter: 0.07, segments: 12 }, scene);
-      orb.position.set(dx * 0.11, y + 0.86 + dy * 0.11, 0);
+      const orb = MeshBuilder.CreateSphere(`ko_${dx}_${dy}_${Math.random()}`, { diameter: 0.078, segments: 14 }, scene);
+      orb.position.set(dx * 0.102, crossY + 0.2 + dy * 0.102, 0);
       parts.push(orb);
     }
   }
 
-  for (const p of parts) p.material = mat;
+  const multiMat = type === "b";
+  for (const p of parts) {
+    p.material = multiMat && p.metadata?.bishopSlit ? makeBishopSlitMaterial(scene, color) : mat;
+  }
 
-  const merged = Mesh.MergeMeshes(parts, false, true, undefined, false, false);
+  const merged = Mesh.MergeMeshes(parts, false, true, undefined, multiMat, false);
   if (merged) {
     for (const p of parts) {
       try {
@@ -657,7 +911,7 @@ function createPieceMesh(scene, type, color) {
       } catch (_) {}
     }
     merged.name = `piece_${type}_${color}`;
-    merged.material = mat;
+    if (!multiMat) merged.material = mat;
     merged.refreshBoundingInfo(true);
     merged.metadata = { isPiece: true };
     return merged;
@@ -869,57 +1123,227 @@ async function refreshNNStatus() {
   } catch (_) {}
 }
 
-/** Parede e moldura superior — salão de jogo. */
-function buildSalonBackdrop(scene) {
-  scene.clearColor = new Color3(0.06, 0.08, 0.12).toColor4(1);
-
-  const wall = MeshBuilder.CreateBox("salonWall", { width: 30, height: 11, depth: 0.55 }, scene);
-  wall.position.set(0, 5.0, -7.6);
-  const wm = new StandardMaterial("salonWallMat", scene);
-  wm.diffuseColor = new Color3(0.1, 0.19, 0.12);
-  wm.specularColor = new Color3(0.06, 0.1, 0.08);
-  wm.specularPower = 42;
-  wall.material = wm;
-
-  const rail = MeshBuilder.CreateBox("salonRail", { width: 30, height: 0.22, depth: 0.58 }, scene);
-  rail.position.set(0, 9.85, -7.55);
-  const rm = new StandardMaterial("salonRailMat", scene);
-  rm.diffuseColor = new Color3(0.13, 0.1, 0.08);
-  rm.specularColor = new Color3(0.1, 0.09, 0.07);
-  rail.material = rm;
-}
-
-/** Moldura em latão ao redor das 64 casas. */
-function addBoardBrassFrame(scene) {
-  const brass = new StandardMaterial("brassFrame", scene);
-  brass.diffuseColor = new Color3(0.7, 0.54, 0.2);
-  brass.specularColor = new Color3(0.92, 0.78, 0.42);
-  brass.specularPower = 108;
-  const half = 4.12;
-  const t = 0.12;
-  const y = 0.038;
-  const thick = 0.048;
-  const span = half * 2 + t * 2;
-  const depth = t;
-  const bars = [
-    { w: span, h: thick, d: depth, x: 0, z: half + t / 2 },
-    { w: span, h: thick, d: depth, x: 0, z: -half - t / 2 },
-    { w: depth, h: thick, d: span - 2 * depth, x: half + t / 2, z: 0 },
-    { w: depth, h: thick, d: span - 2 * depth, x: -half - t / 2, z: 0 }
-  ];
-  for (let i = 0; i < bars.length; i++) {
-    const b = bars[i];
-    const m = MeshBuilder.CreateBox(`brassFrame_${i}`, { width: b.w, height: b.h, depth: b.d }, scene);
-    m.position.set(b.x, y, b.z);
-    m.material = brass;
+/** Mesa distante (silhueta de torneio / clube). */
+function addRemoteChessTable(scene, cx, cz, w, d, woodMat, darkMat) {
+  const top = MeshBuilder.CreateBox(`rtTop_${cx}_${cz}`, { width: w, height: 0.07, depth: d }, scene);
+  top.position.set(cx, 0.035, cz);
+  top.material = woodMat;
+  const board = MeshBuilder.CreateBox(`rtBd_${cx}_${cz}`, { width: w * 0.42, height: 0.02, depth: d * 0.42 }, scene);
+  board.position.set(cx, 0.085, cz);
+  board.material = darkMat;
+  const lx = (w * 0.38) / 2;
+  const lz = (d * 0.38) / 2;
+  const yLeg = -0.32;
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      const leg = MeshBuilder.CreateCylinder(`rtL_${cx}_${cz}_${sx}_${sz}`, { diameter: 0.11, height: 0.68, tessellation: 10 }, scene);
+      leg.position.set(cx + sx * lx, yLeg, cz + sz * lz);
+      leg.material = darkMat;
+    }
   }
 }
 
-/** Relógio de xadrez clássico (dois mostradores); ponteiros seguem a hora local. */
+/** Pernas + avental da mesa onde jogas (por baixo do mármore). */
+function buildPlayerChessTable(scene) {
+  const wood = new StandardMaterial("plyrTblWood", scene);
+  wood.diffuseColor = new Color3(0.19, 0.1, 0.048);
+  wood.specularColor = new Color3(0.11, 0.08, 0.05);
+  wood.specularPower = 44;
+  const legMat = new StandardMaterial("plyrTblLeg", scene);
+  legMat.diffuseColor = new Color3(0.065, 0.05, 0.045);
+  legMat.specularPower = 22;
+  const ap = 4.12;
+  const legTop = -0.19;
+  const legBot = -0.76;
+  const legH = legTop - legBot;
+  const cy = (legTop + legBot) / 2;
+  for (const [sx, sz] of [
+    [-1, -1],
+    [-1, 1],
+    [1, -1],
+    [1, 1]
+  ]) {
+    const leg = MeshBuilder.CreateCylinder(`ptLeg_${sx}_${sz}`, { diameter: 0.17, height: legH, tessellation: 16 }, scene);
+    leg.position.set(sx * ap, cy, sz * ap);
+    leg.material = legMat;
+  }
+  const apron = MeshBuilder.CreateBox("ptApron", { width: 9.95, height: 0.055, depth: 9.95 }, scene);
+  apron.position.set(0, -0.208, 0);
+  apron.material = wood;
+}
+
+/** Salão de clube: piso, paredes, teto, mesas ao fundo, luzes quentes. */
+function buildChessClubEnvironment(scene) {
+  scene.clearColor = new Color3(0.035, 0.042, 0.055).toColor4(1);
+
+  const floor = MeshBuilder.CreateGround("clubFloor", { width: 62, height: 52 }, scene);
+  floor.position.set(0, -0.02, 5);
+  const flMat = new StandardMaterial("clubFloorMat", scene);
+  flMat.diffuseColor = new Color3(0.13, 0.085, 0.055);
+  flMat.specularColor = new Color3(0.05, 0.04, 0.032);
+  flMat.specularPower = 26;
+  floor.material = flMat;
+
+  const wallPaint = new StandardMaterial("clubWallPaint", scene);
+  wallPaint.diffuseColor = new Color3(0.11, 0.14, 0.12);
+  wallPaint.specularColor = new Color3(0.04, 0.05, 0.045);
+  wallPaint.specularPower = 28;
+
+  const wainMat = new StandardMaterial("clubWain", scene);
+  wainMat.diffuseColor = new Color3(0.08, 0.06, 0.048);
+  wainMat.specularPower = 18;
+
+  const backWall = MeshBuilder.CreateBox("clubBackWall", { width: 52, height: 10.5, depth: 0.5 }, scene);
+  backWall.position.set(0, 5.05, -11.2);
+  backWall.material = wallPaint;
+
+  const wain = MeshBuilder.CreateBox("clubWainscot", { width: 50, height: 2.2, depth: 0.12 }, scene);
+  wain.position.set(0, 1.15, -10.85);
+  wain.material = wainMat;
+
+  const rail = MeshBuilder.CreateBox("clubChairRail", { width: 52, height: 0.28, depth: 0.55 }, scene);
+  rail.position.set(0, 9.95, -11.05);
+  const railMat = new StandardMaterial("clubRailMat", scene);
+  railMat.diffuseColor = new Color3(0.12, 0.09, 0.065);
+  railMat.specularColor = new Color3(0.08, 0.07, 0.055);
+  rail.material = railMat;
+
+  const ceil = MeshBuilder.CreateBox("clubCeiling", { width: 58, height: 0.45, depth: 50 }, scene);
+  ceil.position.set(0, 9.45, 4);
+  const ceilMat = new StandardMaterial("clubCeilMat", scene);
+  ceilMat.diffuseColor = new Color3(0.06, 0.065, 0.075);
+  ceilMat.specularColor = Color3.Black();
+  ceil.material = ceilMat;
+
+  const sideL = MeshBuilder.CreateBox("clubSideL", { width: 0.48, height: 8.8, depth: 36 }, scene);
+  sideL.position.set(-17.5, 4.6, 3);
+  sideL.material = wallPaint;
+  const sideR = MeshBuilder.CreateBox("clubSideR", { width: 0.48, height: 8.8, depth: 36 }, scene);
+  sideR.position.set(17.5, 4.6, 3);
+  sideR.material = wallPaint;
+
+  const lampEmis = new StandardMaterial("clubLampEmis", scene);
+  lampEmis.diffuseColor = new Color3(0.95, 0.78, 0.45);
+  lampEmis.emissiveColor = new Color3(0.35, 0.26, 0.12);
+  lampEmis.specularColor = Color3.Black();
+  for (let i = 0; i < 5; i++) {
+    const lx = -16 + i * 8;
+    const shade = MeshBuilder.CreateBox(`lamp_${i}`, { width: 1.4, height: 0.22, depth: 0.65 }, scene);
+    shade.position.set(lx, 8.35, -10.55);
+    shade.material = lampEmis;
+    const glow = MeshBuilder.CreateBox(`lampGlow_${i}`, { width: 1.1, height: 0.08, depth: 0.4 }, scene);
+    glow.position.set(lx, 8.18, -10.48);
+    glow.material = lampEmis;
+  }
+
+  const tblWood = new StandardMaterial("remoteTblWood", scene);
+  tblWood.diffuseColor = new Color3(0.18, 0.1, 0.055);
+  tblWood.specularColor = new Color3(0.09, 0.06, 0.04);
+  tblWood.specularPower = 38;
+  const tblDark = new StandardMaterial("remoteTblDark", scene);
+  tblDark.diffuseColor = new Color3(0.06, 0.048, 0.042);
+  tblDark.specularPower = 16;
+
+  // Poucas silhuetas ao fundo (evita “mesas flutuantes” a competir com a tua mesa).
+  addRemoteChessTable(scene, -9.5, 19.5, 2.8, 2.6, tblWood, tblDark);
+  addRemoteChessTable(scene, 9.2, 20.2, 2.8, 2.6, tblWood, tblDark);
+}
+
+/** Nome antigo do cenário — mantido para compatibilidade e caches agressivos do browser. */
+function buildSalonBackdrop(scene) {
+  buildChessClubEnvironment(scene);
+}
+
+/** Moldura em latão: bordas alinhadas ao retângulo real das casas (0,99×0,99), não centrado por simetria errada. */
+function addBoardBrassFrame(scene) {
+  const brass = new StandardMaterial("brassFrame", scene);
+  brass.diffuseColor = new Color3(0.62, 0.48, 0.18);
+  brass.specularColor = new Color3(0.88, 0.74, 0.38);
+  brass.specularPower = 100;
+  const t = 0.095;
+  const h = 0.038;
+  const y = 0.061;
+  const xL = -3.495;
+  const xR = 4.495;
+  const z1 = -4.495;
+  const z8 = 3.495;
+  const cx = (xL + xR) / 2;
+  const cz = (z1 + z8) / 2;
+  const spanX = xR - xL + 2 * t;
+  const spanZ = z8 - z1 + 2 * t;
+
+  const south = MeshBuilder.CreateBox("brassFrame_S", { width: spanX, height: h, depth: t }, scene);
+  south.position.set(cx, y, z1 - t / 2);
+  south.material = brass;
+
+  const north = MeshBuilder.CreateBox("brassFrame_N", { width: spanX, height: h, depth: t }, scene);
+  north.position.set(cx, y, z8 + t / 2);
+  north.material = brass;
+
+  const innerZ = z8 - z1;
+  const west = MeshBuilder.CreateBox("brassFrame_W", { width: t, height: h, depth: innerZ + 2 * t }, scene);
+  west.position.set(xL - t / 2, y, cz);
+  west.material = brass;
+
+  const east = MeshBuilder.CreateBox("brassFrame_E", { width: t, height: h, depth: innerZ + 2 * t }, scene);
+  east.position.set(xR + t / 2, y, cz);
+  east.material = brass;
+}
+
+/**
+ * Quadrado SATOR gravado no mármore: decais projetados na mesh da base (não placas à parte).
+ * Sul: ROTAS · Oeste: SATOR · Norte: TENET + OPERA · Leste: AREPO
+ */
+function addSatorMarbleInscriptions(scene, baseMesh) {
+  const half = 4.31;
+
+  function makeEngravedTexture(id, lines, seed) {
+    const tw = 1024;
+    const th = lines.length > 1 ? 268 : 176;
+    const tex = new DynamicTexture(id, { width: tw, height: th }, scene, false);
+    const ctx = tex.getContext();
+    paintDarkMarbleBandOnCtx(ctx, tw, th, seed);
+    drawEngravedSatorTextOnCtx(ctx, tw, th, lines);
+    tex.update(true);
+    return tex;
+  }
+
+  function applyDecal(name, lines, seed, localPos, localNormal, size) {
+    const tex = makeEngravedTexture(`${name}_tex`, lines, seed);
+    const mat = new StandardMaterial(`${name}_satorDecalMat`, scene);
+    mat.diffuseTexture = tex;
+    mat.diffuseColor = new Color3(1, 1, 1);
+    mat.specularColor = new Color3(0.24, 0.24, 0.3);
+    mat.specularPower = 92;
+    mat.backFaceCulling = false;
+    const decal = MeshBuilder.CreateDecal(
+      name,
+      baseMesh,
+      {
+        position: localPos,
+        normal: localNormal,
+        size,
+        angle: 0,
+        localMode: true,
+        cullBackFaces: true
+      },
+      scene
+    );
+    decal.material = mat;
+    decal.isPickable = false;
+  }
+
+  applyDecal("satorDecalS", ["ROTAS"], 91011, new Vector3(0, 0, -half), new Vector3(0, 0, -1), new Vector3(8.95, 0.28, 0.45));
+  applyDecal("satorDecalW", ["SATOR"], 91012, new Vector3(-half, 0, 0), new Vector3(-1, 0, 0), new Vector3(8.95, 0.28, 0.45));
+  applyDecal("satorDecalN", ["TENET", "OPERA"], 91013, new Vector3(0, 0, half), new Vector3(0, 0, 1), new Vector3(8.95, 0.44, 0.45));
+  applyDecal("satorDecalE", ["AREPO"], 91014, new Vector3(half, 0, 0), new Vector3(1, 0, 0), new Vector3(8.95, 0.28, 0.45));
+}
+
+/** Relógio de xadrez clássico (dois mostradores); ponteiros seguem a hora local. Posição via syncChessClockPlacement. */
 function buildClassicChessClock(scene) {
   const root = new TransformNode("chessClockRoot", scene);
-  root.position.set(5.62, 0.96, 2.95);
-  root.rotation.y = -0.52;
+  root.position.set(0, 0, 0);
+  chessClockRootRef = root;
 
   const wood = new StandardMaterial("clkWood", scene);
   wood.diffuseColor = new Color3(0.26, 0.16, 0.1);
@@ -1007,35 +1431,36 @@ function createScene(canvas) {
     adaptToDeviceRatio: true
   });
   const scene = new Scene(engine);
-  buildSalonBackdrop(scene);
+  buildChessClubEnvironment(scene);
 
-  const camera = new ArcRotateCamera("cam", -Math.PI / 2, 1.47, 8.2, new Vector3(0, 0.4, 0.65), scene);
-  camera.minZ = 0.05;
+  const camera = new ArcRotateCamera("cam", -Math.PI / 2.06, 0.66, 13.1, new Vector3(0, 0.22, 0.12), scene);
+  camera.allowUpsideDown = false;
+  camera.minZ = 0.12;
   camera.maxZ = 500;
-  camera.fov = 1.06;
-  camera.attachControl(canvas, true);
+  camera.fov = 0.94;
+  camera.inertia = 0.72;
+  camera.attachControl(canvas, false);
+  bindArcRotateRightMouseOnly(camera, scene, canvas);
   camera.wheelPrecision = 38;
   camera.panningSensibility = 0;
+  const ptrIn = camera.inputs.attached?.pointers;
+  if (ptrIn) {
+    ptrIn.multiTouchPanning = false;
+    ptrIn.multiTouchPanAndZoom = false;
+  }
   cameraRef = camera;
-  applyPlayerPovCamera();
 
-  const hemi = new HemisphericLight("hemi", new Vector3(0.25, 1, 0.2), scene);
-  hemi.intensity = 0.55;
-  hemi.groundColor = new Color3(0.08, 0.09, 0.14);
+  const hemi = new HemisphericLight("hemi", new Vector3(0.2, 1, 0.35), scene);
+  hemi.intensity = 0.62;
+  hemi.diffuse = new Color3(0.88, 0.86, 0.82);
+  hemi.groundColor = new Color3(0.07, 0.075, 0.1);
 
-  const dir = new DirectionalLight("dir", new Vector3(-0.4, -1, -0.35), scene);
-  dir.position = new Vector3(10, 18, 8);
-  dir.intensity = 0.95;
+  const dir = new DirectionalLight("dir", new Vector3(-0.55, -1.05, -0.25), scene);
+  dir.position = new Vector3(12, 16, 6);
+  dir.intensity = 0.72;
+  dir.diffuse = new Color3(1, 0.96, 0.9);
 
-  const ground = MeshBuilder.CreateGround("ground", { width: 32, height: 32 }, scene);
-  ground.position.y = -0.02;
-  const gmat = new StandardMaterial("gm", scene);
-  gmat.diffuseColor = new Color3(0.09, 0.07, 0.055);
-  gmat.specularColor = new Color3(0.04, 0.035, 0.03);
-  gmat.specularPower = 24;
-  ground.material = gmat;
-
-  buildClassicChessClock(scene);
+  buildPlayerChessTable(scene);
 
   const marbleLight = createMarbleTexture(scene, "marbleLight", true, 9001);
   const marbleDark = createMarbleTexture(scene, "marbleDark", false, 7001);
@@ -1049,6 +1474,7 @@ function createScene(canvas) {
   bmat.specularColor = new Color3(0.28, 0.28, 0.34);
   bmat.specularPower = 95;
   base.material = bmat;
+  addSatorMarbleInscriptions(scene, base);
 
   const matLightSq = new StandardMaterial("tileMarbleLight", scene);
   matLightSq.diffuseTexture = marbleLight;
@@ -1077,6 +1503,19 @@ function createScene(canvas) {
   }
 
   addBoardBrassFrame(scene);
+
+  try {
+    buildClassicChessClock(scene);
+  } catch (err) {
+    console.warn("Relógio 3D omitido:", err);
+  }
+  applyPlayerPovCamera();
+
+  scene.registerBeforeRender(() => {
+    if (!Number.isFinite(camera.alpha) || !Number.isFinite(camera.beta) || !Number.isFinite(camera.radius)) {
+      applyPlayerPovCamera();
+    }
+  });
 
   scene.onPointerObservable.add((pi) => {
     if (pi.type !== PointerEventTypes.POINTERDOWN) return;
@@ -1135,6 +1574,7 @@ function createScene(canvas) {
   engine.runRenderLoop(() => scene.render());
   const kickResize = () => {
     try {
+      if (!canvas.clientWidth || !canvas.clientHeight) return;
       engine.resize();
     } catch (_) {}
   };
