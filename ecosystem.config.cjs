@@ -11,7 +11,7 @@ module.exports = {
       name: "satorx",
       cwd: root,
       script: "src/server.js",
-      instances: 1,
+      instances: 4,
       exec_mode: "fork",
       autorestart: true,
       max_memory_restart: "500M",
