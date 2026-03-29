@@ -15,7 +15,6 @@
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preload" href="/img/library-panorama.webp" as="image" type="image/webp"/>
-  <link rel="preload" href="/img/library-bg.webp" as="image" type="image/webp"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400;1,500&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet"/>
@@ -47,59 +46,6 @@
       font-family: "Source Sans 3", system-ui, sans-serif;
     }
 
-    /*
-     * Parallax 180° em tela cheia: camadas maiores que o viewport + background-size: cover
-     * evita “faixas pretas” de % auto em panorâmicas. O pan horizontal usa quase 0–100% da imagem.
-     */
-    #library-parallax-root {
-      position: fixed;
-      inset: 0;
-      z-index: 1;
-      overflow: hidden;
-      pointer-events: none;
-    }
-    #library-parallax-root .library-parallax-layer {
-      position: absolute;
-      /* Área maior que a tela: sempre há “folga” para pan sem bordas vazias */
-      width: 128%;
-      height: 128%;
-      left: -14%;
-      top: -14%;
-      background-repeat: no-repeat;
-      background-position: 50% 50%;
-      background-size: cover;
-      transform-origin: center center;
-      will-change: background-position, transform;
-      transition: none;
-    }
-    #library-bg-far {
-      background-image: url("/img/library-parallax-1.png");
-      filter: blur(1px) brightness(1) saturate(1);
-    }
-    #library-bg-near {
-      background-image: url("/img/library-parallax-2.png");
-      opacity: 0.55;
-      width: 132%;
-      height: 132%;
-      left: -16%;
-      top: -16%;
-      filter: blur(0.5px) brightness(1.02) saturate(1.02);
-    }
-    @supports (background-image: image-set(url("x.webp") type("image/webp"))) {
-      #library-bg-far {
-        background-image: image-set(
-          url("/img/library-panorama.webp") type("image/webp"),
-          url("/img/library-parallax-1.png") type("image/png")
-        );
-      }
-      #library-bg-near {
-        background-image: image-set(
-          url("/img/library-bg.webp") type("image/webp"),
-          url("/img/library-parallax-2.png") type("image/png")
-        );
-      }
-    }
-
     /* Um único gradiente suave: menos composição GPU que radial + linear empilhados */
     #library-vignette {
       position: fixed;
@@ -124,7 +70,7 @@
       touch-action: none;
       outline: none;
       z-index: 2;
-      /* Canvas com fundo transparente para mostrar a biblioteca atrás */
+      /* Canvas com fundo transparente; ambiente da biblioteca é renderizado em Three.js (cilindros) */
       background: transparent !important;
     }
 
@@ -656,13 +602,6 @@
           radial-gradient(ellipse 85% 75% at 50% 38%, rgba(55, 44, 32, 0.55) 0%, transparent 52%),
           radial-gradient(ellipse 120% 90% at 50% 100%, rgba(12, 9, 6, 0.9) 0%, transparent 45%),
           linear-gradient(165deg, #241c14 0%, #15100c 45%, #0a0806 100%);
-      }
-      #library-bg-far,
-      #library-bg-near {
-        background-image: none;
-      }
-      #library-parallax-root {
-        background: #1a1510;
       }
     }
     .chess3d-loading__pieces {

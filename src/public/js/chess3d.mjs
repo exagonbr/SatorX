@@ -715,15 +715,41 @@ function createScene() {
   const scene = new THREE.Scene();
   sceneRef = scene;
 
-  // Carregar fundo panorama
-  const pmremGenerator = new THREE.PMREMGenerator(renderer);
-  pmremGenerator.compileEquirectangularShader();
-  
-  new THREE.TextureLoader().load("/img/library-panorama.webp", (texture) => {
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    scene.background = texture;
-    scene.environment = texture;
+  // Ambiente 3D: dois cilindros concêntricos (panorama distante + camada próxima com transparência)
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load("/img/library-panorama.webp", (texFar) => {
+    texFar.colorSpace = THREE.SRGBColorSpace;
+
+    const envTex = texFar.clone();
+    envTex.mapping = THREE.EquirectangularReflectionMapping;
+    scene.environment = envTex;
+
+    const geoFar = new THREE.CylinderGeometry(35, 35, 25, 64, 1, true);
+    const matFar = new THREE.MeshBasicMaterial({
+      map: texFar,
+      side: THREE.BackSide,
+      depthWrite: false
+    });
+    const meshFar = new THREE.Mesh(geoFar, matFar);
+    meshFar.renderOrder = -2;
+    meshFar.position.y = 5;
+    scene.add(meshFar);
+  });
+
+  texLoader.load("/img/library-bg.webp", (texNear) => {
+    texNear.colorSpace = THREE.SRGBColorSpace;
+
+    const geoNear = new THREE.CylinderGeometry(30, 30, 25, 64, 1, true);
+    const matNear = new THREE.MeshBasicMaterial({
+      map: texNear,
+      side: THREE.BackSide,
+      transparent: true,
+      depthWrite: false
+    });
+    const meshNear = new THREE.Mesh(geoNear, matNear);
+    meshNear.renderOrder = -1;
+    meshNear.position.y = 5;
+    scene.add(meshNear);
   });
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -798,8 +824,8 @@ function createScene() {
   clockBlackTex = new THREE.CanvasTexture(canvasBlack);
   clockBlackTex.minFilter = THREE.LinearFilter;
 
-  clockWhiteMat = new THREE.MeshBasicMaterial({ map: clockWhiteTex });
-  clockBlackMat = new THREE.MeshBasicMaterial({ map: clockBlackTex });
+  const clockWhiteMat = new THREE.MeshBasicMaterial({ map: clockWhiteTex });
+  const clockBlackMat = new THREE.MeshBasicMaterial({ map: clockBlackTex });
 
   const screenWhite = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), clockWhiteMat);
   screenWhite.position.set(-0.41, 0.2, 0.4);

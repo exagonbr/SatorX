@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Sator Engine — Motor de Xadrez",
   "short_name": "Sator",
-  "description": "Motor de xadrez 8x8 com avaliação Sator, heurísticas híbridas e vista 3D Babylon.js.",
+  "description": "Motor de xadrez 8x8 com avaliação Sator, heurísticas híbridas e vista 3D Three.js.",
   "lang": "pt-BR",
   "dir": "ltr",
   "start_url": "/",
