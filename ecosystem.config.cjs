@@ -1,7 +1,9 @@
 /**
  * PM2 — produção: pm2 start ecosystem.config.cjs --env production
  * DATABASE_URL relativo a prisma/schema.prisma (pasta prisma/).
- * HTTPS: certificados em data/certs/ (gerados pelo deploy via gen-selfsigned-cert.sh).
+ * HTTPS na porta 443 em produção (sem :3000 no URL).
+ * Certificados em data/certs/ (deploy: gen-selfsigned-cert.sh).
+ * Se PM2 falhar com EACCES na 443: sudo bash scripts/enable-node-bind-443.sh
  */
 const path = require("path");
 
@@ -28,7 +30,7 @@ module.exports = {
       },
       env_production: {
         NODE_ENV: "production",
-        PORT: process.env.PORT || 3000,
+        PORT: process.env.PORT || 443,
         DATABASE_URL: process.env.DATABASE_URL || databaseUrl,
         HTTPS_ENABLED: "1",
         SSL_KEY_PATH: process.env.SSL_KEY_PATH || sslKeyPath,

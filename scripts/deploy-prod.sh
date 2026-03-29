@@ -65,4 +65,7 @@ fi
 
 pm2 save
 echo "Concluído. Estado: pm2 status"
-echo "PWA: aceda por https na porta definida em PORT (PM2); na primeira visita aceite o certificado autoassinado."
+echo "HTTPS em produção usa a porta 443 (https://<IP>/ sem sufixe de porta)."
+echo "Se o processo não subir (EACCES), uma vez no servidor: sudo bash scripts/enable-node-bind-443.sh && pm2 restart satorx"
+echo "Abra a porta 443 no firewall da cloud (ex.: GCP VPC / regra de firewall)."
+echo "PWA: na primeira visita aceite o certificado autoassinado (ou Avançadas → continuar)."
