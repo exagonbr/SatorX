@@ -321,6 +321,10 @@ function getMode() {
 function getPlayerColor() {
   return document.getElementById("playerColor").value;
 }
+function getCameraView() {
+  const el = document.getElementById("cameraView");
+  return el ? el.value : "player";
+}
 function trainEnabled() {
   return document.getElementById("trainOnline").checked;
 }
@@ -346,20 +350,63 @@ function bindArcRotateRightMouseOnly(camera, scene, canvas) {
 }
 
 /**
- * Vista padrão tipo “bird’s-eye” inclinada: de cima e ligeiramente de lado (como no tabuleiro clássico 3D).
- * Beta baixo no ArcRotate = mais de cima; raio médio-alto para ver as 64 casas confortavelmente.
+ * Presets de câmera (ArcRotate): beta baixo = mais de cima.
+ * `orientWhiteBottom`: se true, ângulo como nas brancas; se false, rota 180° (pretas “em baixo” na tela).
  */
-function applyPlayerPovCamera() {
+function applyBoardCamera() {
   if (!cameraRef) return;
   const cam = cameraRef;
   const whiteSide = getMode() === "human" || getPlayerColor() === "w";
+  const preset = getCameraView();
+  const orientWhiteBottom = preset === "fixed_white" ? true : whiteSide;
+
+  cam.allowUpsideDown = false;
+
+  if (preset === "top") {
+    cam.setTarget(new Vector3(0, 0.22, 0));
+    const alpha = orientWhiteBottom ? -Math.PI / 2 : Math.PI / 2;
+    cam.alpha = alpha;
+    cam.beta = 0.16;
+    cam.radius = 15.4;
+    cam.lowerAlphaLimit = alpha - 1.35;
+    cam.upperAlphaLimit = alpha + 1.35;
+    cam.lowerBetaLimit = 0.06;
+    cam.upperBetaLimit = 0.62;
+    cam.lowerRadiusLimit = 10.5;
+    cam.upperRadiusLimit = 26;
+    cam.fov = 0.88;
+    syncChessClockPlacement();
+    return;
+  }
+
+  if (preset === "quarter") {
+    const zOff = orientWhiteBottom ? 0.14 : -0.14;
+    cam.setTarget(new Vector3(0, 0.22, zOff));
+    const alpha = orientWhiteBottom ? -Math.PI / 3.25 : Math.PI / 3.25;
+    const limA = 0.95;
+    cam.alpha = alpha;
+    cam.beta = 0.52;
+    cam.radius = 12.4;
+    cam.lowerAlphaLimit = alpha - limA;
+    cam.upperAlphaLimit = alpha + limA;
+    cam.lowerBetaLimit = 0.32;
+    cam.upperBetaLimit = 0.98;
+    cam.lowerRadiusLimit = 8.5;
+    cam.upperRadiusLimit = 24;
+    cam.fov = 0.92;
+    syncChessClockPlacement();
+    return;
+  }
+
+  /* player (padrão) e fixed_white: mesma inclinação; fixed_white ignora a cor do jogador na orientação. */
   const limA = 0.55;
-  if (whiteSide) {
+  const playerRadius = 11.75;
+  if (orientWhiteBottom) {
     cam.setTarget(new Vector3(0, 0.22, 0.12));
     const alpha = -Math.PI / 2.06;
     cam.alpha = alpha;
     cam.beta = 0.66;
-    cam.radius = 13.1;
+    cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   } else {
@@ -367,16 +414,15 @@ function applyPlayerPovCamera() {
     const alpha = Math.PI / 2.06;
     cam.alpha = alpha;
     cam.beta = 0.66;
-    cam.radius = 13.1;
+    cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   }
   cam.lowerBetaLimit = 0.38;
   cam.upperBetaLimit = 0.95;
-  cam.lowerRadiusLimit = 9.2;
+  cam.lowerRadiusLimit = 8.2;
   cam.upperRadiusLimit = 22;
   cam.fov = 0.94;
-  cam.allowUpsideDown = false;
   syncChessClockPlacement();
 }
 
@@ -1433,7 +1479,7 @@ function createScene(canvas) {
   const scene = new Scene(engine);
   buildChessClubEnvironment(scene);
 
-  const camera = new ArcRotateCamera("cam", -Math.PI / 2.06, 0.66, 13.1, new Vector3(0, 0.22, 0.12), scene);
+  const camera = new ArcRotateCamera("cam", -Math.PI / 2.06, 0.66, 11.75, new Vector3(0, 0.22, 0.12), scene);
   camera.allowUpsideDown = false;
   camera.minZ = 0.12;
   camera.maxZ = 500;
@@ -1509,11 +1555,11 @@ function createScene(canvas) {
   } catch (err) {
     console.warn("Relógio 3D omitido:", err);
   }
-  applyPlayerPovCamera();
+  applyBoardCamera();
 
   scene.registerBeforeRender(() => {
     if (!Number.isFinite(camera.alpha) || !Number.isFinite(camera.beta) || !Number.isFinite(camera.radius)) {
-      applyPlayerPovCamera();
+      applyBoardCamera();
     }
   });
 
@@ -1572,21 +1618,48 @@ function createScene(canvas) {
   });
 
   engine.runRenderLoop(() => scene.render());
-  const kickResize = () => {
+
+  let engineSizedOnce = false;
+  function syncCanvasToEngine() {
     try {
-      if (!canvas.clientWidth || !canvas.clientHeight) return;
+      if (!canvas.clientWidth || !canvas.clientHeight) return false;
       engine.resize();
-    } catch (_) {}
-  };
-  window.addEventListener("resize", kickResize);
-  kickResize();
+      if (!engineSizedOnce) {
+        engineSizedOnce = true;
+        applyBoardCamera();
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  let canvasPollFrames = 0;
+  function pollCanvasUntilSized() {
+    if (syncCanvasToEngine() || canvasPollFrames++ > 300) return;
+    requestAnimationFrame(pollCanvasUntilSized);
+  }
+
+  window.addEventListener("resize", () => {
+    syncCanvasToEngine();
+  });
+  syncCanvasToEngine();
   requestAnimationFrame(() => {
-    kickResize();
-    requestAnimationFrame(kickResize);
+    syncCanvasToEngine();
+    requestAnimationFrame(() => {
+      syncCanvasToEngine();
+      pollCanvasUntilSized();
+    });
   });
   if (typeof ResizeObserver !== "undefined" && canvas) {
-    new ResizeObserver(kickResize).observe(canvas);
+    new ResizeObserver(() => syncCanvasToEngine()).observe(canvas);
   }
+  window.addEventListener("load", () => {
+    syncCanvasToEngine();
+  });
+  scene.executeWhenReady(() => {
+    syncCanvasToEngine();
+  });
 
   sceneRef = scene;
   syncPiecesFromGame();
@@ -1602,7 +1675,7 @@ function startNewGame() {
   game.reset();
   clearTapSelection();
   syncModeUI();
-  applyPlayerPovCamera();
+  applyBoardCamera();
   syncPiecesFromGame();
   updateStatus();
   if (getMode() === "engine" && getPlayerColor() === "b") {
@@ -1647,8 +1720,12 @@ document.getElementById("mode").addEventListener("change", () => {
 });
 document.getElementById("playerColor").addEventListener("change", () => {
   if (getMode() === "engine") startNewGame();
-  else applyPlayerPovCamera();
+  else applyBoardCamera();
 });
+const cameraViewEl = document.getElementById("cameraView");
+if (cameraViewEl) {
+  cameraViewEl.addEventListener("change", () => applyBoardCamera());
+}
 
 const canvas = document.getElementById("renderCanvas");
 createScene(canvas);
