@@ -1,6 +1,13 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
+
+/** Coloque `library-room.glb` em `/public/models/` para substituir o conjunto procedural. */
+const OPTIONAL_LIBRARY_GLB = "/models/library-room.glb";
 
 const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
@@ -49,6 +56,9 @@ let sceneRef = null;
 let cameraRef = null;
 let controlsRef = null;
 let rendererRef = null;
+let composerRef = null;
+/** @type {{ orb: THREE.Group | null, fireLight: THREE.PointLight | null, firePhase: number }} */
+const libraryAnim = { orb: null, fireLight: null, firePhase: 0 };
 let pieceNodes = [];
 let busy = false;
 
@@ -63,6 +73,9 @@ let clockInterval  = null;
 let clockRunning   = false;
 let clockWhiteTex  = null;
 let clockBlackTex  = null;
+/** Materiais das telas do relógio 3D (referência de módulo evita ReferenceError em strict mode). */
+let clockScreenMatWhite = null;
+let clockScreenMatBlack = null;
 let chessClockRootRef = null;
 
 function getMode() { return document.getElementById("mode").value; }
@@ -702,18 +715,249 @@ function syncChessClockPlacement() {
   }
 }
 
+// ── Cena da biblioteca (procedural + GLTF opcional) + bloom ─────────────────────────────
+function setupRendererColorPipeline(renderer) {
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+}
+
+function createBloomComposer(renderer, scene, camera, w, h) {
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(w, h), 0.42, 0.35, 0.78));
+  return composer;
+}
+
+function addProceduralLibraryRoom(parent, orbPointLight) {
+  const stone = new THREE.MeshStandardMaterial({
+    color: 0x6a635c,
+    roughness: 0.91,
+    metalness: 0.04
+  });
+  const darkWood = new THREE.MeshStandardMaterial({
+    color: 0x1a120e,
+    roughness: 0.72,
+    metalness: 0.06
+  });
+  const leather = new THREE.MeshStandardMaterial({
+    color: 0x3d2618,
+    roughness: 0.4,
+    metalness: 0.1
+  });
+  const brass = new THREE.MeshStandardMaterial({
+    color: 0xc9a050,
+    roughness: 0.32,
+    metalness: 0.72
+  });
+
+  // Lareira (fundo, eixo -Z)
+  const fireplace = new THREE.Group();
+  fireplace.position.set(0, 0, -11.2);
+  const hearth = new THREE.Mesh(new THREE.BoxGeometry(5.8, 3.4, 1.5), stone);
+  hearth.position.set(0, 1.65, 0);
+  hearth.castShadow = true;
+  hearth.receiveShadow = true;
+  fireplace.add(hearth);
+  const inner = new THREE.Mesh(
+    new THREE.BoxGeometry(2.9, 2.35, 0.45),
+    new THREE.MeshStandardMaterial({ color: 0x0d0a08, roughness: 1, metalness: 0 })
+  );
+  inner.position.set(0, 1.45, 0.68);
+  fireplace.add(inner);
+  const fireGlow = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.35, 1.75),
+    new THREE.MeshStandardMaterial({
+      color: 0xff5c18,
+      emissive: 0xff3a06,
+      emissiveIntensity: 3.2,
+      roughness: 1,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.92
+    })
+  );
+  fireGlow.position.set(0, 1.28, 0.72);
+  fireplace.add(fireGlow);
+  const mantel = new THREE.Mesh(new THREE.BoxGeometry(6, 0.18, 0.65), darkWood);
+  mantel.position.set(0, 3.22, 0.25);
+  mantel.castShadow = true;
+  fireplace.add(mantel);
+  const mantleDecoL = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.22, 8), brass);
+  mantleDecoL.position.set(-1.1, 3.45, 0.35);
+  fireplace.add(mantleDecoL);
+  const mantleDecoR = mantleDecoL.clone();
+  mantleDecoR.position.x = 1.1;
+  fireplace.add(mantleDecoR);
+  parent.add(fireplace);
+
+  // Cadeira (lado do adversário)
+  const chair = new THREE.Group();
+  chair.position.set(0, 0, -3.95);
+  const legGeom = new THREE.CylinderGeometry(0.06, 0.05, 0.42, 8);
+  for (const [lx, lz] of [[-0.48, 0.42], [0.48, 0.42], [-0.48, -0.38], [0.48, -0.38]]) {
+    const leg = new THREE.Mesh(legGeom, darkWood);
+    leg.position.set(lx, 0.21, lz);
+    leg.castShadow = true;
+    chair.add(leg);
+  }
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.2, 1.05), leather);
+  seat.position.set(0, 0.52, 0);
+  seat.castShadow = true;
+  seat.receiveShadow = true;
+  chair.add(seat);
+  const back = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.22), leather);
+  back.position.set(0, 1.2, -0.48);
+  back.castShadow = true;
+  chair.add(back);
+  const studRow = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), brass);
+    stud.position.set(-0.42 + i * 0.21, 0.85, -0.58);
+    studRow.add(stud);
+  }
+  chair.add(studRow);
+  parent.add(chair);
+
+  // Orb + anéis (referência “magical core”)
+  const orbGroup = new THREE.Group();
+  orbGroup.position.set(0, 2.38, -3.95);
+  const core = new THREE.Mesh(
+    new THREE.SphereGeometry(0.2, 40, 28),
+    new THREE.MeshPhysicalMaterial({
+      color: 0xffb040,
+      emissive: 0xff8800,
+      emissiveIntensity: 2.8,
+      metalness: 0.25,
+      roughness: 0.12,
+      toneMapped: true
+    })
+  );
+  core.name = "orbCore";
+  orbGroup.add(core);
+  const ringMat = new THREE.MeshStandardMaterial({
+    color: 0xd4af37,
+    metalness: 0.85,
+    roughness: 0.25,
+    emissive: 0x664400,
+    emissiveIntensity: 0.35
+  });
+  for (let i = 0; i < 3; i++) {
+    const torus = new THREE.Mesh(
+      new THREE.TorusGeometry(0.34 + i * 0.09, 0.018, 10, 64),
+      ringMat
+    );
+    torus.rotation.x = Math.PI / 2 + (i - 1) * 0.45;
+    torus.rotation.y = i * 0.6;
+    orbGroup.add(torus);
+  }
+  parent.add(orbGroup);
+  libraryAnim.orb = orbGroup;
+  orbPointLight.position.set(0, 2.38, -3.95);
+
+  // Estantes laterais simplificadas
+  function bookWall(side) {
+    const x = side * 9.2;
+    const shell = new THREE.Mesh(new THREE.BoxGeometry(2.6, 7.2, 0.5), darkWood);
+    shell.position.set(x, 3.6, -6.5);
+    shell.castShadow = true;
+    shell.receiveShadow = true;
+    parent.add(shell);
+    const shelfMat = new THREE.MeshStandardMaterial({
+      color: 0x2a1810,
+      roughness: 0.55,
+      metalness: 0.05
+    });
+    for (let s = 0; s < 4; s++) {
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.42), shelfMat);
+      slab.position.set(x, 1.15 + s * 1.45, -6.28);
+      slab.castShadow = true;
+      parent.add(slab);
+      for (let b = 0; b < 7; b++) {
+        const hue = 0.08 + (b % 4) * 0.04;
+        const book = new THREE.Mesh(
+          new THREE.BoxGeometry(0.22, 0.52 + (b % 3) * 0.07, 0.32),
+          new THREE.MeshStandardMaterial({
+            color: new THREE.Color().setHSL(hue, 0.35, 0.22 + (b % 5) * 0.06),
+            roughness: 0.85
+          })
+        );
+        book.position.set(x + (b - 3) * 0.28, 1.44 + s * 1.45, -6.42);
+        book.rotation.z = (b % 3) * 0.06 - 0.06;
+        book.castShadow = true;
+        parent.add(book);
+      }
+    }
+  }
+  bookWall(-1);
+  bookWall(1);
+
+  // Mesa larga sob o tabuleiro (apenas borda visual)
+  const tableTop = new THREE.Mesh(
+    new THREE.BoxGeometry(12, 0.08, 10),
+    new THREE.MeshStandardMaterial({
+      color: 0x1c1410,
+      roughness: 0.55,
+      metalness: 0.08
+    })
+  );
+  tableTop.position.set(0, -0.26, 0);
+  tableTop.receiveShadow = true;
+  parent.add(tableTop);
+}
+
+function installLibraryEnvironment(scene) {
+  const root = new THREE.Group();
+  root.name = "libraryFurniture";
+  scene.add(root);
+
+  const fireLight = new THREE.PointLight(0xff6620, 16, 24, 2);
+  fireLight.position.set(0, 1.28, -10.5);
+  fireLight.castShadow = false;
+  scene.add(fireLight);
+  libraryAnim.fireLight = fireLight;
+
+  const orbLight = new THREE.PointLight(0xffcc88, 7, 15, 1.7);
+  orbLight.position.set(0, 2.38, -3.95);
+  scene.add(orbLight);
+
+  const loader = new GLTFLoader();
+  loader.load(
+    OPTIONAL_LIBRARY_GLB,
+    (gltf) => {
+      while (root.children.length) root.remove(root.children[0]);
+      gltf.scene.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true;
+          o.receiveShadow = true;
+        }
+      });
+      root.add(gltf.scene);
+      libraryAnim.orb = null;
+    },
+    undefined,
+    () => {
+      addProceduralLibraryRoom(root, orbLight);
+    }
+  );
+}
+
 // ── Iniciação Three.js ───────────────────────────────────────────────────────────────────
 function createScene() {
   const canvas = document.getElementById("renderCanvas");
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setClearColor(0x0a0806, 1);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  setupRendererColorPipeline(renderer);
   rendererRef = renderer;
 
   const scene = new THREE.Scene();
   sceneRef = scene;
+
+  installLibraryEnvironment(scene);
 
   // Ambiente 3D: dois cilindros concêntricos (panorama distante + camada próxima com transparência)
   const texLoader = new THREE.TextureLoader();
@@ -759,12 +1003,12 @@ function createScene() {
   controls.dampingFactor = 0.05;
   controlsRef = controls;
 
-  // Luzes
-  const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+  // Luzes (ambiente + key; lareira e orb em installLibraryEnvironment)
+  const hemiLight = new THREE.HemisphereLight(0xfff5ee, 0x2a2420, 0.48);
   hemiLight.position.set(0, 20, 0);
   scene.add(hemiLight);
 
-  const dirLight = new THREE.DirectionalLight(0xfff0dd, 1.5);
+  const dirLight = new THREE.DirectionalLight(0xfff0dd, 1.15);
   dirLight.position.set(5, 12, 8);
   dirLight.castShadow = true;
   dirLight.shadow.mapSize.width = 2048;
@@ -824,15 +1068,15 @@ function createScene() {
   clockBlackTex = new THREE.CanvasTexture(canvasBlack);
   clockBlackTex.minFilter = THREE.LinearFilter;
 
-  const clockWhiteMat = new THREE.MeshBasicMaterial({ map: clockWhiteTex });
-  const clockBlackMat = new THREE.MeshBasicMaterial({ map: clockBlackTex });
+  clockScreenMatWhite = new THREE.MeshBasicMaterial({ map: clockWhiteTex });
+  clockScreenMatBlack = new THREE.MeshBasicMaterial({ map: clockBlackTex });
 
-  const screenWhite = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), clockWhiteMat);
+  const screenWhite = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), clockScreenMatWhite);
   screenWhite.position.set(-0.41, 0.2, 0.4);
   screenWhite.rotation.y = -Math.PI / 2;
   chessClockRootRef.add(screenWhite);
 
-  const screenBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), clockBlackMat);
+  const screenBlack = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), clockScreenMatBlack);
   screenBlack.position.set(-0.41, 0.2, -0.4);
   screenBlack.rotation.y = -Math.PI / 2;
   chessClockRootRef.add(screenBlack);
@@ -841,6 +1085,22 @@ function createScene() {
 
   applyBoardCamera();
   syncPiecesFromGame();
+
+  const useBloom = !prefersReducedData();
+  if (useBloom) {
+    const composer = createBloomComposer(
+      renderer,
+      scene,
+      camera,
+      window.innerWidth,
+      window.innerHeight
+    );
+    composer.setPixelRatio(window.devicePixelRatio);
+    composer.setSize(window.innerWidth, window.innerHeight);
+    composerRef = composer;
+  } else {
+    composerRef = null;
+  }
 
   const raycaster = new THREE.Raycaster();
   const mouse = new THREE.Vector2();
@@ -911,16 +1171,33 @@ function createScene() {
     }
   });
 
-  // Loop de renderização
-  renderer.setAnimationLoop(() => {
+  let lastFrameT = performance.now();
+  renderer.setAnimationLoop((now) => {
+    const dt = Math.min(0.05, (now - lastFrameT) / 1000);
+    lastFrameT = now;
     controls.update();
-    renderer.render(scene, camera);
+    if (libraryAnim.fireLight) {
+      libraryAnim.firePhase += dt * 10;
+      const f = libraryAnim.firePhase;
+      libraryAnim.fireLight.intensity = 16 + Math.sin(f) * 3.2 + Math.sin(f * 2.7) * 1.8;
+    }
+    if (libraryAnim.orb) {
+      libraryAnim.orb.rotation.y += dt * 0.42;
+      for (const ch of libraryAnim.orb.children) {
+        if (ch.name !== "orbCore") ch.rotation.z += dt * 0.28;
+      }
+    }
+    if (composerRef) composerRef.render();
+    else renderer.render(scene, camera);
   });
 
   window.addEventListener("resize", () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(w, h);
+    if (composerRef) composerRef.setSize(w, h);
   });
 
   hideChess3dLoadingOverlay();
