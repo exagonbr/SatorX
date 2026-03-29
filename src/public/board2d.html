@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8"/>
-  <script defer src="/_vercel/insights/script.js"></script>
+  <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#04060a"/>
   <meta name="description" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
@@ -531,6 +531,48 @@
     var mpOpponentReady = false;
     let mpResultPosted = false;
     let mpServerEndShown = false;
+    let mpCaps = null;
+    let mpCapsPromise = null;
+
+    var MP_LOBBY_UNSUPPORTED_MSG =
+      "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
+
+    function defaultMpCapsWhenUnknown() {
+      const h = typeof location !== "undefined" ? location.hostname : "";
+      const localDev =
+        h === "localhost" ||
+        h === "127.0.0.1" ||
+        (h.length > 0 && h.endsWith(".local"));
+      if (localDev) {
+        return { ok: true, persistentLobbies: true, websocketLobby: true };
+      }
+      return { ok: true, persistentLobbies: false, websocketLobby: false };
+    }
+
+    function ensureLobbyCapabilities() {
+      if (mpCaps) return Promise.resolve(mpCaps);
+      if (mpCapsPromise) return mpCapsPromise;
+      mpCapsPromise = fetch("/api/lobby/capabilities")
+        .then(async function (r) {
+          var j = null;
+          try {
+            j = await r.json();
+          } catch (e) {
+            j = null;
+          }
+          if (r.ok && j && j.ok && typeof j.persistentLobbies === "boolean") {
+            mpCaps = j;
+          } else {
+            mpCaps = defaultMpCapsWhenUnknown();
+          }
+          return mpCaps;
+        })
+        .catch(function () {
+          mpCaps = defaultMpCapsWhenUnknown();
+          return mpCaps;
+        });
+      return mpCapsPromise;
+    }
 
     var LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
     var MP_HOST_SKIP_JOIN_MSG =
@@ -601,79 +643,107 @@
       disconnectMpRealtime();
       if (!lobbyId || !secret || typeof WebSocket === "undefined") {
         scheduleMultiplayerPoll();
+        updateMpConnStats();
         return;
       }
-      mpWsSecret = secret;
-      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(proto + "//" + window.location.host + "/api/lobby/socket");
-      mpSocket = ws;
-      ws.addEventListener("open", function () {
-        ws.send(JSON.stringify({ type: "auth", lobbyId: lobbyId, secret: mpWsSecret }));
-        mpPingIntervalId = setInterval(function () {
-          if (ws.readyState !== WebSocket.OPEN) return;
-          const id = Date.now();
-          ws._lastPingId = id;
-          ws.send(JSON.stringify({ type: "ping", id: id }));
-        }, 2800);
-        updateMpConnStats();
-        scheduleMultiplayerPoll();
-      });
-      ws.addEventListener("message", function (ev) {
-        let msg;
-        try { msg = JSON.parse(ev.data); } catch (e) { return; }
-        if (msg.type === "hello_ack") {
-          mpIsSpectator = msg.role === "spectator";
-          if (msg.fen && msg.fen !== game.fen()) {
-            game.load(msg.fen);
-            board.position(msg.fen);
-            updateStatus();
-          }
-          setMpBoardOrientation();
+
+      const startWs = function () {
+        if (!mpCaps || mpCaps.websocketLobby !== true) {
+          mpWsSecret = secret;
           scheduleMultiplayerPoll();
-          return;
-        }
-        if (msg.type === "pong" && msg.id === ws._lastPingId) {
-          mpLastRttMs = Date.now() - msg.id;
           updateMpConnStats();
           return;
         }
-        if (
-          msg.type === "state" &&
-          msg.fen &&
-          msg.fromColor &&
-          (mpIsSpectator || msg.fromColor !== myMultiplayerColor)
-        ) {
-          if (msg.fen !== game.fen()) {
+        mpWsSecret = secret;
+        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const ws = new WebSocket(proto + "//" + window.location.host + "/api/lobby/socket");
+        mpSocket = ws;
+        ws.addEventListener("open", function () {
+          ws.send(JSON.stringify({ type: "auth", lobbyId: lobbyId, secret: mpWsSecret }));
+          mpPingIntervalId = setInterval(function () {
+            if (ws.readyState !== WebSocket.OPEN) return;
+            const id = Date.now();
+            ws._lastPingId = id;
+            ws.send(JSON.stringify({ type: "ping", id: id }));
+          }, 2800);
+          updateMpConnStats();
+          scheduleMultiplayerPoll();
+        });
+        ws.addEventListener("message", function (ev) {
+          let msg;
+          try {
+            msg = JSON.parse(ev.data);
+          } catch (e) {
+            return;
+          }
+          if (msg.type === "hello_ack") {
+            mpIsSpectator = msg.role === "spectator";
+            if (msg.fen && msg.fen !== game.fen()) {
+              game.load(msg.fen);
+              board.position(msg.fen);
+              updateStatus();
+            }
+            setMpBoardOrientation();
+            scheduleMultiplayerPoll();
+            return;
+          }
+          if (msg.type === "pong" && msg.id === ws._lastPingId) {
+            mpLastRttMs = Date.now() - msg.id;
+            updateMpConnStats();
+            return;
+          }
+          if (
+            msg.type === "state" &&
+            msg.fen &&
+            msg.fromColor &&
+            (mpIsSpectator || msg.fromColor !== myMultiplayerColor)
+          ) {
+            if (msg.fen !== game.fen()) {
+              game.load(msg.fen);
+              board.position(msg.fen);
+              updateStatus();
+            }
+            return;
+          }
+          if (msg.type === "game_over") {
+            mpResultPosted = true;
+            mpServerEndShown = true;
+            setStatus(msg.reasonLabel || "Partida terminada.");
+            return;
+          }
+          if (msg.type === "seat_claimed") {
+            const st = document.getElementById("lobbyStatus");
+            if (st && msg.names && currentLobbyId) {
+              st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId);
+            }
+            setStatus((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".");
+            return;
+          }
+          if (msg.type === "rematch" && msg.fen) {
             game.load(msg.fen);
             board.position(msg.fen);
+            mpResultPosted = false;
+            mpServerEndShown = false;
             updateStatus();
+            return;
           }
-          return;
-        }
-        if (msg.type === "game_over") {
-          mpResultPosted = true;
-          mpServerEndShown = true;
-          setStatus(msg.reasonLabel || "Partida terminada.");
-          return;
-        }
-        if (msg.type === "seat_claimed") {
-          const st = document.getElementById("lobbyStatus");
-          if (st && msg.names && currentLobbyId) {
-            st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId);
+        });
+        ws.addEventListener("close", function () {
+          if (mpPingIntervalId) {
+            clearInterval(mpPingIntervalId);
+            mpPingIntervalId = null;
           }
-          setStatus((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".");
-          return;
-        }
-      });
-      ws.addEventListener("close", function () {
-        if (mpPingIntervalId) {
-          clearInterval(mpPingIntervalId);
-          mpPingIntervalId = null;
-        }
-        if (mpSocket === ws) mpSocket = null;
-        updateMpConnStats();
-        scheduleMultiplayerPoll();
-      });
+          if (mpSocket === ws) mpSocket = null;
+          updateMpConnStats();
+          scheduleMultiplayerPoll();
+        });
+        ws.addEventListener("error", function () {
+          /* fallback para HTTP; sem alerta para evitar spam */
+        });
+      };
+
+      if (mpCaps) startWs();
+      else void ensureLobbyCapabilities().then(startWs);
     }
 
     function updateMpClaimUi(res) {
@@ -701,6 +771,7 @@
 
     async function pollLobbyOnce() {
       if (!currentLobbyId || getMode() !== "multiplayer") return;
+      if (mpCaps && mpCaps.persistentLobbies === false) return;
       try {
         const res = await fetch("/api/lobby/status/" + currentLobbyId).then((r) => r.json());
         if (res.ok) {
@@ -740,6 +811,7 @@
         multiplayerPollId = null;
       }
       if (!currentLobbyId || getMode() !== "multiplayer") return;
+      if (mpCaps && mpCaps.persistentLobbies === false) return;
       const ms = mpSocket && mpSocket.readyState === WebSocket.OPEN ? 12000 : 2000;
       multiplayerPollId = setInterval(pollLobbyOnce, ms);
       pollLobbyOnce();
@@ -748,6 +820,11 @@
     async function claimLobbySeat(seat) {
       const id = currentLobbyId;
       if (!id) return;
+      const caps = await ensureLobbyCapabilities();
+      if (caps.persistentLobbies === false) {
+        alert(MP_LOBBY_UNSUPPORTED_MSG);
+        return;
+      }
       const spectatorToken = mpIsSpectator ? mpWsSecret : null;
       const pass = (document.getElementById("mpJoinPassword") && document.getElementById("mpJoinPassword").value) || "";
       const playerName = (document.getElementById("mpPlayerName") && document.getElementById("mpPlayerName").value.trim()) || "";
@@ -791,6 +868,11 @@
       const id = idEl && idEl.value.trim();
       if (!id) {
         alert("Indique o ID da sala.");
+        return;
+      }
+      const caps = await ensureLobbyCapabilities();
+      if (caps.persistentLobbies === false) {
+        alert(MP_LOBBY_UNSUPPORTED_MSG);
         return;
       }
       const pass = (document.getElementById("mpJoinPassword") && document.getElementById("mpJoinPassword").value.trim()) || "";
@@ -886,6 +968,16 @@
         mpLastPlayersPollCount = 0;
         mpOpponentReady = false;
         board.orientation("white");
+      } else {
+        void ensureLobbyCapabilities().then(function (caps) {
+          if (caps.persistentLobbies === false) {
+            const st = document.getElementById("lobbyStatus");
+            if (st) {
+              st.textContent =
+                "Lobby online indisponível neste alojamento. Para multijogador, use um servidor Node dedicado (ex.: Railway, Fly.io) com `npm run server`.";
+            }
+          }
+        });
       }
     }
 
@@ -1107,6 +1199,11 @@
         ? Math.min(32, Math.max(1, parseInt(maxSpecEl.value, 10) || 8))
         : 8;
       try {
+        const caps = await ensureLobbyCapabilities();
+        if (caps.persistentLobbies === false) {
+          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          return;
+        }
         const r = await fetch("/api/lobby/create", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1173,6 +1270,11 @@
         ""
       ).trim();
       try {
+        const caps = await ensureLobbyCapabilities();
+        if (caps.persistentLobbies === false) {
+          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          return;
+        }
         const r = await fetch("/api/lobby/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1306,6 +1408,7 @@
     } else {
       syncModeUI();
     }
+    void ensureLobbyCapabilities();
     initBoard();
   </script>
   <script src="/js/pwa-register.js" defer></script>

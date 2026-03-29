@@ -862,7 +862,7 @@ function connectMpRealtime(lobbyId, secret) {
   }
 
   const startWs = () => {
-    if (mpCaps && mpCaps.websocketLobby === false) {
+    if (!mpCaps || mpCaps.websocketLobby !== true) {
       mpWsSecret = secret;
       scheduleMultiplayerPoll();
       updateMpConnStats();

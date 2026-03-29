@@ -264,7 +264,7 @@ let lobbyBroadcastToLobby = function () {};
 /** Expõe limites do alojamento (Vercel + Postgres = salas na BD; WS só em Node long-running). */
 app.get("/api/lobby/capabilities", (req, res) => {
   res.setHeader("Cache-Control", "no-store, max-age=0");
-  const serverless = Boolean(process.env.VERCEL);
+  const serverless = Boolean(process.env.VERCEL || process.env.VERCEL_ENV);
   const pgOk = Boolean(getPostgresConnectionString());
   res.json({
     ok: true,
@@ -436,6 +436,13 @@ function sanitizeLobbyPassword(s) {
   return s.trim().slice(0, 64);
 }
 
+/** ID de sala no JSON do body (aceita string ou número; evita 400 por tipo errado). */
+function bodyLobbyId(body) {
+  const v = body?.lobbyId;
+  if (v == null) return "";
+  return String(v).trim();
+}
+
 function lobbyPasswordOk(lobby, provided) {
   const stored = lobby.password;
   if (!stored) return true;
@@ -552,7 +559,7 @@ app.post("/api/lobby/create", async (req, res) => {
 });
 
 app.post("/api/lobby/join", async (req, res) => {
-  const lobbyId = typeof req.body?.lobbyId === "string" ? req.body.lobbyId.trim() : "";
+  const lobbyId = bodyLobbyId(req.body);
   if (!lobbyId) {
     return res.status(400).json({ error: "Indique o ID da sala." });
   }
