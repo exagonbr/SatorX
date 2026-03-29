@@ -28,10 +28,11 @@
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
-    "prisma": "^6.19.2",
+    "@vercel/analytics": "^2.0.1",
     "chess.js": "^1.0.0",
     "cors": "^2.8.5",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "prisma": "^6.19.2"
   },
   "devDependencies": {
     "sharp": "^0.34.5"
