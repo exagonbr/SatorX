@@ -513,7 +513,7 @@ function applyBoardCamera() {
    * - Alvo levemente acima do tabuleiro para ver o orbe e o ambiente atrás
    * - Raio menor para ficar mais perto da mesa (imersão)
    */
-  const limA = 0.52;         // ±30° de pan horizontal
+  const limA = 0.78;         // ~±45° — pan largo para parallax 180° no fundo
   const playerRadius = 11.2; // mais próximo para imersão
   const playerBeta  = 0.82;  // ângulo fixo de inclinação (olhando levemente para baixo)
 
@@ -1371,7 +1371,7 @@ function buildPlayerChessTable(scene) {
 
 /** Biblioteca vitoriana: paredes de mogno, lareira, estantes, vitral, cadeira do adversário. */
 function buildChessClubEnvironment(scene) {
-  // clearColor NÃO definido aqui — mantido transparente (Color4(0,0,0,0)) para o bg CSS da biblioteca aparecer
+  // clearColor da cena: transparente em createScene — fundo real = camadas CSS com parallax
 
   // Materiais reutilizáveis
   const mognoDark = new StandardMaterial("mognoDark", scene);
@@ -1883,24 +1883,9 @@ function createScene(canvas) {
     alpha: true
   });
   const scene = new Scene(engine);
-  // clearColor: marrom-mogno escuro quente — garante fundo visível mesmo sem suporte a canvas transparente
-  scene.clearColor = new Color4(0.038, 0.022, 0.010, 1.0);
+  // Transparente: o fundo são as duas camadas CSS (parallax) por trás do canvas
+  scene.clearColor = new Color4(0, 0, 0, 0);
   buildChessClubEnvironment(scene);
-
-  // ── PLANO DE FUNDO 3D: biblioteca vitoriana panorâmica ──────────────────────────────────────────────────
-  // Plano grande atrás de tudo — renderiza a imagem panorâmica como cenário
-  const bgPlane = MeshBuilder.CreatePlane("bgLibrary", { width: 160, height: 90 }, scene);
-  bgPlane.position.set(0, 18, -95);
-  bgPlane.isPickable = false;
-  bgPlane.renderingGroupId = 0; // renderiza primeiro (atrás de tudo)
-  const bgTex = new Texture("/img/library-panorama.webp", scene);
-  bgTex.hasAlpha = false;
-  const bgMat = new StandardMaterial("bgLibMat", scene);
-  bgMat.diffuseTexture = bgTex;
-  bgMat.emissiveColor = new Color3(0.72, 0.58, 0.38); // iluminado pela lareira
-  bgMat.backFaceCulling = false;
-  bgMat.disableLighting = true;
-  bgPlane.material = bgMat;
 
   // Câmera first-person: perspectiva baixa inclinada para o tabuleiro
   const camera = new ArcRotateCamera("cam", -Math.PI / 2, 0.78, 12.5, new Vector3(0, 1.2, -1.5), scene);
@@ -1920,28 +1905,24 @@ function createScene(canvas) {
   }
   cameraRef = camera;
 
-  // Luz ambiente muito baixa (sala escura)
   const hemi = new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
-  hemi.intensity = 0.12;
-  hemi.diffuse = new Color3(0.72, 0.58, 0.38);
-  hemi.groundColor = new Color3(0.04, 0.025, 0.012);
+  hemi.intensity = 0.26;
+  hemi.diffuse = new Color3(0.88, 0.78, 0.62);
+  hemi.groundColor = new Color3(0.12, 0.09, 0.06);
 
-  // Luz da lareira: laranja quente pulsante vinda de trás-direita
   const fireplaceLight = new PointLight("fireplaceLight", new Vector3(4.5, 1.2, -11.5), scene);
-  fireplaceLight.intensity = 1.8;
-  fireplaceLight.diffuse = new Color3(1.0, 0.42, 0.08);
-  fireplaceLight.specular = new Color3(0.9, 0.32, 0.04);
-  fireplaceLight.range = 22;
-  // Pulsação da lareira
+  fireplaceLight.intensity = 1.05;
+  fireplaceLight.diffuse = new Color3(1.0, 0.52, 0.22);
+  fireplaceLight.specular = new Color3(0.95, 0.45, 0.18);
+  fireplaceLight.range = 24;
   let fireT = 0;
   scene.registerBeforeRender(() => {
     fireT += 0.04;
-    fireplaceLight.intensity = 1.6 + 0.4 * Math.sin(fireT) + 0.2 * Math.sin(fireT * 2.3);
+    fireplaceLight.intensity = 0.92 + 0.22 * Math.sin(fireT) + 0.12 * Math.sin(fireT * 2.3);
   });
 
-  // Luz pontual sobre o tabuleiro (lâmpada de mesa)
   const boardLight = new PointLight("boardLight", new Vector3(0, 5.5, 0), scene);
-  boardLight.intensity = 0.85;
+  boardLight.intensity = 1.05;
   boardLight.diffuse = new Color3(1.0, 0.88, 0.62);
   boardLight.specular = new Color3(1.0, 0.85, 0.55);
   boardLight.range = 14;
@@ -1955,7 +1936,7 @@ function createScene(canvas) {
 
   // Luz de preenchimento fria (janela vitral à esquerda)
   const windowLight = new PointLight("windowLight", new Vector3(-11.5, 5.2, 4.5), scene);
-  windowLight.intensity = 0.22;
+  windowLight.intensity = 0.38;
   windowLight.diffuse = new Color3(0.38, 0.52, 0.88);
   windowLight.specular = new Color3(0.28, 0.42, 0.72);
   windowLight.range = 18;
@@ -2188,13 +2169,11 @@ function createScene(canvas) {
     }
   });
 
-  // --- DEPTH OF FIELD: fundo desfocado para ambiência ---
-  // Usa fog exponencial do Babylon para simular profundidade de campo sem pipeline pesado
   scene.fogMode = Scene.FOGMODE_EXP2;
-  scene.fogDensity = 0.028;
-  scene.fogColor = new Color3(0.08, 0.045, 0.02); // marrom escuro quente (cor da sala)
-  scene.fogStart = 8;
-  scene.fogEnd = 32;
+  scene.fogDensity = 0.011;
+  scene.fogColor = new Color3(0.22, 0.16, 0.11);
+  scene.fogStart = 12;
+  scene.fogEnd = 48;
 
   engine.runRenderLoop(() => scene.render());
 
@@ -2324,69 +2303,81 @@ if (getMode() === "engine" && getPlayerColor() === "b") {
 // Cria ilusão de perspectiva real quando o usuário rotaciona o tabuleiro
 // ─────────────────────────────────────────────────────────────────────────────
 (function initParallaxBackground() {
-  const bgEl = document.getElementById('library-bg');
-  if (!bgEl) return;
+  const bgFar = document.getElementById('library-bg-far');
+  const bgNear = document.getElementById('library-bg-near');
+  if (!bgFar || !bgNear) return;
 
-  // Parâmetros de parallax — imagem panorâmica 180°
-  // background-size: 160% => range de deslocamento: 0% a 100% (60% de espaço extra)
-  // Posicão neutra: 50% (centro da panorama = lareira ao fundo)
-  // Ao girar para esquerda: revela vitrais/glóbo (0-30%)
-  // Ao girar para direita: revela escrivaninha/estantes (70-100%)
-  const PARALLAX_H = 28;   // deslocamento horizontal máximo em % (imagem 160% wide)
-  const PARALLAX_V = 10;   // deslocamento vertical máximo em % (teto/chão)
-  const LERP_SPEED = 0.048; // suavização mais lenta para movimento mais cinematográfico
+  /** Metade do sweep horizontal em % de background-position (quase toda a panorâmica). */
+  const SWEEP_H_FAR = 44;
+  const SWEEP_H_NEAR = 49;
+  const SWEEP_V_FAR = 14;
+  const SWEEP_V_NEAR = 20;
+  const LERP_SPEED = 0.055;
 
-  // Valores alvo e atuais (interpolados)
-  // Posicão inicial: 50% H (lareira ao centro), 40% V (céu/teto visível)
-  let targetX = 50, targetY = 40;
-  let currentX = 50, currentY = 40;
+  let targetXF = 50, targetYF = 50, targetXN = 50, targetYN = 50;
+  let currentXF = 50, currentYF = 50, currentXN = 50, currentYN = 50;
   let rafId = null;
-
-  // Referência de ângulo neutro (postura padrão da câmera)
-  let neutralAlpha = -Math.PI / 2;
-  let neutralBeta  = 0.78;
-  let neutralSet   = false;
+  let fallbackAlpha0 = null;
 
   function lerp(a, b, t) { return a + (b - a) * t; }
+
+  /** -1..1 a partir dos limites reais da ArcRotateCamera (usa todo o arco permitido). */
+  function parallaxNormFromCamera(cam) {
+    let normH = 0;
+    let normV = 0;
+    const aLo = cam.lowerAlphaLimit;
+    const aHi = cam.upperAlphaLimit;
+    if (aLo != null && aHi != null && aHi > aLo + 1e-6) {
+      const aMid = (aLo + aHi) / 2;
+      const aHalf = (aHi - aLo) / 2;
+      normH = Math.max(-1, Math.min(1, (cam.alpha - aMid) / aHalf));
+    } else {
+      if (fallbackAlpha0 == null) fallbackAlpha0 = cam.alpha;
+      normH = Math.max(-1, Math.min(1, (cam.alpha - fallbackAlpha0) / Math.PI));
+    }
+
+    const bLo = cam.lowerBetaLimit;
+    const bHi = cam.upperBetaLimit;
+    if (bLo != null && bHi != null && bHi > bLo + 1e-4) {
+      const bMid = (bLo + bHi) / 2;
+      const bHalf = (bHi - bLo) / 2;
+      normV = Math.max(-1, Math.min(1, (cam.beta - bMid) / bHalf));
+    } else {
+      const rLo = cam.lowerRadiusLimit;
+      const rHi = cam.upperRadiusLimit;
+      if (rLo != null && rHi != null && rHi > rLo + 1e-4) {
+        const rMid = (rLo + rHi) / 2;
+        const rHalf = (rHi - rLo) / 2;
+        normV = Math.max(-1, Math.min(1, (cam.radius - rMid) / rHalf));
+      }
+    }
+    return { normH, normV };
+  }
 
   function updateParallax() {
     if (!cameraRef) { rafId = requestAnimationFrame(updateParallax); return; }
 
-    // Define o neutro na primeira vez que a câmera está disponível
-    if (!neutralSet) {
-      neutralAlpha = cameraRef.alpha;
-      neutralBeta  = cameraRef.beta;
-      neutralSet   = true;
-    }
+    const { normH, normV } = parallaxNormFromCamera(cameraRef);
 
-    // Calcula desvio do ângulo atual em relação ao neutro
-    const dAlpha = cameraRef.alpha - neutralAlpha; // rotação horizontal
-    const dBeta  = cameraRef.beta  - neutralBeta;  // inclinação vertical
+    targetXF = Math.max(3, Math.min(97, 50 - normH * SWEEP_H_FAR));
+    targetYF = Math.max(18, Math.min(82, 50 - normV * SWEEP_V_FAR));
+    targetXN = Math.max(1, Math.min(99, 50 - normH * SWEEP_H_NEAR));
+    targetYN = Math.max(14, Math.min(86, 50 - normV * SWEEP_V_NEAR));
 
-    // Mapeia desvio angular para deslocamento CSS (em %)
-    // Limita o range para evitar que a imagem saia da tela
-    const maxAlpha = Math.PI * 0.5;
-    const maxBeta  = Math.PI * 0.25;
-    const normH = Math.max(-1, Math.min(1, dAlpha / maxAlpha));
-    const normV = Math.max(-1, Math.min(1, dBeta  / maxBeta));
+    currentXF = lerp(currentXF, targetXF, LERP_SPEED);
+    currentYF = lerp(currentYF, targetYF, LERP_SPEED);
+    currentXN = lerp(currentXN, targetXN, LERP_SPEED);
+    currentYN = lerp(currentYN, targetYN, LERP_SPEED);
 
-    // Parallax: movimento oposto ao da câmera = efeito de perspectiva natural
-    // A panorama tem 160% de largura, então podemos deslizar de ~10% a ~90%
-    targetX = Math.max(10, Math.min(90, 50 - normH * PARALLAX_H));
-    targetY = Math.max(20, Math.min(65, 40 - normV * PARALLAX_V));
+    bgFar.style.backgroundPosition = `${currentXF.toFixed(2)}% ${currentYF.toFixed(2)}%`;
+    bgNear.style.backgroundPosition = `${currentXN.toFixed(2)}% ${currentYN.toFixed(2)}%`;
 
-    // Interpolação suave (lerp)
-    currentX = lerp(currentX, targetX, LERP_SPEED);
-    currentY = lerp(currentY, targetY, LERP_SPEED);
-
-    // Aplica background-position no CSS
-    bgEl.style.backgroundPosition = `${currentX.toFixed(2)}% ${currentY.toFixed(2)}%`;
-
-    // Perspectiva CSS 3D: skewX leve conforme rotação horizontal
-    // Simula distorção de perspectiva ao virar a cabeça
-    const skewDeg = normH * -1.8;  // máximo ±1.8° de skew
-    const zoomFactor = 1.08 + Math.abs(normV) * 0.035 + Math.abs(normH) * 0.025;
-    bgEl.style.transform = `scale(${zoomFactor.toFixed(3)}) skewX(${skewDeg.toFixed(2)}deg)`;
+    const skewFar = normH * -0.35;
+    const skewNear = normH * -0.65;
+    const zoomFar = 1.008 + Math.abs(normV) * 0.012 + Math.abs(normH) * 0.01;
+    const zoomNear = 1.012 + Math.abs(normV) * 0.018 + Math.abs(normH) * 0.016;
+    bgFar.style.transform = `scale(${zoomFar.toFixed(4)}) skewX(${skewFar.toFixed(2)}deg)`;
+    bgNear.style.transform = `scale(${zoomNear.toFixed(4)}) skewX(${skewNear.toFixed(2)}deg)`;
 
     rafId = requestAnimationFrame(updateParallax);
   }
