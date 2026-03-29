@@ -4,6 +4,9 @@
   "description": "Motor de xadrez (8x8) com avaliação Sator + heurísticas Sun Tzu e Kasparov-style.",
   "main": "src/index.js",
   "type": "commonjs",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "build": "npx prisma migrate deploy && npx prisma generate",
     "db:init": "node scripts/init-ai-db.js",
