@@ -2201,3 +2201,81 @@ setInterval(refreshNNStatus, 12000);
 if (getMode() === "engine" && getPlayerColor() === "b") {
   setTimeout(() => callBestMove(), 400);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PARALLAX 3D: desloca o background da biblioteca conforme o ângulo da câmera
+// Cria ilusão de perspectiva real quando o usuário rotaciona o tabuleiro
+// ─────────────────────────────────────────────────────────────────────────────
+(function initParallaxBackground() {
+  const bgEl = document.getElementById('library-bg');
+  if (!bgEl) return;
+
+  // Parâmetros de parallax
+  const PARALLAX_H = 14;   // deslocamento horizontal máximo em % (eixo alpha da câmera)
+  const PARALLAX_V = 8;    // deslocamento vertical máximo em % (eixo beta da câmera)
+  const LERP_SPEED = 0.055; // suavização (0=sem movimento, 1=instantâneo)
+
+  // Valores alvo e atuais (interpolados)
+  let targetX = 50, targetY = 30;
+  let currentX = 50, currentY = 30;
+  let rafId = null;
+
+  // Referência de ângulo neutro (postura padrão da câmera)
+  let neutralAlpha = -Math.PI / 2;
+  let neutralBeta  = 0.78;
+  let neutralSet   = false;
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function updateParallax() {
+    if (!cameraRef) { rafId = requestAnimationFrame(updateParallax); return; }
+
+    // Define o neutro na primeira vez que a câmera está disponível
+    if (!neutralSet) {
+      neutralAlpha = cameraRef.alpha;
+      neutralBeta  = cameraRef.beta;
+      neutralSet   = true;
+    }
+
+    // Calcula desvio do ângulo atual em relação ao neutro
+    const dAlpha = cameraRef.alpha - neutralAlpha; // rotação horizontal
+    const dBeta  = cameraRef.beta  - neutralBeta;  // inclinação vertical
+
+    // Mapeia desvio angular para deslocamento CSS (em %)
+    // Limita o range para evitar que a imagem saia da tela
+    const maxAlpha = Math.PI * 0.5;
+    const maxBeta  = Math.PI * 0.25;
+    const normH = Math.max(-1, Math.min(1, dAlpha / maxAlpha));
+    const normV = Math.max(-1, Math.min(1, dBeta  / maxBeta));
+
+    // background-position: 50% = centro; desvia conforme o ângulo
+    // Movimento oposto ao da câmera = efeito parallax natural
+    targetX = 50 - normH * PARALLAX_H;
+    targetY = 30 - normV * PARALLAX_V;
+
+    // Interpolação suave (lerp)
+    currentX = lerp(currentX, targetX, LERP_SPEED);
+    currentY = lerp(currentY, targetY, LERP_SPEED);
+
+    // Aplica no CSS
+    bgEl.style.backgroundPosition = `${currentX.toFixed(2)}% ${currentY.toFixed(2)}%`;
+
+    // Efeito de zoom leve conforme inclinação (mais inclinado = mais zoom no fundo)
+    const zoomFactor = 1.06 + Math.abs(normV) * 0.04 + Math.abs(normH) * 0.03;
+    bgEl.style.transform = `scale(${zoomFactor.toFixed(3)})`;
+
+    rafId = requestAnimationFrame(updateParallax);
+  }
+
+  // Inicia o loop de parallax após a cena estar pronta
+  setTimeout(() => { rafId = requestAnimationFrame(updateParallax); }, 800);
+
+  // Pausa quando a aba fica invisível para economizar recursos
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+    } else {
+      if (!rafId) rafId = requestAnimationFrame(updateParallax);
+    }
+  });
+})();
