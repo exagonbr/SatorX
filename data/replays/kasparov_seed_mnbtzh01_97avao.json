@@ -1,0 +1,54 @@
+{
+  "id": "kasparov_seed_mnbtzh01_97avao",
+  "createdAt": "2026-03-29T14:04:55.634Z",
+  "result": "unknown",
+  "fen": "r1b2rk1/ppp1bppp/2n1p3/3P4/4P3/3B4/PP1q1PPP/R2QK1NR w KQ - 1 11",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O 6. cxd5 Nxd5 7. Bd3 Nc6 8. Nxd5 Qxd5 9. e4 Qxg5 10. d5 Qd2+ *",
+  "moves": [
+    "d4",
+    "d5",
+    "c4",
+    "e6",
+    "Nc3",
+    "Nf6",
+    "Bg5",
+    "Be7",
+    "e3",
+    "O-O",
+    "cxd5",
+    "Nxd5",
+    "Bd3",
+    "Nc6",
+    "Nxd5",
+    "Qxd5",
+    "e4",
+    "Qxg5",
+    "d5",
+    "Qd2+"
+  ],
+  "meta": {
+    "source": "master_continuous_seed",
+    "masterId": "kasparov",
+    "displayName": "Garry Kasparov",
+    "methodology": [
+      "Preparação de abertura profunda e variantes agressivas",
+      "Pressão dinâmica e luta pela iniciativa em todas as fases",
+      "Cálculo de variantes táticas e sacrifícios posicionais calculados",
+      "Psicologia competitiva: forçar decisões difíceis ao adversário"
+    ],
+    "metrics": {
+      "mate": 200000,
+      "check": 8000,
+      "captureBase": 2000,
+      "captureMatMul": 1,
+      "promotion": 3000,
+      "centerSquare": 200,
+      "developPiece": 350,
+      "castle": 700,
+      "centralPawn": 150,
+      "rankAdvancePawn": 40
+    },
+    "maxPlies": 20,
+    "continuousLearning": true
+  }
+}

@@ -5,11 +5,13 @@ const fs = require("fs");
 const http = require("http");
 const https = require("https");
 
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:../data/ai_learning.db";
+}
+
 const DATA_DIR = path.join(__dirname, "..", "data");
-const REPLAY_DIR = path.join(DATA_DIR, "replays");
 const CERT_DIR = path.join(DATA_DIR, "certs");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
-if (!fs.existsSync(REPLAY_DIR)) fs.mkdirSync(REPLAY_DIR);
 if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 
 function nowIso() { return new Date().toISOString(); }
@@ -29,8 +31,12 @@ const { Chess } = require("chess.js");
 const { findBestMove, clearTranspositionTable } = require("./engine");
 const { analyzePosition } = require("./utils/report");
 const { toFeatureVector } = require("./eval/featureVector");
-const { tdStep, getStatus } = require("./eval/valueNet");
+const { tdStep, getStatus, forward } = require("./eval/valueNet");
+const { classicalRatingPredictive, DEFAULT_REFERENCE_ELO } = require("./utils/nnRatingPredict");
 const { evaluateHeuristicOnly } = require("./eval/weights");
+const { runMasterSeedBurst } = require("./lib/masterStyleSeed");
+const replayStore = require("./db/replayStore");
+const { schedulePostGameTrain } = require("./db/postGameTrainScheduler");
 
 const app = express();
 app.use(cors());
@@ -65,42 +71,54 @@ app.post("/api/bestmove", (req, res) => {
   return res.json(result);
 });
 
-// ---------- Replay API ----------
-app.post("/api/replay/save", (req, res) => {
+// ---------- Replay API (Prisma / SQLite: game_replays + replay_buffer_rows) ----------
+app.post("/api/replay/save", async (req, res) => {
   const { pgn, fen, result, moves, meta } = req.body || {};
   if (!pgn && !moves) return res.status(400).json({ error: "Envie pgn ou moves" });
 
-  const id = (meta && meta.id) ? meta.id : (Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,8));
+  const id = meta && meta.id ? meta.id : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
   const record = {
     id,
     createdAt: nowIso(),
-    result: result || "unknown", // white|black|draw|unknown (do ponto de vista do usuário=brancas)
+    result: result || "unknown",
     fen: fen || null,
     pgn: pgn || null,
-    moves: moves || null,
+    moves: moves || [],
     meta: meta || {}
   };
 
-  const file = path.join(REPLAY_DIR, `${id}.json`);
-  fs.writeFileSync(file, JSON.stringify(record, null, 2));
-  return res.json({ ok: true, id });
+  try {
+    const { bufferRowsInserted } = await replayStore.saveReplayWithBuffer(record);
+    schedulePostGameTrain();
+    return res.json({ ok: true, id, bufferRowsInserted });
+  } catch (e) {
+    console.error("[replay/save]", e.message);
+    return res.status(500).json({
+      error: "Falha ao gravar replay na base de dados",
+      hint: "Corra: npm run db:migrate"
+    });
+  }
 });
 
-app.get("/api/replay/list", (req, res) => {
-  const files = fs.readdirSync(REPLAY_DIR).filter(f => f.endsWith(".json"));
-  const list = files.map(f => {
-    const p = path.join(REPLAY_DIR, f);
-    const o = JSON.parse(fs.readFileSync(p, "utf-8"));
-    return { id: o.id, createdAt: o.createdAt, result: o.result, meta: o.meta || {} };
-  }).sort((a,b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return res.json({ ok: true, count: list.length, list });
+app.get("/api/replay/list", async (req, res) => {
+  try {
+    const list = await replayStore.listReplays();
+    return res.json({ ok: true, count: list.length, list });
+  } catch (e) {
+    console.error("[replay/list]", e.message);
+    return res.status(500).json({ error: "Falha ao listar replays" });
+  }
 });
 
-app.get("/api/replay/get/:id", (req, res) => {
-  const id = req.params.id;
-  const file = path.join(REPLAY_DIR, `${id}.json`);
-  if (!fs.existsSync(file)) return res.status(404).json({ error: "Replay não encontrado" });
-  return res.json(JSON.parse(fs.readFileSync(file, "utf-8")));
+app.get("/api/replay/get/:id", async (req, res) => {
+  try {
+    const row = await replayStore.getReplayById(req.params.id);
+    if (!row) return res.status(404).json({ error: "Replay não encontrado" });
+    return res.json(row);
+  } catch (e) {
+    console.error("[replay/get]", e.message);
+    return res.status(500).json({ error: "Falha ao ler replay" });
+  }
 });
 
 app.post("/api/analyze", (req, res) => {
@@ -176,6 +194,32 @@ app.get("/api/nn/status", (req, res) => {
   return res.json({ ok: true, ...getStatus() });
 });
 
+/** Elo clássico preditivo (heurístico) a partir de V(s) da rede, vs oponente de referência. */
+app.post("/api/nn/predict-rating", (req, res) => {
+  const { fen, playerColor = "w", referenceElo } = req.body || {};
+  const chess = new Chess();
+  if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
+  const pc = playerColor === "b" ? "b" : "w";
+  const refRaw =
+    referenceElo != null && referenceElo !== ""
+      ? Number(referenceElo)
+      : parseInt(process.env.SATOR_NN_REFERENCE_ELO || String(DEFAULT_REFERENCE_ELO), 10);
+  const ref = Number.isFinite(refRaw) ? refRaw : DEFAULT_REFERENCE_ELO;
+  const vMover = forward(toFeatureVector(chess));
+  const pred = classicalRatingPredictive(chess, vMover, pc, ref);
+  return res.json({
+    ok: true,
+    sideToMove: chess.turn(),
+    playerColor: pc,
+    ratingPredictive: pred.ratingPredictive,
+    ratingPredictiveRounded: Math.round(pred.ratingPredictive),
+    expectedScorePlayer: pred.expectedScorePlayer,
+    vMover: pred.vMover,
+    referenceOpponentElo: pred.referenceOpponentElo,
+    note: "Estimativa heurística a partir da rede de valor (não é rating oficial)."
+  });
+});
+
 const PORT = parseInt(process.env.PORT || "3000", 10);
 const HTTPS_ENABLED =
   process.env.HTTPS_ENABLED === "1" ||
@@ -184,9 +228,31 @@ const HTTPS_ENABLED =
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH || path.join(CERT_DIR, "selfsigned.key");
 const SSL_CERT_PATH = process.env.SSL_CERT_PATH || path.join(CERT_DIR, "selfsigned.crt");
 
+/** Aprendizado contínuo na subida: replays sintéticos (Kasparov, Carlsen, Polgár) + TD(0) na value net. */
+function scheduleMasterContinuousSeed() {
+  if (process.env.SATOR_DISABLE_MASTER_SEED === "1") return;
+  const gamesPerMaster = parseInt(process.env.SATOR_MASTER_SEED_GAMES || "1", 10);
+  const maxPlies = parseInt(process.env.SATOR_MASTER_SEED_PLIES || "48", 10);
+  if (gamesPerMaster <= 0) return;
+  setImmediate(() => {
+    try {
+      const r = runMasterSeedBurst({
+        gamesPerMaster,
+        maxPlies,
+        saveReplays: true,
+        feedNN: true
+      });
+      console.log("[Sator] Aprendizado contínuo (mestres):", JSON.stringify(r));
+    } catch (e) {
+      console.error("[Sator] Seed de mestres falhou:", e.message);
+    }
+  });
+}
+
 function listenHttp() {
   http.createServer(app).listen(PORT, () => {
     console.log(`Interface Sator Engine: http://localhost:${PORT}`);
+    scheduleMasterContinuousSeed();
   });
 }
 
@@ -207,6 +273,7 @@ function listenHttps() {
   };
   https.createServer(opts, app).listen(PORT, () => {
     console.log(`Interface Sator Engine: https://localhost:${PORT} (certificado autoassinado — aceite o aviso no browser para o PWA)`);
+    scheduleMasterContinuousSeed();
   });
 }
 

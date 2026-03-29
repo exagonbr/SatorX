@@ -574,6 +574,67 @@ function trainEnabled() {
   return document.getElementById("trainOnline").checked;
 }
 
+/** Último passo TD exibido (painel PARTIDA). */
+let metricsLastTd = null;
+let metricsRefreshTimer = null;
+
+function scheduleRefreshMetrics() {
+  clearTimeout(metricsRefreshTimer);
+  metricsRefreshTimer = setTimeout(() => {
+    refreshMetricsPanel().catch(() => {});
+  }, 70);
+}
+
+async function refreshMetricsPanel() {
+  const el = document.getElementById("metrics");
+  if (!el) return;
+  try {
+    const statusP = fetch("/api/nn/status").then((r) => r.json());
+    const engineMode = getMode() === "engine";
+    const predP = engineMode
+      ? fetch("/api/nn/predict-rating", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fen: game.fen(), playerColor: getPlayerColor() })
+        }).then((r) => r.json())
+      : Promise.resolve({ ok: false });
+
+    const [s, pred] = await Promise.all([statusP, predP]);
+    if (!s.ok) return;
+
+    const parts = [];
+    parts.push(
+      `<strong>Rede</strong> entrada=${s.inputDim} ocultas=${s.hidden} · <strong>atualiz.</strong> ${s.updates}`
+    );
+
+    if (metricsLastTd && metricsLastTd.tdError != null) {
+      parts.push(
+        `<strong>TD ε</strong> ${metricsLastTd.tdError.toFixed(4)} · <strong>V(s)</strong> ${
+          metricsLastTd.vBefore != null ? metricsLastTd.vBefore.toFixed(3) : "—"
+        }${metricsLastTd.fromEngine ? ' <span style="opacity:0.75;font-size:0.88em">(motor)</span>' : ""}`
+      );
+    }
+
+    if (pred.ok && pred.ratingPredictive != null && engineMode) {
+      const r = Math.round(pred.ratingPredictive);
+      parts.push(
+        `<strong>Rating (Clássico) preditivo</strong> ~${r} <span style="opacity:0.82;font-size:0.88em">(face ao motor ~${pred.referenceOpponentElo})</span>`
+      );
+    }
+
+    el.innerHTML = parts.join("<br/>");
+  } catch (_) {
+    /* ignore */
+  }
+}
+
+function setMetricsFromTd(lr, fromEngine) {
+  if (lr && lr.ok && lr.tdError != null) {
+    metricsLastTd = { tdError: lr.tdError, vBefore: lr.vBefore, fromEngine: !!fromEngine };
+  }
+  scheduleRefreshMetrics();
+}
+
 function syncModeUI() {
   const engine = getMode() === "engine";
   document.getElementById("wrapColor").style.display = engine ? "flex" : "none";
@@ -1378,8 +1439,7 @@ async function tryMove(from, to) {
         })
       }).then((r) => r.json());
       if (lr.ok && lr.tdError != null) {
-        document.getElementById("metrics").innerHTML =
-          `<strong>Erro TD</strong> ${lr.tdError.toFixed(4)} · <strong>Valor</strong> ${lr.vBefore?.toFixed(3) ?? "—"}`;
+        setMetricsFromTd(lr, false);
       }
     } catch (e) {
       console.warn("move-learn", e);
@@ -1393,6 +1453,7 @@ async function tryMove(from, to) {
   if (getMode() === "engine") maybeEngineReply();
   else if (game.isGameOver()) saveReplayAuto();
 
+  scheduleRefreshMetrics();
   return true;
 }
 
@@ -1417,6 +1478,7 @@ async function callBestMove() {
     } catch {
       busy = false;
       updateStatus();
+      scheduleRefreshMetrics();
       return;
     }
     const fenAfter = game.fen();
@@ -1437,8 +1499,7 @@ async function callBestMove() {
           })
         }).then((r) => r.json());
         if (lr.ok && lr.tdError != null) {
-          document.getElementById("metrics").innerHTML =
-            `<strong>Erro TD</strong> ${lr.tdError.toFixed(4)} · motor`;
+          setMetricsFromTd(lr, true);
         }
       } catch (e) {
         console.warn("move-learn engine", e);
@@ -1448,6 +1509,7 @@ async function callBestMove() {
   busy = false;
   updateStatus();
   if (game.isGameOver()) saveReplayAuto();
+  scheduleRefreshMetrics();
 }
 
 function maybeEngineReply() {
@@ -1476,15 +1538,7 @@ async function saveReplayAuto() {
 }
 
 async function refreshNNStatus() {
-  try {
-    const s = await fetch("/api/nn/status").then((r) => r.json());
-    if (!s.ok) return;
-    const el = document.getElementById("metrics");
-    const cur = el.textContent;
-    if (cur === "Rede: —" || !cur.includes("TD")) {
-      el.innerHTML = `<strong>Rede</strong> entrada=${s.inputDim} ocultas=${s.hidden} · <strong>atualiz.</strong> ${s.updates}`;
-    }
-  } catch (_) {}
+  await refreshMetricsPanel();
 }
 
 /** Mesa distante (silhueta de torneio / clube). */
@@ -2451,6 +2505,7 @@ function createScene(canvas) {
 
 function startNewGame() {
   game.reset();
+  metricsLastTd = null;
   clearTapSelection();
   syncModeUI();
   applyBoardCamera();
@@ -2461,7 +2516,7 @@ function startNewGame() {
   if (getMode() === "engine" && getPlayerColor() === "b") {
     setTimeout(() => callBestMove(), 300);
   }
-  refreshNNStatus();
+  scheduleRefreshMetrics();
 }
 
 (function setupPartidaPanelToggle() {
@@ -2496,6 +2551,7 @@ document.getElementById("btnUndo").addEventListener("click", () => {
   }
   syncPiecesFromGame();
   updateStatus();
+  scheduleRefreshMetrics();
 });
 document.getElementById("mode").addEventListener("change", () => {
   syncModeUI();

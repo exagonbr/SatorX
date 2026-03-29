@@ -21,7 +21,9 @@
     "replay": "node src/tools/replayTrain.js",
     "build-buffer": "node src/tools/buildReplayBuffer.js",
     "train-buffer": "node src/tools/trainFromBuffer.js",
+    "train-buffer-file": "node src/tools/trainFromBuffer.js --file",
     "seed-kasparov": "node src/tools/seedKasparov.js",
+    "seed-masters": "node src/tools/seedMasters.js",
     "pwa:icons": "node src/tools/generatePwaIcons.js"
   },
   "dependencies": {

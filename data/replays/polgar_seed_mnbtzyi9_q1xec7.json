@@ -1,0 +1,55 @@
+{
+  "id": "polgar_seed_mnbtzyi9_q1xec7",
+  "createdAt": "2026-03-29T14:05:18.321Z",
+  "result": "unknown",
+  "fen": "r3kb1r/pp2pppp/2n1Pn2/1B6/3q4/8/PPPB1PPP/R2bK2R w KQkq - 0 11",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 Bg4 6. Bd2 d5 7. Nxd5 Bxd1 8. e5 Qxd5 9. Bb5+ Nc6 10. e6 Qxd4 *",
+  "moves": [
+    "e4",
+    "c5",
+    "Nf3",
+    "d6",
+    "d4",
+    "cxd4",
+    "Nxd4",
+    "Nf6",
+    "Nc3",
+    "Bg4",
+    "Bd2",
+    "d5",
+    "Nxd5",
+    "Bxd1",
+    "e5",
+    "Qxd5",
+    "Bb5+",
+    "Nc6",
+    "e6",
+    "Qxd4"
+  ],
+  "meta": {
+    "source": "master_continuous_seed",
+    "masterId": "polgar",
+    "displayName": "Judit Polgár",
+    "methodology": [
+      "Xadrez de ataque e tática: buscar complicações quando favorece o talento",
+      "Aberturas agressivas com brancas; defesas dinâmicas com pretas",
+      "Confiança no cálculo e em posições imbalanced",
+      "Estilo de luta constante — evitar simplificações cedendo iniciativa"
+    ],
+    "metrics": {
+      "mate": 200000,
+      "check": 9200,
+      "captureBase": 2150,
+      "captureMatMul": 1.08,
+      "promotion": 3100,
+      "centerSquare": 210,
+      "developPiece": 380,
+      "castle": 680,
+      "centralPawn": 145,
+      "rankAdvancePawn": 45,
+      "queenAggression": 180
+    },
+    "maxPlies": 20,
+    "continuousLearning": true
+  }
+}

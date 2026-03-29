@@ -410,6 +410,10 @@
               <option value="b">Pretas (motor abre)</option>
             </select>
           </label>
+          <label class="row-inline" style="margin-top:10px;align-items:center;gap:8px;">
+            <input type="checkbox" id="trainOnline" checked />
+            Aprendizado TD a cada lance (rede de valor)
+          </label>
           <details class="engine-tune">
             <summary>Profundidade e tempo do motor</summary>
             <p class="engine-tune__help">
@@ -427,6 +431,8 @@
       <div class="panel">
         <h2>Estado da partida</h2>
         <div class="status-line" id="status"></div>
+        <p id="trainMetrics" class="muted" style="font-size:0.85rem;margin-top:6px;"></p>
+        <p id="ratingPredictiveLine" class="muted" style="font-size:0.85rem;margin-top:4px;"></p>
 
         <h3>Último lance do motor</h3>
         <pre id="engineMove">-</pre>
@@ -455,11 +461,12 @@
         </div>
         <div class="dl-card">
           <p style="margin:0 0 8px; font-size:0.85rem; color:var(--muted);">
-            Neste projeto, após jogar na interface você pode agregar replays e ajustar pesos heurísticos:
+            Cada lance (com a opção acima) atualiza a rede TD; ao fim da partida o replay e as posições do buffer
+            são gravados na base SQLite e o servidor agenda treino dos pesos heurísticos em segundo plano.
           </p>
           <p style="margin:0; font-size:0.85rem;">
-            <code class="cli">npm run build-buffer</code> →
-            <code class="cli">npm run train-buffer -- 30 4 500</code>
+            <code class="cli">npm run build-buffer</code> reconstrói o buffer na BD e exporta <code class="cli">data/replay_buffer.jsonl</code>.
+            <code class="cli">npm run train-buffer</code> treina a partir da BD; use <code class="cli">npm run train-buffer-file</code> só com o jsonl.
           </p>
         </div>
         <details class="dl-acc" open>
@@ -521,6 +528,59 @@
       return game.turn() === getPlayerColor();
     }
 
+    function trainOnlineEnabled() {
+      const el = document.getElementById("trainOnline");
+      return el ? el.checked : true;
+    }
+
+    let ratingPredictDebounce = null;
+
+    async function sendMoveLearn(fenBefore, fenAfter, san) {
+      if (!trainOnlineEnabled()) return;
+      try {
+        const lr = await fetch("/api/move-learn", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fenBefore, fenAfter, san, enabled: true })
+        }).then((r) => r.json());
+        const m = document.getElementById("trainMetrics");
+        if (m && lr.ok && lr.tdError != null) {
+          m.textContent = "TD ε=" + lr.tdError.toFixed(4) + " · V(s)=" + (lr.vBefore != null ? lr.vBefore.toFixed(3) : "—");
+        }
+      } catch (e) {
+        console.warn("move-learn", e);
+      }
+    }
+
+    function scheduleRatingPredictiveRefresh() {
+      const line = document.getElementById("ratingPredictiveLine");
+      if (!line) return;
+      if (getMode() !== "engine") {
+        line.textContent = "";
+        return;
+      }
+      clearTimeout(ratingPredictDebounce);
+      ratingPredictDebounce = setTimeout(function () {
+        fetch("/api/nn/predict-rating", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fen: game.fen(), playerColor: getPlayerColor() })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (pred) {
+            if (pred.ok && pred.ratingPredictive != null) {
+              line.textContent =
+                "Rating (Clássico) preditivo ~" +
+                Math.round(pred.ratingPredictive) +
+                " (face ao motor ~" +
+                pred.referenceOpponentElo +
+                ")";
+            }
+          })
+          .catch(function () {});
+      }, 80);
+    }
+
     function updateStatus() {
       let s = "";
       if (game.isCheckmate()) {
@@ -543,6 +603,7 @@
       setStatus(s);
       setFen();
       renderTensorGrid();
+      scheduleRatingPredictiveRefresh();
     }
 
     function onDragStart(source, piece) {
@@ -557,9 +618,11 @@
     }
 
     async function onDrop(source, target) {
+      const fenBefore = game.fen();
       const move = game.move({ from: source, to: target, promotion: "q" });
       if (!move) return "snapback";
       board.position(game.fen());
+      await sendMoveLearn(fenBefore, game.fen(), move.san);
       updateStatus();
       if (game.isGameOver()) { saveReplayAuto(); return; }
       if (getMode() === "engine" && !isPlayerTurn()) {
@@ -578,6 +641,7 @@
     async function callBestMove() {
       const depth = parseInt(document.getElementById("depth").value, 10);
       const timeMs = parseInt(document.getElementById("timeMs").value, 10);
+      const fenBefore = game.fen();
       try {
         const res = await fetch("/api/bestmove", {
           method: "POST",
@@ -587,6 +651,7 @@
         if (res.bestMove && res.bestMove.san) {
           game.move(res.bestMove.san, { sloppy: true });
           board.position(game.fen());
+          await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
           document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
           if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
         }

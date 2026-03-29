@@ -1,0 +1,63 @@
+{
+  "id": "carlsen_seed_mnbu186h_z0kngx",
+  "createdAt": "2026-03-29T14:06:17.513Z",
+  "result": "black",
+  "fen": "r2q1rk1/p3ppbp/6p1/2Pb4/3N4/6Pn/PP1B3P/R4RK1 w - - 1 15",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. c4 c5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7 5. Nf3 Nf6 6. d4 Nxd4 7. Qxd4 cxd4 8. Nxd4 O-O 9. Bxb7 Bxb7 10. e4 d5 11. Nxd5 Nxe4 12. O-O Nxf2 13. Bd2 Bxd5 14. c5 Nh3# *",
+  "moves": [
+    "c4",
+    "c5",
+    "Nc3",
+    "Nc6",
+    "g3",
+    "g6",
+    "Bg2",
+    "Bg7",
+    "Nf3",
+    "Nf6",
+    "d4",
+    "Nxd4",
+    "Qxd4",
+    "cxd4",
+    "Nxd4",
+    "O-O",
+    "Bxb7",
+    "Bxb7",
+    "e4",
+    "d5",
+    "Nxd5",
+    "Nxe4",
+    "O-O",
+    "Nxf2",
+    "Bd2",
+    "Bxd5",
+    "c5",
+    "Nh3#"
+  ],
+  "meta": {
+    "source": "master_continuous_seed",
+    "masterId": "carlsen",
+    "displayName": "Magnus Carlsen",
+    "methodology": [
+      "Pragmatismo: escolher posições jogáveis e pouco claras",
+      "Finais e técnica: converter vantagens mínimas com paciência",
+      "Versatilidade de aberturas e evitar preparação estreita do adversário",
+      "Resistência e precisão sob pressão de tempo e cansaco"
+    ],
+    "metrics": {
+      "mate": 200000,
+      "check": 5200,
+      "captureBase": 1750,
+      "captureMatMul": 1.05,
+      "promotion": 3200,
+      "centerSquare": 265,
+      "developPiece": 310,
+      "castle": 820,
+      "centralPawn": 195,
+      "rankAdvancePawn": 55,
+      "endgameKingCentral": 120
+    },
+    "maxPlies": 60,
+    "continuousLearning": true
+  }
+}

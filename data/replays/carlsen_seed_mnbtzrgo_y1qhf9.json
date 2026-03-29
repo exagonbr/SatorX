@@ -1,0 +1,55 @@
+{
+  "id": "carlsen_seed_mnbtzrgo_y1qhf9",
+  "createdAt": "2026-03-29T14:05:09.192Z",
+  "result": "unknown",
+  "fen": "rnbr2k1/ppp1bppp/5n2/4p3/4P3/5NP1/PP1N1PBP/R1BK3R w - - 0 11",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. d4 Nf6 2. c4 e6 3. Nf3 d5 4. g3 Be7 5. Bg2 O-O 6. Na3 dxc4 7. Nxc4 Qxd4 8. e4 Qxd1+ 9. Kxd1 Rd8+ 10. Ncd2 e5 *",
+  "moves": [
+    "d4",
+    "Nf6",
+    "c4",
+    "e6",
+    "Nf3",
+    "d5",
+    "g3",
+    "Be7",
+    "Bg2",
+    "O-O",
+    "Na3",
+    "dxc4",
+    "Nxc4",
+    "Qxd4",
+    "e4",
+    "Qxd1+",
+    "Kxd1",
+    "Rd8+",
+    "Ncd2",
+    "e5"
+  ],
+  "meta": {
+    "source": "master_continuous_seed",
+    "masterId": "carlsen",
+    "displayName": "Magnus Carlsen",
+    "methodology": [
+      "Pragmatismo: escolher posições jogáveis e pouco claras",
+      "Finais e técnica: converter vantagens mínimas com paciência",
+      "Versatilidade de aberturas e evitar preparação estreita do adversário",
+      "Resistência e precisão sob pressão de tempo e cansaco"
+    ],
+    "metrics": {
+      "mate": 200000,
+      "check": 5200,
+      "captureBase": 1750,
+      "captureMatMul": 1.05,
+      "promotion": 3200,
+      "centerSquare": 265,
+      "developPiece": 310,
+      "castle": 820,
+      "centralPawn": 195,
+      "rankAdvancePawn": 55,
+      "endgameKingCentral": 120
+    },
+    "maxPlies": 20,
+    "continuousLearning": true
+  }
+}

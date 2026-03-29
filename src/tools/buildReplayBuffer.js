@@ -1,55 +1,53 @@
 const fs = require("fs");
 const path = require("path");
-const { Chess } = require("chess.js");
 
-const REPLAY_DIR = path.join(__dirname, "..", "..", "data", "replays");
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:../data/ai_learning.db";
+}
+
+const { rebuildAllBufferRows } = require("../db/replayStore");
+const { getPrisma, closeDb } = require("../db/aiLearningStore");
+
 const OUT = path.join(__dirname, "..", "..", "data", "replay_buffer.jsonl");
 
-function extractPositionsFromMoves(moves) {
-  const chess = new Chess();
-  const positions = [];
-  for (let ply=0; ply<moves.length; ply++) {
-    // store position BEFORE move
-    positions.push({ fen: chess.fen(), ply });
-    try {
-      chess.move(moves[ply], { sloppy: true });
-    } catch (e) {
-      break;
-    }
+async function exportJsonlFromDb() {
+  const prisma = getPrisma();
+  const rows = await prisma.replayBufferRow.findMany({ orderBy: { id: "asc" } });
+  const out = fs.createWriteStream(OUT, { flags: "w" });
+  let total = 0;
+  for (const r of rows) {
+    out.write(
+      JSON.stringify({
+        replayId: r.replayId,
+        createdAt: r.createdAt,
+        result: r.result,
+        ply: r.ply,
+        fen: r.fen
+      }) + "\n"
+    );
+    total++;
   }
-  // also final position
-  positions.push({ fen: chess.fen(), ply: moves.length });
-  return positions;
-}
-
-function main() {
-  if (!fs.existsSync(REPLAY_DIR)) {
-    console.error("Pasta de replays não encontrada:", REPLAY_DIR);
-    process.exit(1);
-  }
-  const files = fs.readdirSync(REPLAY_DIR).filter(f => f.endsWith(".json"));
-  let out = fs.createWriteStream(OUT, { flags: "w" });
-  let totalPos = 0;
-
-  for (const f of files) {
-    const rec = JSON.parse(fs.readFileSync(path.join(REPLAY_DIR, f), "utf-8"));
-    const moves = rec.moves || [];
-    const positions = extractPositionsFromMoves(moves);
-    for (const p of positions) {
-      const row = {
-        replayId: rec.id,
-        createdAt: rec.createdAt,
-        result: rec.result,
-        ply: p.ply,
-        fen: p.fen
-      };
-      out.write(JSON.stringify(row) + "\n");
-      totalPos++;
-    }
-  }
-
   out.end();
-  console.log(JSON.stringify({ ok: true, replays: files.length, positions: totalPos, out: OUT }, null, 2));
+  return new Promise((resolve, reject) => {
+    out.on("finish", () => resolve(total));
+    out.on("error", reject);
+  });
 }
 
-main();
+async function main() {
+  const stats = await rebuildAllBufferRows();
+  const jsonlPositions = await exportJsonlFromDb();
+  console.log(
+    JSON.stringify(
+      { ok: true, source: "database", ...stats, jsonlPositions, jsonl: OUT },
+      null,
+      2
+    )
+  );
+  await closeDb();
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
