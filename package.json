@@ -5,7 +5,11 @@
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {
+    "build": "prisma generate",
     "db:init": "node scripts/init-ai-db.js",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:dev": "prisma migrate dev",
+    "deploy:prod": "bash scripts/deploy-prod.sh",
     "start": "node src/index.js bestmove",
     "analyze": "node src/index.js analyze",
     "bestmove": "node src/index.js bestmove",
@@ -20,7 +24,8 @@
     "pwa:icons": "node src/tools/generatePwaIcons.js"
   },
   "dependencies": {
-    "better-sqlite3": "^11.10.0",
+    "@prisma/client": "^6.19.2",
+    "prisma": "^6.19.2",
     "chess.js": "^1.0.0",
     "cors": "^2.8.5",
     "express": "^4.19.2"

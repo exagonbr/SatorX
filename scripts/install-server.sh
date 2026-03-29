@@ -32,17 +32,21 @@ echo "== SatorX: instalação no servidor =="
 need_node
 need_npm
 
-echo "-> npm ci (apenas dependências de produção)"
-npm ci --omit=dev
+echo "-> npm ci (inclui Prisma para migrações / build)"
+npm ci
 
 echo "-> Diretórios de dados"
 mkdir -p data/replays
 
-echo "-> Base SQLite de aprendizado (IA)"
+echo "-> Prisma migrate deploy + generate"
 node scripts/init-ai-db.js
+
+echo "-> npm run build"
+npm run build
 
 echo ""
 echo "Instalação concluída."
-echo "  Iniciar API:  npm run server"
-echo "  Porta:        PORT=3000 (ou defina PORT no ambiente)"
+echo "  Produção PM2: pm2 start ecosystem.config.cjs --env production"
+echo "  Ou direto:    NODE_ENV=production npm run server"
+echo "  Porta:        PORT=3000 (ou defina PORT)"
 echo "  Dados:        $ROOT/data (replays, nnWeights.json, ai_learning.db)"

@@ -1,0 +1,36 @@
+// Base local de aprendizado (TD + snapshots). SQLite em data/ai_learning.db
+// DATABASE_URL: file:../data/ai_learning.db (relativo a este ficheiro em prisma/)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model TdLearning {
+  id              Int     @id @default(autoincrement())
+  createdAt       String  @map("created_at")
+  tdError         Float?  @map("td_error")
+  vBefore         Float?  @map("v_before")
+  vAfter          Float?  @map("v_after")
+  tdTarget        Float?  @map("td_target")
+  terminal        Int     @map("terminal")
+  outcomeForMover Int     @map("outcome_for_mover")
+  updates         Int     @map("updates")
+
+  @@index([createdAt], map: "idx_td_learning_created")
+  @@map("td_learning")
+}
+
+model NnWeightsSnapshot {
+  id        Int    @id @default(autoincrement())
+  createdAt String @map("created_at")
+  updates   Int    @map("updates")
+  payload   String @map("payload")
+
+  @@index([updates], map: "idx_nn_snapshots_updates")
+  @@map("nn_weights_snapshots")
+}
