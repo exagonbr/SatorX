@@ -526,8 +526,8 @@ function applyBoardCamera() {
    * - Raio menor para ficar mais perto da mesa (imersão)
    */
   const limA = Math.PI / 2; // ±90° — pan total de 180 graus na tela
-  const playerRadius = 9.5; // Raio mais próximo para ter as peças grandes na tela (como na ref)
-  const playerBeta  = 1.15; // Câmera no nível das peças, vendo o horizonte de fundo
+  const playerRadius = 10.0; // Raio mais próximo para ter as peças grandes na tela (como na ref)
+  const playerBeta  = 1.0; // Câmera no nível das peças, vendo o horizonte de fundo
 
   if (orientWhiteBottom) {
     cam.setTarget(new Vector3(0, 0.5, -0.6)); // alvo: centro do tabuleiro + um pouco atrás
@@ -1760,26 +1760,6 @@ function buildChessClubEnvironment(scene) {
   bgFar.position.set(0, 8, 0);
   // bgFar.rotation.y = Math.PI / 2; // Substituído por uOffset
   bgFar.material = farMat;
-
-  const nearMat = new StandardMaterial("bgNearMat", scene);
-  nearMat.diffuseTexture = new Texture("/img/library-parallax-2.png", scene);
-  nearMat.diffuseTexture.uScale = -2;
-  nearMat.diffuseTexture.vScale = -1;
-  nearMat.diffuseTexture.uOffset = 0.5; // Centraliza a imagem no eixo Z
-  nearMat.emissiveColor = new Color3(1, 1, 1);
-  nearMat.emissiveTexture = nearMat.diffuseTexture;
-  nearMat.disableLighting = true;
-  nearMat.alpha = 0.55;
-  nearMat.backFaceCulling = false;
-
-  const bgNear = MeshBuilder.CreateCylinder("bgNear", {
-    diameter: 56, 
-    height: 34,
-    sideOrientation: Mesh.BACKSIDE
-  }, scene);
-  bgNear.position.set(0, 8, 0);
-  // bgNear.rotation.y = Math.PI / 2; // Substituído por uOffset
-  bgNear.material = nearMat;
 }
 
 /** Nome antigo do cenário — mantido para compatibilidade e caches agressivos do browser. */
@@ -1925,6 +1905,7 @@ function buildClassicChessClock(scene) {
   matL.specularColor   = Color3.Black();
   matL.backFaceCulling = false; // Garante que a textura seja vista
   panelL.rotation.y = Math.PI; // Vira para o lado certo
+  panelL.rotation.z = Math.PI; // Desvira cabeça pra baixo
   panelL.material = matL;
   clockWhiteTex = texL;
 
@@ -1940,6 +1921,7 @@ function buildClassicChessClock(scene) {
   matR.specularColor   = Color3.Black();
   matR.backFaceCulling = false;
   panelR.rotation.y = Math.PI;
+  panelR.rotation.z = Math.PI;
   panelR.material = matR;
   clockBlackTex = texR;
 
