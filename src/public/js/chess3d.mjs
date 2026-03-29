@@ -11,6 +11,7 @@ import {
   PointLight,
   MeshBuilder,
   StandardMaterial,
+  PBRMetallicRoughnessMaterial,
   Color3,
   PointerEventTypes,
   Mesh,
@@ -20,7 +21,8 @@ import {
   Texture,
   TransformNode,
   Color4,
-  ParticleSystem
+  ParticleSystem,
+  ReflectionProbe
 } from "@babylonjs/core";
 import { Chess } from "chess.js";
 
@@ -196,6 +198,8 @@ let sceneRef = null;
 let cameraRef = null;
 let chessClockRootRef = null;
 let pieceNodes = [];
+/** Cubo de reflexão do ambiente (biblioteca/mesa) para PBR das peças. */
+let pieceReflectionProbe = null;
 let busy = false;
 
 // ── Relógio com tempo real ─────────────────────────────────────────────────────────────────────────────
@@ -307,11 +311,10 @@ function applySelectionGlow(sq, enable) {
       if (enable) {
         m.material.emissiveColor = new Color3(0.55, 0.38, 0.08); // glow dourado-âmbar
       } else {
-        // Restaura emissivo original do bronze
         const isWhite = meta.color === "w";
         m.material.emissiveColor = isWhite
-          ? new Color3(0.06, 0.038, 0.01)
-          : new Color3(0.025, 0.015, 0.004);
+          ? new Color3(0.018, 0.018, 0.022)
+          : new Color3(0.006, 0.006, 0.008);
       }
     }
     break;
@@ -420,6 +423,7 @@ function flashInvalidSquare(to) {
   const w = sqToWorld(to);
   disc.position.set(w.x, BOARD_PLANE_Y + 0.02, w.z);
   disc.rotation.x = Math.PI / 2;
+  disc.metadata = { isHighlight: true };
   invalidFlashMeshes.push(disc);
   const d = disc;
   setTimeout(() => {
@@ -481,6 +485,7 @@ function placeCheckThreatRing(sq, mode) {
     outer.material = rim;
     outer.position.set(w.x, BOARD_PLANE_Y + 0.018, w.z);
     outer.rotation.x = Math.PI / 2;
+    outer.metadata = { isCheckRing: true };
     checkVisualMeshes.push(outer);
   } else {
     const meshRef = disc;
@@ -774,19 +779,34 @@ function updateStatus() {
   updateGameOverOverlay();
 }
 
+function refreshPieceReflectionRenderList(scene) {
+  if (!pieceReflectionProbe) return;
+  pieceReflectionProbe.renderList = scene.meshes.filter(
+    (m) =>
+      m instanceof Mesh &&
+      !m.metadata?.isPiece &&
+      !m.metadata?.isHighlight &&
+      !m.metadata?.isCheckRing
+  );
+}
+
+/**
+ * Plástico/laca Staunton: branco e preto reais, brilho 3D via PBR + probe do ambiente.
+ */
 function makePieceMaterial(scene, color) {
-  const mat = new StandardMaterial(`pm_${color}_${Math.random()}`, scene);
-  // Bronze/cobre envelhecido
+  const mat = new PBRMetallicRoughnessMaterial(`pm_${color}_${Math.random()}`, scene);
+  if (pieceReflectionProbe) {
+    mat.environmentTexture = pieceReflectionProbe.cubeTexture;
+    mat.environmentIntensity = color === "w" ? 1.25 : 1.35;
+  }
+  mat.metallic = 0.06;
+  mat.roughness = color === "w" ? 0.2 : 0.18;
   if (color === "w") {
-    mat.diffuseColor  = new Color3(0.55, 0.45, 0.35);  // bronze dourado antigo
-    mat.specularColor = new Color3(0.65, 0.55, 0.45);  // reflexo dourado intenso
-    mat.emissiveColor = new Color3(0.04, 0.03, 0.02); // leve brilho quente
-    mat.specularPower = 120;
+    mat.baseColor = new Color3(0.97, 0.97, 0.99);
+    mat.emissiveColor = new Color3(0.018, 0.018, 0.022);
   } else {
-    mat.diffuseColor  = new Color3(0.28, 0.22, 0.16);  // bronze escuro/oxidado
-    mat.specularColor = new Color3(0.4, 0.35, 0.28);  // reflexo cobre
-    mat.emissiveColor = new Color3(0.015, 0.012, 0.01);
-    mat.specularPower = 100;
+    mat.baseColor = new Color3(0.035, 0.035, 0.04);
+    mat.emissiveColor = new Color3(0.006, 0.006, 0.008);
   }
   return mat;
 }
@@ -1016,13 +1036,17 @@ function addTripleCollar(scene, parts, yBase) {
 
 /** Fenda do bispo (material escuro; evita CSG — segundo bundle quebrava instanceof Mesh no browser). */
 function makeBishopSlitMaterial(scene, color) {
-  const m = new StandardMaterial(`bslit_${Math.random()}`, scene);
+  const m = new PBRMetallicRoughnessMaterial(`bslit_${Math.random()}`, scene);
+  if (pieceReflectionProbe) {
+    m.environmentTexture = pieceReflectionProbe.cubeTexture;
+    m.environmentIntensity = 0.4;
+  }
+  m.metallic = 0.02;
+  m.roughness = 0.88;
   if (color === "w") {
-    m.diffuseColor = new Color3(0.035, 0.035, 0.04);
-    m.specularColor = Color3.Black();
+    m.baseColor = new Color3(0.03, 0.03, 0.035);
   } else {
-    m.diffuseColor = new Color3(0.07, 0.07, 0.08);
-    m.specularColor = new Color3(0.22, 0.22, 0.24);
+    m.baseColor = new Color3(0.015, 0.015, 0.02);
   }
   m.emissiveColor = Color3.Black();
   return m;
@@ -1272,6 +1296,7 @@ function syncPiecesFromGame() {
     }
   }
   syncCheckKingHighlight();
+  refreshPieceReflectionRenderList(scene);
 }
 
 let promoResolve = null;
@@ -2256,12 +2281,21 @@ function createScene(canvas) {
     thumb.material = handMat;
   })();
 
+  // Reflexos 3D nas peças: captura do ambiente (sem incluir peças nem highlights).
+  const probeSize = preferLightBackdrop() ? 128 : 256;
+  pieceReflectionProbe = new ReflectionProbe("pieceProbe", probeSize, scene, true);
+  pieceReflectionProbe.position = new Vector3(0, 2.35, -0.9);
+  pieceReflectionProbe.refreshRate = preferLightBackdrop() ? 2 : 1;
+  refreshPieceReflectionRenderList(scene);
+
   // --- RELÓGIO STEAMPUNK (display digital âmbar) ---
   try {
     buildClassicChessClock(scene);
   } catch (err) {
     console.warn("Relógio 3D omitido:", err);
   }
+  refreshPieceReflectionRenderList(scene);
+
   applyBoardCamera();
 
   scene.registerBeforeRender(() => {
