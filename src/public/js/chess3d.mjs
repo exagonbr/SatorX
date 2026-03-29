@@ -19,7 +19,8 @@ import {
   DynamicTexture,
   Texture,
   TransformNode,
-  Color4
+  Color4,
+  ParticleSystem
 } from "@babylonjs/core";
 import { Chess } from "chess.js";
 
@@ -514,11 +515,11 @@ function applyBoardCamera() {
    * - Raio menor para ficar mais perto da mesa (imersão)
    */
   const limA = Math.PI / 2; // ±90° — pan total de 180 graus na tela
-  const playerRadius = 11.2; // mais próximo para imersão
-  const playerBeta  = 0.82;  // ângulo fixo de inclinação (olhando levemente para baixo)
+  const playerRadius = 9.5; // Raio mais próximo para ter as peças grandes na tela (como na ref)
+  const playerBeta  = 1.15; // Câmera no nível das peças, vendo o horizonte de fundo
 
   if (orientWhiteBottom) {
-    cam.setTarget(new Vector3(0, 1.4, -1.2)); // alvo: centro do tabuleiro + um pouco atrás
+    cam.setTarget(new Vector3(0, 0.5, -0.6)); // alvo: centro do tabuleiro + um pouco atrás
     const alpha = -Math.PI / 2;
     cam.alpha  = alpha;
     cam.beta   = playerBeta;
@@ -526,7 +527,7 @@ function applyBoardCamera() {
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   } else {
-    cam.setTarget(new Vector3(0, 1.4, 1.2));
+    cam.setTarget(new Vector3(0, 0.5, 0.6));
     const alpha = Math.PI / 2;
     cam.alpha  = alpha;
     cam.beta   = playerBeta;
@@ -539,7 +540,7 @@ function applyBoardCamera() {
   cam.upperBetaLimit  = playerBeta + 0.001;
   cam.lowerRadiusLimit = 7.5;  // zoom in máximo
   cam.upperRadiusLimit = 17.0; // zoom out máximo
-  cam.fov = 1.12; // FOV mais amplo para perspectiva first-person imersiva
+  cam.fov = 1.0; // FOV adequado para o tamanho da mesa na tela
   syncChessClockPlacement();
 }
 
@@ -628,18 +629,17 @@ function updateStatus() {
 
 function makePieceMaterial(scene, color) {
   const mat = new StandardMaterial(`pm_${color}_${Math.random()}`, scene);
-  // Bronze/cobre envelhecido: todas as peças com tonalidade unificada
-  // Peças brancas: bronze mais claro/dourado; pretas: bronze mais escuro/oxidado
+  // Bronze/cobre envelhecido
   if (color === "w") {
-    mat.diffuseColor  = new Color3(0.48, 0.32, 0.14);  // bronze dourado
-    mat.specularColor = new Color3(0.85, 0.68, 0.32);  // reflexo dourado intenso
-    mat.emissiveColor = new Color3(0.06, 0.038, 0.01); // leve brilho quente
-    mat.specularPower = 220;
+    mat.diffuseColor  = new Color3(0.55, 0.45, 0.35);  // bronze dourado antigo
+    mat.specularColor = new Color3(0.65, 0.55, 0.45);  // reflexo dourado intenso
+    mat.emissiveColor = new Color3(0.04, 0.03, 0.02); // leve brilho quente
+    mat.specularPower = 120;
   } else {
-    mat.diffuseColor  = new Color3(0.28, 0.18, 0.08);  // bronze escuro/oxidado
-    mat.specularColor = new Color3(0.62, 0.48, 0.22);  // reflexo cobre
-    mat.emissiveColor = new Color3(0.025, 0.015, 0.004);
-    mat.specularPower = 180;
+    mat.diffuseColor  = new Color3(0.28, 0.22, 0.16);  // bronze escuro/oxidado
+    mat.specularColor = new Color3(0.4, 0.35, 0.28);  // reflexo cobre
+    mat.emissiveColor = new Color3(0.015, 0.012, 0.01);
+    mat.specularPower = 100;
   }
   return mat;
 }
@@ -1323,6 +1323,79 @@ function addRemoteChessTable(scene, cx, cz, w, d, woodMat, darkMat) {
   }
 }
 
+/** Cria um orbe mágico iluminado flutuando no meio do tabuleiro (estilo da ref) */
+function createMagicOrb(scene) {
+  // Orbe central (brilhante/emissivo)
+  const orb = MeshBuilder.CreateSphere("magicOrb", { diameter: 1.2, segments: 32 }, scene);
+  orb.position.set(0, 4.5, 0); // flutuando acima
+  
+  const orbMat = new StandardMaterial("orbMat", scene);
+  orbMat.diffuseColor = new Color3(1.0, 0.8, 0.4);
+  orbMat.emissiveColor = new Color3(1.0, 0.6, 0.1); // âmbar incandescente
+  orbMat.alpha = 0.85;
+  orbMat.specularColor = new Color3(1.0, 0.9, 0.5);
+  orbMat.specularPower = 120;
+  orb.material = orbMat;
+
+  // Anéis estilo astrolábio ao redor
+  const ringMat = new StandardMaterial("ringMat", scene);
+  ringMat.diffuseColor = new Color3(1.0, 0.7, 0.2);
+  ringMat.emissiveColor = new Color3(0.8, 0.4, 0.05);
+  ringMat.alpha = 0.6;
+  ringMat.wireframe = true;
+  
+  const rings = [];
+  for (let i = 0; i < 3; i++) {
+    const r = MeshBuilder.CreateTorus(`orbRing${i}`, { diameter: 2.5 + i * 0.2, thickness: 0.05, tessellation: 64 }, scene);
+    r.parent = orb;
+    r.material = ringMat;
+    r.rotation.x = Math.random() * Math.PI;
+    r.rotation.y = Math.random() * Math.PI;
+    rings.push({ mesh: r, speed: (Math.random() - 0.5) * 0.05 });
+  }
+
+  // Partículas mágicas do orbe
+  const partSys = new ParticleSystem("orbParticles", 100, scene);
+  // Usa textura procedural suave como "flare" se não tiver textura apropriada, 
+  // aqui vamos usar o default que já parece bom para orbes
+  partSys.particleTexture = new Texture("https://raw.githubusercontent.com/BabylonJS/Babylon.js/master/packages/tools/playground/public/textures/flare.png", scene);
+  partSys.emitter = orb; // emissor é o orbe
+  partSys.minEmitBox = new Vector3(-0.5, -0.5, -0.5);
+  partSys.maxEmitBox = new Vector3(0.5, 0.5, 0.5);
+  partSys.color1 = new Color4(1, 0.8, 0.2, 1);
+  partSys.color2 = new Color4(1, 0.4, 0, 0.6);
+  partSys.colorDead = new Color4(0, 0, 0, 0);
+  partSys.minSize = 0.02;
+  partSys.maxSize = 0.15;
+  partSys.minLifeTime = 1.0;
+  partSys.maxLifeTime = 3.0;
+  partSys.emitRate = 50;
+  partSys.blendMode = ParticleSystem.BLENDMODE_ADD;
+  partSys.gravity = new Vector3(0, 0.2, 0); // sobem suavemente
+  partSys.direction1 = new Vector3(-1, -1, -1);
+  partSys.direction2 = new Vector3(1, 1, 1);
+  partSys.minAngularSpeed = 0;
+  partSys.maxAngularSpeed = Math.PI;
+  partSys.minEmitPower = 0.5;
+  partSys.maxEmitPower = 1.2;
+  partSys.updateSpeed = 0.01;
+  partSys.start();
+
+  // Animação de pulsar e girar
+  let t = 0;
+  scene.registerBeforeRender(() => {
+    t += 0.02;
+    orb.position.y = 4.5 + Math.sin(t) * 0.2;
+    const s = 1.0 + Math.sin(t * 3) * 0.05;
+    orb.scaling.set(s, s, s);
+    
+    rings.forEach(r => {
+      r.mesh.rotation.x += r.speed;
+      r.mesh.rotation.y += r.speed * 1.5;
+    });
+  });
+}
+
 /** Pernas + avental da mesa onde jogas (por baixo do mármore). */
 function buildPlayerChessTable(scene) {
   // Mesa de mármore Nero Gold/Portoro: preto polido com veios dourados
@@ -1396,7 +1469,7 @@ function buildChessClubEnvironment(scene) {
 
   // --- PISO ---
   const floor = MeshBuilder.CreateGround("libFloor", { width: 66, height: 66 }, scene);
-  floor.position.set(0, -0.22, 0);
+  floor.position.set(0, -0.4, 0); // desce um pouco o piso pra não cortar a mesa
   floor.material = darkFloor;
 
   // --- PAREDES (painéis de mogno) ---
@@ -1705,11 +1778,11 @@ function buildSalonBackdrop(scene) {
 /** Moldura em latão: bordas alinhadas ao retângulo real das casas (0,99×0,99), não centrado por simetria errada. */
 function addBoardBrassFrame(scene) {
   const brass = new StandardMaterial("brassFrame", scene);
-  // Latão polido: dourado-quente com reflexos intensos
-  brass.diffuseColor = new Color3(0.68, 0.52, 0.20);
-  brass.specularColor = new Color3(0.96, 0.84, 0.46);
-  brass.emissiveColor = new Color3(0.04, 0.028, 0.008);
-  brass.specularPower = 180;
+  // Latão polido envelhecido
+  brass.diffuseColor = new Color3(0.5, 0.4, 0.2);
+  brass.specularColor = new Color3(0.6, 0.5, 0.3);
+  brass.emissiveColor = new Color3(0.04, 0.03, 0.02);
+  brass.specularPower = 100;
   const t = 0.095;
   const h = 0.038;
   const y = 0.061;
@@ -1885,9 +1958,9 @@ function createScene(canvas) {
   // Câmera first-person: perspectiva baixa inclinada para o tabuleiro
   const camera = new ArcRotateCamera("cam", -Math.PI / 2, 0.78, 12.5, new Vector3(0, 1.2, -1.5), scene);
   camera.allowUpsideDown = false;
-  camera.minZ = 0.08;
+  camera.minZ = 0.02;
   camera.maxZ = 600;
-  camera.fov = 1.05; // FOV mais amplo para perspectiva first-person
+  camera.fov = 0.85; // FOV reduzido para achatar perspectiva
   camera.inertia = 0.72;
   camera.attachControl(canvas, false);
   bindArcRotateRightMouseOnly(camera, scene, canvas);
@@ -1901,33 +1974,39 @@ function createScene(canvas) {
   cameraRef = camera;
 
   const hemi = new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
-  hemi.intensity = 0.26;
-  hemi.diffuse = new Color3(0.88, 0.78, 0.62);
-  hemi.groundColor = new Color3(0.12, 0.09, 0.06);
+  hemi.intensity = 0.45;
+  hemi.diffuse = new Color3(1.0, 0.9, 0.85);
+  hemi.groundColor = new Color3(0.15, 0.1, 0.08);
 
-  const fireplaceLight = new PointLight("fireplaceLight", new Vector3(4.5, 1.2, -11.5), scene);
-  fireplaceLight.intensity = 1.05;
-  fireplaceLight.diffuse = new Color3(1.0, 0.52, 0.22);
-  fireplaceLight.specular = new Color3(0.95, 0.45, 0.18);
-  fireplaceLight.range = 24;
+  // Luz frontal dourada (como a luz da lareira refletindo)
+  const fireplaceLight = new PointLight("fireplaceLight", new Vector3(0, 3, -12), scene);
+  fireplaceLight.intensity = 1.2;
+  fireplaceLight.diffuse = new Color3(1.0, 0.6, 0.25);
+  fireplaceLight.specular = new Color3(0.9, 0.5, 0.2);
+  fireplaceLight.range = 30;
   let fireT = 0;
   scene.registerBeforeRender(() => {
     fireT += 0.04;
-    fireplaceLight.intensity = 0.92 + 0.22 * Math.sin(fireT) + 0.12 * Math.sin(fireT * 2.3);
+    fireplaceLight.intensity = 1.1 + 0.15 * Math.sin(fireT) + 0.1 * Math.sin(fireT * 2.3);
   });
 
-  const boardLight = new PointLight("boardLight", new Vector3(0, 5.5, 0), scene);
-  boardLight.intensity = 1.05;
-  boardLight.diffuse = new Color3(1.0, 0.88, 0.62);
-  boardLight.specular = new Color3(1.0, 0.85, 0.55);
+  // Foco quente central sobre o tabuleiro (efeito mágico/orbe)
+  const boardLight = new PointLight("boardLight", new Vector3(0, 3.0, 0), scene);
+  boardLight.intensity = 1.6; // Suavizada
+  boardLight.diffuse = new Color3(1.0, 0.75, 0.4);
+  boardLight.specular = new Color3(1.0, 0.8, 0.5);
   boardLight.range = 14;
 
-  // Luz de preenchimento fria (janela vitral à esquerda)
-  const windowLight = new PointLight("windowLight", new Vector3(-11.5, 5.2, 4.5), scene);
-  windowLight.intensity = 0.38;
-  windowLight.diffuse = new Color3(0.38, 0.52, 0.88);
-  windowLight.specular = new Color3(0.28, 0.42, 0.72);
-  windowLight.range = 18;
+  // A iluminação agora é cuidada pelas point lights e hemlights nativas
+
+  // Luz de destaque global das peças (parecida com a iluminação do teto na imagem original)
+  const dirLight = new DirectionalLight("dirLight", new Vector3(0.2, -1, 0.2), scene);
+  dirLight.intensity = 0.6;
+  dirLight.diffuse = new Color3(1.0, 0.9, 0.8);
+  dirLight.specular = new Color3(1.0, 0.9, 0.7);
+
+  // Adiciona orbe mágico sobre o centro do tabuleiro com partículas e brilho
+  createMagicOrb(scene);
 
   buildPlayerChessTable(scene);
 
@@ -1937,23 +2016,23 @@ function createScene(canvas) {
   base.position.y = -0.14;
   const bmat = new StandardMaterial("bm", scene);
   bmat.diffuseColor  = new Color3(0.065, 0.055, 0.045); // preto mármore
-  bmat.specularColor = new Color3(0.55, 0.42, 0.18);    // reflexo dourado
-  bmat.specularPower = 180;                              // muito polido
+  bmat.specularColor = new Color3(0.5, 0.4, 0.3);    // reflexo dourado moderado
+  bmat.specularPower = 90; // menos polido para o especular ser mais difuso
   base.material = bmat;
   addSatorMarbleInscriptions(scene, base);
 
   // ── Casas do tabuleiro: mármore clássico branco/preto alternado ──────────────────────────────────────────────────
-  // Casa clara: Calacatta branco-marfim com reflexo especular alto
+  // Casa clara: marfim suave
   const matLight = new StandardMaterial("tileLight", scene);
-  matLight.diffuseColor  = new Color3(0.92, 0.88, 0.80); // branco-marfim quente
-  matLight.specularColor = new Color3(0.75, 0.72, 0.65);
-  matLight.specularPower = 140;
+  matLight.diffuseColor = new Color3(0.55, 0.45, 0.3); // um pouco mais neutro/madeira
+  matLight.specularColor = new Color3(0.2, 0.18, 0.15);
+  matLight.specularPower = 60; // menos brilhante para não estourar
 
-  // Casa escura: Nero Marquina preto com reflexo especular sutil
+  // Casa escura: madeira / mármore marrom escuro
   const matDark = new StandardMaterial("tileDark", scene);
-  matDark.diffuseColor  = new Color3(0.055, 0.048, 0.042); // preto-antracite
-  matDark.specularColor = new Color3(0.22, 0.18, 0.14);
-  matDark.specularPower = 110;
+  matDark.diffuseColor = new Color3(0.12, 0.08, 0.05); // marrom quente escuro
+  matDark.specularColor = new Color3(0.15, 0.12, 0.1);
+  matDark.specularPower = 50;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {

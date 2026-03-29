@@ -1,0 +1,29 @@
+{
+  "id": "mnbhbjo4-vv8ajz",
+  "createdAt": "2026-03-29T08:10:23.956Z",
+  "result": "black",
+  "fen": "r1b1kbnr/pppp1ppp/4p3/8/1q6/1KN2n2/PPPP2PP/R1BQ1BNR w kq - 2 8",
+  "pgn": "[Event \"?\"]\n[Site \"?\"]\n[Date \"????.??.??\"]\n[Round \"?\"]\n[White \"?\"]\n[Black \"?\"]\n[Result \"*\"]\n\n1. f3 Nc6 2. e4 e6 3. Nc3 Qh4+ 4. Ke2 Nd4+ 5. Kd3 Qxe4+ 6. Kc4 Nxf3+ 7. Kb3 Qb4# *",
+  "moves": [
+    "f3",
+    "Nc6",
+    "e4",
+    "e6",
+    "Nc3",
+    "Qh4+",
+    "Ke2",
+    "Nd4+",
+    "Kd3",
+    "Qxe4+",
+    "Kc4",
+    "Nxf3+",
+    "Kb3",
+    "Qb4#"
+  ],
+  "meta": {
+    "auto": true,
+    "ui": "chess3d",
+    "mode": "engine",
+    "playerColor": "w"
+  }
+}
