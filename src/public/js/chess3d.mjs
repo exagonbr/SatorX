@@ -503,6 +503,31 @@ function bindArcRotateRightMouseOnly(camera, scene, canvas) {
 }
 
 /**
+ * Retrato (largura/altura pequena): o FOV “vertical” do Babylon deixa pouca abertura horizontal.
+ * Afasta a câmera, abre o FOV e inclina um pouco mais de cima para o tabuleiro caber na tela.
+ */
+function getBoardViewportFit() {
+  const cv = typeof document !== "undefined" ? document.getElementById("renderCanvas") : null;
+  let w = cv?.clientWidth;
+  let h = cv?.clientHeight;
+  if (!w || !h) {
+    w = typeof window !== "undefined" ? window.innerWidth : 1;
+    h = typeof window !== "undefined" ? window.innerHeight : 1;
+  }
+  const ar = w / Math.max(1, h);
+  if (ar < 0.48) {
+    return { radiusMul: 1.58, fov: 1.3, betaMul: 0.86, rMinMul: 1.14, rMaxMul: 1.48 };
+  }
+  if (ar < 0.58) {
+    return { radiusMul: 1.36, fov: 1.16, betaMul: 0.91, rMinMul: 1.09, rMaxMul: 1.3 };
+  }
+  if (ar < 0.72) {
+    return { radiusMul: 1.14, fov: 1.05, betaMul: 0.97, rMinMul: 1.03, rMaxMul: 1.12 };
+  }
+  return { radiusMul: 1, fov: 1.0, betaMul: 1, rMinMul: 1, rMaxMul: 1 };
+}
+
+/**
  * Presets de câmera (ArcRotate): beta baixo = mais de cima.
  * `orientWhiteBottom`: se true, ângulo como nas brancas; se false, rota 180° (pretas “em baixo” na tela).
  */
@@ -512,6 +537,7 @@ function applyBoardCamera() {
   const whiteSide = getMode() === "human" || getPlayerColor() === "w";
   const preset = getCameraView();
   const orientWhiteBottom = preset === "fixed_white" ? true : whiteSide;
+  const fit = getBoardViewportFit();
 
   cam.allowUpsideDown = false;
 
@@ -519,14 +545,14 @@ function applyBoardCamera() {
     cam.setTarget(new Vector3(0, 0.5, 0));
     cam.alpha = -Math.PI / 2;
     cam.beta = 0.12;
-    cam.radius = 18;
+    cam.radius = 18 * fit.radiusMul;
     cam.lowerAlphaLimit = null;
     cam.upperAlphaLimit = null;
     cam.lowerBetaLimit = 0.08;
     cam.upperBetaLimit = 0.62;
-    cam.lowerRadiusLimit = 10.5;
-    cam.upperRadiusLimit = 26;
-    cam.fov = 0.95;
+    cam.lowerRadiusLimit = 10.5 * fit.rMinMul;
+    cam.upperRadiusLimit = 26 * fit.rMaxMul;
+    cam.fov = Math.min(1.32, 0.95 * (fit.fov / 1.0) * 1.08);
     syncChessClockPlacement();
     return;
   }
@@ -536,16 +562,17 @@ function applyBoardCamera() {
     cam.setTarget(new Vector3(0, 0.5, zOff));
     const alpha = orientWhiteBottom ? -Math.PI / 3.25 : Math.PI / 3.25;
     const limA = 0.95;
+    const qBeta = 0.62 * fit.betaMul;
     cam.alpha = alpha;
-    cam.beta = 0.62;
-    cam.radius = 11.5;
+    cam.beta = qBeta;
+    cam.radius = 11.5 * fit.radiusMul;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
-    cam.lowerBetaLimit = 0.38;
-    cam.upperBetaLimit = 1.05;
-    cam.lowerRadiusLimit = 7.5;
-    cam.upperRadiusLimit = 22;
-    cam.fov = 1.0;
+    cam.lowerBetaLimit = Math.max(0.32, qBeta - 0.28);
+    cam.upperBetaLimit = Math.min(1.08, qBeta + 0.38);
+    cam.lowerRadiusLimit = 7.5 * fit.rMinMul;
+    cam.upperRadiusLimit = 22 * fit.rMaxMul;
+    cam.fov = Math.min(1.32, 1.0 * fit.fov);
     syncChessClockPlacement();
     return;
   }
@@ -558,8 +585,8 @@ function applyBoardCamera() {
    * - Raio menor para ficar mais perto da mesa (imersão)
    */
   const limA = Math.PI / 2; // ±90° — pan total de 180 graus na tela
-  const playerRadius = 10.0; // Raio mais próximo para ter as peças grandes na tela (como na ref)
-  const playerBeta  = 1.0; // Câmera no nível das peças, vendo o horizonte de fundo
+  const playerRadius = 10.0 * fit.radiusMul;
+  const playerBeta = 1.0 * fit.betaMul;
 
   if (orientWhiteBottom) {
     cam.setTarget(new Vector3(0, 0.5, -0.6)); // alvo: centro do tabuleiro + um pouco atrás
@@ -581,9 +608,9 @@ function applyBoardCamera() {
   // Beta fixo: sem rotação vertical no modo first-person
   cam.lowerBetaLimit  = playerBeta - 0.001;
   cam.upperBetaLimit  = playerBeta + 0.001;
-  cam.lowerRadiusLimit = 7.5;  // zoom in máximo
-  cam.upperRadiusLimit = 17.0; // zoom out máximo
-  cam.fov = 1.0; // FOV adequado para o tamanho da mesa na tela
+  cam.lowerRadiusLimit = 7.5 * fit.rMinMul;
+  cam.upperRadiusLimit = 17.0 * fit.rMaxMul;
+  cam.fov = Math.min(1.34, 1.0 * fit.fov);
   syncChessClockPlacement();
 }
 
@@ -2226,12 +2253,19 @@ function createScene(canvas) {
   engine.runRenderLoop(() => scene.render());
 
   let engineSizedOnce = false;
+  let lastViewportAspectBucket = "";
   function syncCanvasToEngine() {
     try {
       if (!canvas.clientWidth || !canvas.clientHeight) return false;
       engine.resize();
+      const ar = canvas.clientWidth / canvas.clientHeight;
+      const bucket = ar < 0.65 ? "portraitish" : "landscapeish";
       if (!engineSizedOnce) {
         engineSizedOnce = true;
+        lastViewportAspectBucket = bucket;
+        applyBoardCamera();
+      } else if (bucket !== lastViewportAspectBucket) {
+        lastViewportAspectBucket = bucket;
         applyBoardCamera();
       }
       return true;
