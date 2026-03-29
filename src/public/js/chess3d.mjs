@@ -103,13 +103,13 @@ function applySelectionGlow(sq, enable) {
     for (const m of targets) {
       if (!m.material) continue;
       if (enable) {
-        m.material.emissiveColor = new Color3(0.18, 0.14, 0.04);
+        m.material.emissiveColor = new Color3(0.55, 0.38, 0.08); // glow dourado-âmbar
       } else {
-        // Restaura emissivo original
+        // Restaura emissivo original do bronze
         const isWhite = meta.color === "w";
         m.material.emissiveColor = isWhite
-          ? new Color3(0.04, 0.038, 0.032)
-          : new Color3(0.008, 0.008, 0.012);
+          ? new Color3(0.06, 0.038, 0.01)
+          : new Color3(0.025, 0.015, 0.004);
       }
     }
     break;
@@ -390,66 +390,65 @@ function applyBoardCamera() {
   cam.allowUpsideDown = false;
 
   if (preset === "top") {
-    cam.setTarget(new Vector3(0, 0.22, 0));
-    const alpha = orientWhiteBottom ? -Math.PI / 2 : Math.PI / 2;
-    cam.alpha = alpha;
-    cam.beta = 0.16;
-    cam.radius = 15.4;
-    cam.lowerAlphaLimit = alpha - 1.35;
-    cam.upperAlphaLimit = alpha + 1.35;
-    cam.lowerBetaLimit = 0.06;
+    cam.setTarget(new Vector3(0, 0.5, 0));
+    cam.alpha = -Math.PI / 2;
+    cam.beta = 0.12;
+    cam.radius = 18;
+    cam.lowerAlphaLimit = null;
+    cam.upperAlphaLimit = null;
+    cam.lowerBetaLimit = 0.08;
     cam.upperBetaLimit = 0.62;
     cam.lowerRadiusLimit = 10.5;
     cam.upperRadiusLimit = 26;
-    cam.fov = 0.88;
+    cam.fov = 0.95;
     syncChessClockPlacement();
     return;
   }
 
   if (preset === "quarter") {
     const zOff = orientWhiteBottom ? 0.14 : -0.14;
-    cam.setTarget(new Vector3(0, 0.22, zOff));
+    cam.setTarget(new Vector3(0, 0.5, zOff));
     const alpha = orientWhiteBottom ? -Math.PI / 3.25 : Math.PI / 3.25;
     const limA = 0.95;
     cam.alpha = alpha;
-    cam.beta = 0.52;
-    cam.radius = 12.4;
+    cam.beta = 0.62;
+    cam.radius = 11.5;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
-    cam.lowerBetaLimit = 0.32;
-    cam.upperBetaLimit = 0.98;
-    cam.lowerRadiusLimit = 8.5;
-    cam.upperRadiusLimit = 24;
-    cam.fov = 0.92;
+    cam.lowerBetaLimit = 0.38;
+    cam.upperBetaLimit = 1.05;
+    cam.lowerRadiusLimit = 7.5;
+    cam.upperRadiusLimit = 22;
+    cam.fov = 1.0;
     syncChessClockPlacement();
     return;
   }
 
-  /* player (padrão) e fixed_white: mesma inclinação; fixed_white ignora a cor do jogador na orientação. */
-  const limA = 0.55;
-  const playerRadius = 11.75;
+  /* player (padrão) e fixed_white: perspectiva first-person, baixa e inclinada. */
+  const limA = 0.48;
+  const playerRadius = 12.5;
   if (orientWhiteBottom) {
-    cam.setTarget(new Vector3(0, 0.22, 0.12));
-    const alpha = -Math.PI / 2.06;
+    cam.setTarget(new Vector3(0, 1.2, -1.5)); // alvo mais alto para ver o ambiente atrás
+    const alpha = -Math.PI / 2;
     cam.alpha = alpha;
-    cam.beta = 0.66;
+    cam.beta = 0.78; // mais inclinado para baixo
     cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   } else {
-    cam.setTarget(new Vector3(0, 0.22, -0.12));
-    const alpha = Math.PI / 2.06;
+    cam.setTarget(new Vector3(0, 1.2, 1.5));
+    const alpha = Math.PI / 2;
     cam.alpha = alpha;
-    cam.beta = 0.66;
+    cam.beta = 0.78;
     cam.radius = playerRadius;
     cam.lowerAlphaLimit = alpha - limA;
     cam.upperAlphaLimit = alpha + limA;
   }
-  cam.lowerBetaLimit = 0.38;
-  cam.upperBetaLimit = 0.95;
-  cam.lowerRadiusLimit = 8.2;
-  cam.upperRadiusLimit = 22;
-  cam.fov = 0.94;
+  cam.lowerBetaLimit = 0.45;
+  cam.upperBetaLimit = 1.12;
+  cam.lowerRadiusLimit = 8.0;
+  cam.upperRadiusLimit = 20;
+  cam.fov = 1.05;
   syncChessClockPlacement();
 }
 
@@ -538,18 +537,18 @@ function updateStatus() {
 
 function makePieceMaterial(scene, color) {
   const mat = new StandardMaterial(`pm_${color}_${Math.random()}`, scene);
+  // Bronze/cobre envelhecido: todas as peças com tonalidade unificada
+  // Peças brancas: bronze mais claro/dourado; pretas: bronze mais escuro/oxidado
   if (color === "w") {
-    // Marfim/alabastro: levemente quente, reflexos suaves e especular intenso
-    mat.diffuseColor = new Color3(0.96, 0.94, 0.88);
-    mat.specularColor = new Color3(0.95, 0.92, 0.82);
-    mat.emissiveColor = new Color3(0.04, 0.038, 0.032);
-    mat.specularPower = 320;
+    mat.diffuseColor  = new Color3(0.48, 0.32, 0.14);  // bronze dourado
+    mat.specularColor = new Color3(0.85, 0.68, 0.32);  // reflexo dourado intenso
+    mat.emissiveColor = new Color3(0.06, 0.038, 0.01); // leve brilho quente
+    mat.specularPower = 220;
   } else {
-    // Ébano: profundo e escuro, reflexos frios e metálicos
-    mat.diffuseColor = new Color3(0.055, 0.05, 0.06);
-    mat.specularColor = new Color3(0.72, 0.72, 0.78);
-    mat.emissiveColor = new Color3(0.008, 0.008, 0.012);
-    mat.specularPower = 280;
+    mat.diffuseColor  = new Color3(0.28, 0.18, 0.08);  // bronze escuro/oxidado
+    mat.specularColor = new Color3(0.62, 0.48, 0.22);  // reflexo cobre
+    mat.emissiveColor = new Color3(0.025, 0.015, 0.004);
+    mat.specularPower = 180;
   }
   return mat;
 }
@@ -1260,100 +1259,338 @@ function buildPlayerChessTable(scene) {
   apron.material = wood;
 }
 
-/** Salão de clube: piso, paredes, teto, mesas ao fundo, luzes quentes. */
+/** Biblioteca vitoriana: paredes de mogno, lareira, estantes, vitral, cadeira do adversário. */
 function buildChessClubEnvironment(scene) {
-  // Céu noturno profundo com leve tom azul-esverdeado
-  scene.clearColor = new Color3(0.022, 0.028, 0.042).toColor4(1);
+  // Fundo escuro quente
+  scene.clearColor = new Color3(0.01, 0.008, 0.006).toColor4(1);
 
-  const floor = MeshBuilder.CreateGround("clubFloor", { width: 62, height: 52 }, scene);
-  floor.position.set(0, -0.02, 5);
-  const flMat = new StandardMaterial("clubFloorMat", scene);
-  // Parquet escuro envernizado
-  flMat.diffuseColor = new Color3(0.10, 0.065, 0.038);
-  flMat.specularColor = new Color3(0.12, 0.09, 0.06);
-  flMat.specularPower = 55;
-  floor.material = flMat;
+  // Materiais reutilizáveis
+  const mognoDark = new StandardMaterial("mognoDark", scene);
+  mognoDark.diffuseColor  = new Color3(0.14, 0.072, 0.034);
+  mognoDark.specularColor = new Color3(0.22, 0.16, 0.09);
+  mognoDark.specularPower = 68;
 
-  const wallPaint = new StandardMaterial("clubWallPaint", scene);
-  // Paredes verde-escuro de clube britânico
-  wallPaint.diffuseColor = new Color3(0.08, 0.11, 0.09);
-  wallPaint.specularColor = new Color3(0.03, 0.04, 0.035);
-  wallPaint.specularPower = 22;
+  const mognoMid = new StandardMaterial("mognoMid", scene);
+  mognoMid.diffuseColor  = new Color3(0.22, 0.12, 0.055);
+  mognoMid.specularColor = new Color3(0.28, 0.20, 0.11);
+  mognoMid.specularPower = 55;
 
-  const wainMat = new StandardMaterial("clubWain", scene);
-  // Lambris de madeira escura
-  wainMat.diffuseColor = new Color3(0.072, 0.052, 0.038);
-  wainMat.specularColor = new Color3(0.06, 0.048, 0.038);
-  wainMat.specularPower = 35;
+  const stoneMat = new StandardMaterial("stoneMat", scene);
+  stoneMat.diffuseColor  = new Color3(0.32, 0.28, 0.24);
+  stoneMat.specularColor = new Color3(0.12, 0.10, 0.08);
+  stoneMat.specularPower = 22;
 
-  const backWall = MeshBuilder.CreateBox("clubBackWall", { width: 52, height: 10.5, depth: 0.5 }, scene);
-  backWall.position.set(0, 5.05, -11.2);
-  backWall.material = wallPaint;
+  const darkFloor = new StandardMaterial("darkFloor", scene);
+  darkFloor.diffuseColor  = new Color3(0.09, 0.055, 0.028);
+  darkFloor.specularColor = new Color3(0.14, 0.10, 0.06);
+  darkFloor.specularPower = 60;
 
-  const wain = MeshBuilder.CreateBox("clubWainscot", { width: 50, height: 2.2, depth: 0.12 }, scene);
-  wain.position.set(0, 1.15, -10.85);
-  wain.material = wainMat;
+  // --- PISO ---
+  const floor = MeshBuilder.CreateGround("libFloor", { width: 40, height: 40 }, scene);
+  floor.position.set(0, -0.22, 0);
+  floor.material = darkFloor;
 
-  const rail = MeshBuilder.CreateBox("clubChairRail", { width: 52, height: 0.28, depth: 0.55 }, scene);
-  rail.position.set(0, 9.95, -11.05);
-  const railMat = new StandardMaterial("clubRailMat", scene);
-  railMat.diffuseColor = new Color3(0.12, 0.09, 0.065);
-  railMat.specularColor = new Color3(0.08, 0.07, 0.055);
-  rail.material = railMat;
+  // --- PAREDES (painéis de mogno) ---
+  // Parede traseira (atrás da cadeira do adversário)
+  const backWall = MeshBuilder.CreateBox("libBackWall", { width: 28, height: 12, depth: 0.4 }, scene);
+  backWall.position.set(0, 5.8, -12.5);
+  backWall.material = mognoDark;
 
-  const ceil = MeshBuilder.CreateBox("clubCeiling", { width: 58, height: 0.45, depth: 50 }, scene);
-  ceil.position.set(0, 9.45, 4);
-  const ceilMat = new StandardMaterial("clubCeilMat", scene);
-  ceilMat.diffuseColor = new Color3(0.06, 0.065, 0.075);
+  // Painéis verticais da parede traseira
+  for (let i = -2; i <= 2; i++) {
+    const panel = MeshBuilder.CreateBox(`bwPanel_${i}`, { width: 0.12, height: 9.5, depth: 0.55 }, scene);
+    panel.position.set(i * 4.8, 4.5, -12.28);
+    panel.material = mognoMid;
+  }
+  // Friso horizontal
+  const frisoBack = MeshBuilder.CreateBox("frisoBack", { width: 28, height: 0.18, depth: 0.55 }, scene);
+  frisoBack.position.set(0, 2.2, -12.28);
+  frisoBack.material = mognoMid;
+  const frisoBackTop = MeshBuilder.CreateBox("frisoBackTop", { width: 28, height: 0.18, depth: 0.55 }, scene);
+  frisoBackTop.position.set(0, 8.8, -12.28);
+  frisoBackTop.material = mognoMid;
+
+  // Paredes laterais
+  const sideL = MeshBuilder.CreateBox("libSideL", { width: 0.4, height: 12, depth: 28 }, scene);
+  sideL.position.set(-12.5, 5.8, 1.5);
+  sideL.material = mognoDark;
+  const sideR = MeshBuilder.CreateBox("libSideR", { width: 0.4, height: 12, depth: 28 }, scene);
+  sideR.position.set(12.5, 5.8, 1.5);
+  sideR.material = mognoDark;
+
+  // Teto de caixotão
+  const ceil = MeshBuilder.CreateBox("libCeil", { width: 28, height: 0.4, depth: 28 }, scene);
+  ceil.position.set(0, 11.8, 1.5);
+  const ceilMat = new StandardMaterial("libCeilMat", scene);
+  ceilMat.diffuseColor  = new Color3(0.10, 0.07, 0.04);
   ceilMat.specularColor = Color3.Black();
   ceil.material = ceilMat;
-
-  const sideL = MeshBuilder.CreateBox("clubSideL", { width: 0.48, height: 8.8, depth: 36 }, scene);
-  sideL.position.set(-17.5, 4.6, 3);
-  sideL.material = wallPaint;
-  const sideR = MeshBuilder.CreateBox("clubSideR", { width: 0.48, height: 8.8, depth: 36 }, scene);
-  sideR.position.set(17.5, 4.6, 3);
-  sideR.material = wallPaint;
-
-  const lampEmis = new StandardMaterial("clubLampEmis", scene);
-  lampEmis.diffuseColor = new Color3(0.98, 0.84, 0.52);
-  lampEmis.emissiveColor = new Color3(0.55, 0.38, 0.16);
-  lampEmis.specularColor = Color3.Black();
-
-  const lampGlowMat = new StandardMaterial("clubLampGlow", scene);
-  lampGlowMat.diffuseColor = new Color3(1.0, 0.92, 0.62);
-  lampGlowMat.emissiveColor = new Color3(0.75, 0.52, 0.22);
-  lampGlowMat.specularColor = Color3.Black();
-
-  for (let i = 0; i < 5; i++) {
-    const lx = -16 + i * 8;
-    const shade = MeshBuilder.CreateBox(`lamp_${i}`, { width: 1.5, height: 0.24, depth: 0.7 }, scene);
-    shade.position.set(lx, 8.35, -10.55);
-    shade.material = lampEmis;
-    const glow = MeshBuilder.CreateBox(`lampGlow_${i}`, { width: 1.15, height: 0.1, depth: 0.42 }, scene);
-    glow.position.set(lx, 8.16, -10.48);
-    glow.material = lampGlowMat;
-    // Halo de luz (disco plano emissivo abaixo da lâmpada)
-    const halo = MeshBuilder.CreateCylinder(`lampHalo_${i}`, { diameter: 2.2, height: 0.01, tessellation: 24 }, scene);
-    halo.position.set(lx, 8.0, -10.5);
-    const haloMat = new StandardMaterial(`lampHaloMat_${i}`, scene);
-    haloMat.diffuseColor = Color3.Black();
-    haloMat.emissiveColor = new Color3(0.45, 0.32, 0.12);
-    haloMat.alpha = 0.35;
-    halo.material = haloMat;
+  // Vigas do teto
+  for (let i = -2; i <= 2; i++) {
+    const beam = MeshBuilder.CreateBox(`beam_${i}`, { width: 0.22, height: 0.35, depth: 28 }, scene);
+    beam.position.set(i * 4.2, 11.45, 1.5);
+    beam.material = mognoDark;
   }
 
-  const tblWood = new StandardMaterial("remoteTblWood", scene);
-  tblWood.diffuseColor = new Color3(0.18, 0.1, 0.055);
-  tblWood.specularColor = new Color3(0.09, 0.06, 0.04);
-  tblWood.specularPower = 38;
-  const tblDark = new StandardMaterial("remoteTblDark", scene);
-  tblDark.diffuseColor = new Color3(0.06, 0.048, 0.042);
-  tblDark.specularPower = 16;
+  // --- LAREIRA (parede traseira, centro) ---
+  // Abertura da lareira
+  const fireplaceBase = MeshBuilder.CreateBox("fpBase", { width: 4.8, height: 0.25, depth: 1.2 }, scene);
+  fireplaceBase.position.set(4.5, -0.1, -12.0);
+  fireplaceBase.material = stoneMat;
 
-  // Poucas silhuetas ao fundo (evita “mesas flutuantes” a competir com a tua mesa).
-  addRemoteChessTable(scene, -9.5, 19.5, 2.8, 2.6, tblWood, tblDark);
-  addRemoteChessTable(scene, 9.2, 20.2, 2.8, 2.6, tblWood, tblDark);
+  const fpLeft = MeshBuilder.CreateBox("fpLeft", { width: 0.55, height: 4.2, depth: 1.2 }, scene);
+  fpLeft.position.set(2.18, 1.85, -12.0);
+  fpLeft.material = stoneMat;
+
+  const fpRight = MeshBuilder.CreateBox("fpRight", { width: 0.55, height: 4.2, depth: 1.2 }, scene);
+  fpRight.position.set(6.82, 1.85, -12.0);
+  fpRight.material = stoneMat;
+
+  const fpTop = MeshBuilder.CreateBox("fpTop", { width: 5.9, height: 0.5, depth: 1.2 }, scene);
+  fpTop.position.set(4.5, 3.97, -12.0);
+  fpTop.material = stoneMat;
+
+  // Moldura da lareira (mogno)
+  const fpMoldLeft = MeshBuilder.CreateBox("fpMoldL", { width: 0.22, height: 4.8, depth: 0.22 }, scene);
+  fpMoldLeft.position.set(1.88, 2.0, -11.72);
+  fpMoldLeft.material = mognoMid;
+  const fpMoldRight = MeshBuilder.CreateBox("fpMoldR", { width: 0.22, height: 4.8, depth: 0.22 }, scene);
+  fpMoldRight.position.set(7.12, 2.0, -11.72);
+  fpMoldRight.material = mognoMid;
+  const fpMoldTop = MeshBuilder.CreateBox("fpMoldTop", { width: 5.46, height: 0.22, depth: 0.22 }, scene);
+  fpMoldTop.position.set(4.5, 4.2, -11.72);
+  fpMoldTop.material = mognoMid;
+
+  // Interior escuro da lareira
+  const fpInterior = MeshBuilder.CreateBox("fpInterior", { width: 4.2, height: 3.8, depth: 0.8 }, scene);
+  fpInterior.position.set(4.5, 1.75, -12.35);
+  const fpIntMat = new StandardMaterial("fpIntMat", scene);
+  fpIntMat.diffuseColor  = new Color3(0.04, 0.02, 0.01);
+  fpIntMat.emissiveColor = new Color3(0.02, 0.01, 0.005);
+  fpInterior.material = fpIntMat;
+
+  // Brasa emissiva (fogo simulado)
+  const ember = MeshBuilder.CreateBox("fpEmber", { width: 3.2, height: 0.18, depth: 0.55 }, scene);
+  ember.position.set(4.5, 0.05, -12.2);
+  const emberMat = new StandardMaterial("emberMat", scene);
+  emberMat.diffuseColor  = new Color3(0.9, 0.35, 0.05);
+  emberMat.emissiveColor = new Color3(0.85, 0.28, 0.04);
+  emberMat.specularColor = Color3.Black();
+  ember.material = emberMat;
+
+  // Chamas (cones emissivos)
+  for (let fi = 0; fi < 5; fi++) {
+    const fx = 3.0 + fi * 0.75;
+    const fh = 0.6 + Math.random() * 0.5;
+    const flame = MeshBuilder.CreateCylinder(`flame_${fi}`, {
+      diameterTop: 0.01, diameterBottom: 0.28 + Math.random() * 0.12,
+      height: fh, tessellation: 8
+    }, scene);
+    flame.position.set(fx, 0.05 + fh * 0.5, -12.2);
+    const flameMat = new StandardMaterial(`flameMat_${fi}`, scene);
+    const r = 0.9 + Math.random() * 0.1;
+    const g = 0.25 + Math.random() * 0.25;
+    flameMat.diffuseColor  = new Color3(r, g, 0.02);
+    flameMat.emissiveColor = new Color3(r * 0.8, g * 0.6, 0.01);
+    flameMat.alpha = 0.82;
+    flameMat.specularColor = Color3.Black();
+    flame.material = flameMat;
+    // Animação de tremulação
+    let t = Math.random() * Math.PI * 2;
+    const baseScaleX = 0.9 + Math.random() * 0.2;
+    scene.registerBeforeRender(() => {
+      t += 0.06 + Math.random() * 0.02;
+      flame.scaling.x = baseScaleX * (0.85 + 0.15 * Math.sin(t));
+      flame.scaling.z = baseScaleX * (0.85 + 0.15 * Math.cos(t * 1.3));
+      flame.scaling.y = 0.9 + 0.1 * Math.sin(t * 0.7);
+    });
+  }
+
+  // Prateleira da lareira
+  const fpShelf = MeshBuilder.CreateBox("fpShelf", { width: 6.2, height: 0.18, depth: 0.65 }, scene);
+  fpShelf.position.set(4.5, 4.35, -11.95);
+  fpShelf.material = mognoMid;
+
+  // Relógio de parede acima da lareira
+  const wallClockBody = MeshBuilder.CreateCylinder("wallClock", { diameter: 0.9, height: 0.12, tessellation: 36 }, scene);
+  wallClockBody.position.set(4.5, 5.8, -12.15);
+  wallClockBody.rotation.x = Math.PI / 2;
+  const wcMat = new StandardMaterial("wcMat", scene);
+  wcMat.diffuseColor  = new Color3(0.72, 0.65, 0.48);
+  wcMat.specularColor = new Color3(0.55, 0.48, 0.32);
+  wcMat.specularPower = 80;
+  wallClockBody.material = wcMat;
+  const wallClockFace = MeshBuilder.CreateCylinder("wallClockFace", { diameter: 0.72, height: 0.04, tessellation: 36 }, scene);
+  wallClockFace.position.set(4.5, 5.8, -12.08);
+  wallClockFace.rotation.x = Math.PI / 2;
+  const wcFaceMat = new StandardMaterial("wcFaceMat", scene);
+  wcFaceMat.diffuseColor  = new Color3(0.88, 0.84, 0.72);
+  wcFaceMat.specularColor = new Color3(0.3, 0.28, 0.22);
+  wallClockFace.material = wcFaceMat;
+
+  // --- ESTANTES DE LIVROS ---
+  function buildBookshelf(name, cx, cz, rotY, shelfCount) {
+    const shelfMat = new StandardMaterial(`${name}ShelfMat`, scene);
+    shelfMat.diffuseColor  = new Color3(0.18, 0.10, 0.05);
+    shelfMat.specularColor = new Color3(0.15, 0.10, 0.06);
+    shelfMat.specularPower = 40;
+
+    const root = new TransformNode(name, scene);
+    root.position.set(cx, 0, cz);
+    root.rotation.y = rotY;
+
+    // Estrutura da estante
+    const back = MeshBuilder.CreateBox(`${name}_back`, { width: 5.8, height: 7.2, depth: 0.12 }, scene);
+    back.parent = root; back.position.set(0, 3.4, 0); back.material = shelfMat;
+    const sideA = MeshBuilder.CreateBox(`${name}_sA`, { width: 0.12, height: 7.2, depth: 0.55 }, scene);
+    sideA.parent = root; sideA.position.set(-2.9, 3.4, 0.22); sideA.material = shelfMat;
+    const sideB = MeshBuilder.CreateBox(`${name}_sB`, { width: 0.12, height: 7.2, depth: 0.55 }, scene);
+    sideB.parent = root; sideB.position.set(2.9, 3.4, 0.22); sideB.material = shelfMat;
+
+    // Prateleiras e livros
+    const bookColors = [
+      new Color3(0.45, 0.12, 0.08), new Color3(0.08, 0.18, 0.38),
+      new Color3(0.28, 0.22, 0.08), new Color3(0.12, 0.28, 0.14),
+      new Color3(0.35, 0.28, 0.18), new Color3(0.18, 0.08, 0.28),
+      new Color3(0.42, 0.32, 0.12), new Color3(0.08, 0.22, 0.32)
+    ];
+    for (let s = 0; s < shelfCount; s++) {
+      const sy = 0.55 + s * 1.15;
+      const shelf = MeshBuilder.CreateBox(`${name}_shelf_${s}`, { width: 5.8, height: 0.06, depth: 0.5 }, scene);
+      shelf.parent = root; shelf.position.set(0, sy, 0.18); shelf.material = shelfMat;
+      // Livros na prateleira
+      let bx = -2.65;
+      while (bx < 2.65) {
+        const bw = 0.10 + Math.random() * 0.14;
+        const bh = 0.62 + Math.random() * 0.32;
+        const book = MeshBuilder.CreateBox(`${name}_bk_${s}_${bx.toFixed(2)}`, { width: bw, height: bh, depth: 0.38 }, scene);
+        book.parent = root;
+        book.position.set(bx + bw / 2, sy + 0.03 + bh / 2, 0.18);
+        const bMat = new StandardMaterial(`${name}_bkMat_${s}_${bx.toFixed(2)}`, scene);
+        bMat.diffuseColor  = bookColors[Math.floor(Math.random() * bookColors.length)].clone();
+        bMat.specularColor = new Color3(0.08, 0.06, 0.04);
+        bMat.specularPower = 18;
+        book.material = bMat;
+        bx += bw + 0.008;
+      }
+    }
+  }
+
+  // Estantes na parede traseira (flanqueando a lareira)
+  buildBookshelf("bsLeft",  -5.5, -12.0, 0, 5);
+  buildBookshelf("bsRight", 14.5, -12.0, 0, 5);
+  // Estantes nas paredes laterais
+  buildBookshelf("bsSideL", -12.0, -4.0, Math.PI / 2, 4);
+  buildBookshelf("bsSideR",  12.0, -4.0, -Math.PI / 2, 4);
+
+  // --- JANELA COM VITRAL (parede esquerda) ---
+  const windowFrame = MeshBuilder.CreateBox("winFrame", { width: 0.18, height: 4.2, depth: 2.8 }, scene);
+  windowFrame.position.set(-12.32, 5.2, 4.5);
+  windowFrame.material = mognoMid;
+  // Vidro do vitral (emissivo colorido)
+  const glassColors = [
+    { c: new Color3(0.12, 0.28, 0.65), e: new Color3(0.04, 0.10, 0.28) },
+    { c: new Color3(0.65, 0.18, 0.08), e: new Color3(0.28, 0.06, 0.02) },
+    { c: new Color3(0.12, 0.52, 0.18), e: new Color3(0.04, 0.22, 0.06) },
+    { c: new Color3(0.72, 0.62, 0.08), e: new Color3(0.32, 0.26, 0.02) }
+  ];
+  for (let gi = 0; gi < 4; gi++) {
+    const gx = -0.65 + gi * 0.44;
+    const glass = MeshBuilder.CreateBox(`winGlass_${gi}`, { width: 0.06, height: 3.6, depth: 0.62 }, scene);
+    glass.position.set(-12.28, 5.2, 4.5 + gx);
+    const gMat = new StandardMaterial(`winGlassMat_${gi}`, scene);
+    gMat.diffuseColor  = glassColors[gi].c;
+    gMat.emissiveColor = glassColors[gi].e;
+    gMat.alpha = 0.72;
+    gMat.specularColor = new Color3(0.5, 0.5, 0.5);
+    gMat.specularPower = 120;
+    glass.material = gMat;
+  }
+  // Caixilhos do vitral
+  const winCross = MeshBuilder.CreateBox("winCross", { width: 0.06, height: 3.8, depth: 0.06 }, scene);
+  winCross.position.set(-12.28, 5.2, 4.5);
+  winCross.material = mognoDark;
+  const winCrossH = MeshBuilder.CreateBox("winCrossH", { width: 0.06, height: 0.06, depth: 2.85 }, scene);
+  winCrossH.position.set(-12.28, 5.2, 4.5);
+  winCrossH.material = mognoDark;
+
+  // --- CADEIRA DO ADVERSÁRIO (atrás do tabuleiro) ---
+  const chairLeatherMat = new StandardMaterial("chairLeather", scene);
+  chairLeatherMat.diffuseColor  = new Color3(0.18, 0.10, 0.055);
+  chairLeatherMat.specularColor = new Color3(0.22, 0.16, 0.10);
+  chairLeatherMat.specularPower = 45;
+
+  // Encosto
+  const chairBack = MeshBuilder.CreateBox("chairBack", { width: 2.2, height: 3.2, depth: 0.22 }, scene);
+  chairBack.position.set(0, 2.8, -7.8);
+  chairBack.material = chairLeatherMat;
+  // Assento
+  const chairSeat = MeshBuilder.CreateBox("chairSeat", { width: 2.2, height: 0.22, depth: 1.8 }, scene);
+  chairSeat.position.set(0, 0.8, -7.2);
+  chairSeat.material = chairLeatherMat;
+  // Pernas
+  for (const [lx, lz] of [[-0.9, -6.4], [0.9, -6.4], [-0.9, -8.0], [0.9, -8.0]]) {
+    const leg = MeshBuilder.CreateCylinder(`chairLeg_${lx}_${lz}`, { diameter: 0.12, height: 0.85, tessellation: 10 }, scene);
+    leg.position.set(lx, 0.42, lz);
+    leg.material = mognoDark;
+  }
+  // Ornamento no topo do encosto: símbolo dourado
+  const chairOrb = MeshBuilder.CreateSphere("chairOrb", { diameter: 0.28, segments: 16 }, scene);
+  chairOrb.position.set(0, 4.5, -7.72);
+  const chairOrbMat = new StandardMaterial("chairOrbMat", scene);
+  chairOrbMat.diffuseColor  = new Color3(0.62, 0.48, 0.18);
+  chairOrbMat.specularColor = new Color3(0.92, 0.78, 0.38);
+  chairOrbMat.emissiveColor = new Color3(0.08, 0.055, 0.012);
+  chairOrbMat.specularPower = 160;
+  chairOrb.material = chairOrbMat;
+
+  // --- LUMINÁRIA DE PAREDE (arandela) ---
+  for (const [lx, lz, ry] of [[-11.8, -8.0, Math.PI/2], [11.8, -8.0, -Math.PI/2]]) {
+    const sconce = MeshBuilder.CreateBox(`sconce_${lx}`, { width: 0.12, height: 0.55, depth: 0.38 }, scene);
+    sconce.position.set(lx, 5.5, lz);
+    sconce.rotation.y = ry;
+    sconce.material = mognoMid;
+    const bulb = MeshBuilder.CreateSphere(`sconceBulb_${lx}`, { diameter: 0.22, segments: 12 }, scene);
+    bulb.position.set(lx, 5.35, lz);
+    const bulbMat = new StandardMaterial(`sconceBulbMat_${lx}`, scene);
+    bulbMat.diffuseColor  = new Color3(1.0, 0.88, 0.58);
+    bulbMat.emissiveColor = new Color3(0.85, 0.62, 0.28);
+    bulbMat.specularColor = Color3.Black();
+    bulb.material = bulbMat;
+  }
+
+  // --- PERGAMINHO (à esquerda da mesa) ---
+  const scrollMat = new StandardMaterial("scrollMat", scene);
+  scrollMat.diffuseColor  = new Color3(0.82, 0.72, 0.52);
+  scrollMat.specularColor = new Color3(0.12, 0.10, 0.07);
+  scrollMat.specularPower = 18;
+  const scroll = MeshBuilder.CreateCylinder("scroll", { diameter: 0.28, height: 1.8, tessellation: 16 }, scene);
+  scroll.position.set(-6.5, 0.14, 1.2);
+  scroll.rotation.x = Math.PI / 2;
+  scroll.rotation.z = 0.18;
+  scroll.material = scrollMat;
+  // Papel do pergaminho aberto
+  const scrollPaper = MeshBuilder.CreateBox("scrollPaper", { width: 1.9, height: 0.02, depth: 1.4 }, scene);
+  scrollPaper.position.set(-6.2, 0.02, 1.8);
+  scrollPaper.rotation.y = 0.15;
+  const paperMat = new StandardMaterial("paperMat", scene);
+  paperMat.diffuseColor  = new Color3(0.88, 0.80, 0.60);
+  paperMat.specularColor = new Color3(0.08, 0.07, 0.05);
+  paperMat.specularPower = 12;
+  scrollPaper.material = paperMat;
+
+  // --- CANETAS/PENAS (à esquerda) ---
+  const penMat = new StandardMaterial("penMat", scene);
+  penMat.diffuseColor  = new Color3(0.12, 0.10, 0.08);
+  penMat.specularColor = new Color3(0.45, 0.38, 0.28);
+  penMat.specularPower = 90;
+  for (let pi = 0; pi < 2; pi++) {
+    const pen = MeshBuilder.CreateCylinder(`pen_${pi}`, { diameterTop: 0.018, diameterBottom: 0.032, height: 1.35, tessellation: 8 }, scene);
+    pen.position.set(-7.2 + pi * 0.3, 0.02, 2.2 + pi * 0.4);
+    pen.rotation.z = 0.25 + pi * 0.15;
+    pen.rotation.y = 0.8 + pi * 0.3;
+    pen.material = penMat;
+  }
 }
 
 /** Nome antigo do cenário — mantido para compatibilidade e caches agressivos do browser. */
@@ -1448,89 +1685,100 @@ function addSatorMarbleInscriptions(scene, baseMesh) {
   applyDecal("satorDecalE", ["AREPO"], 91014, new Vector3(half, 0, 0), new Vector3(1, 0, 0), new Vector3(8.95, 0.28, 0.45));
 }
 
-/** Relógio de xadrez clássico (dois mostradores); ponteiros seguem a hora local. Posição via syncChessClockPlacement. */
+/** Relógio steampunk com display digital âmbar (estilo da imagem de referência). */
 function buildClassicChessClock(scene) {
   const root = new TransformNode("chessClockRoot", scene);
   root.position.set(0, 0, 0);
   chessClockRootRef = root;
 
+  // Madeira escura de mogno
   const wood = new StandardMaterial("clkWood", scene);
-  wood.diffuseColor = new Color3(0.26, 0.16, 0.1);
-  wood.specularColor = new Color3(0.18, 0.14, 0.1);
-  wood.specularPower = 44;
+  wood.diffuseColor  = new Color3(0.22, 0.12, 0.055);
+  wood.specularColor = new Color3(0.28, 0.20, 0.11);
+  wood.specularPower = 65;
 
-  const body = MeshBuilder.CreateBox("clkBody", { width: 1.9, height: 0.88, depth: 0.5 }, scene);
+  // Latão envelhecido
+  const brass = new StandardMaterial("clkBrass", scene);
+  brass.diffuseColor  = new Color3(0.55, 0.42, 0.14);
+  brass.specularColor = new Color3(0.88, 0.72, 0.32);
+  brass.specularPower = 130;
+
+  // Corpo principal (caixa trapezoidal inclinada)
+  const body = MeshBuilder.CreateBox("clkBody", { width: 2.4, height: 1.05, depth: 0.65 }, scene);
   body.parent = root;
-  body.position.y = 0.44;
+  body.position.y = 0.52;
   body.material = wood;
 
-  const gold = new StandardMaterial("clkBezel", scene);
-  gold.diffuseColor = new Color3(0.58, 0.44, 0.16);
-  gold.specularColor = new Color3(0.88, 0.75, 0.38);
-  gold.specularPower = 118;
+  // Canto/borda de latão
+  const edgeTop = MeshBuilder.CreateBox("clkEdgeTop", { width: 2.42, height: 0.06, depth: 0.67 }, scene);
+  edgeTop.parent = root; edgeTop.position.y = 1.06; edgeTop.material = brass;
+  const edgeBot = MeshBuilder.CreateBox("clkEdgeBot", { width: 2.42, height: 0.06, depth: 0.67 }, scene);
+  edgeBot.parent = root; edgeBot.position.y = 0.0; edgeBot.material = brass;
+  const edgeL = MeshBuilder.CreateBox("clkEdgeL", { width: 0.06, height: 1.05, depth: 0.67 }, scene);
+  edgeL.parent = root; edgeL.position.set(-1.2, 0.52, 0); edgeL.material = brass;
+  const edgeR = MeshBuilder.CreateBox("clkEdgeR", { width: 0.06, height: 1.05, depth: 0.67 }, scene);
+  edgeR.parent = root; edgeR.position.set(1.2, 0.52, 0); edgeR.material = brass;
 
-  const face = new StandardMaterial("clkFace", scene);
-  face.diffuseColor = new Color3(0.93, 0.91, 0.84);
-  face.specularColor = new Color3(0.22, 0.21, 0.2);
-  face.specularPower = 56;
+  // Separador central
+  const divider = MeshBuilder.CreateBox("clkDiv", { width: 0.06, height: 0.85, depth: 0.67 }, scene);
+  divider.parent = root; divider.position.set(0, 0.52, 0); divider.material = brass;
 
-  const handMat = new StandardMaterial("clkHand", scene);
-  handMat.diffuseColor = new Color3(0.07, 0.06, 0.07);
-  handMat.specularColor = Color3.Black();
+  // Displays digitais (dois painéis âmbar emissivos)
+  const displayMat = new StandardMaterial("clkDisplay", scene);
+  displayMat.diffuseColor  = new Color3(0.05, 0.04, 0.02);
+  displayMat.emissiveColor = new Color3(0.0, 0.0, 0.0);
+  displayMat.specularColor = Color3.Black();
 
-  const pivots = [];
+  const amberMat = new StandardMaterial("clkAmber", scene);
+  amberMat.diffuseColor  = new Color3(0.85, 0.52, 0.04);
+  amberMat.emissiveColor = new Color3(0.72, 0.42, 0.02);
+  amberMat.specularColor = Color3.Black();
 
-  function addDial(localX, idx) {
-    const bezel = MeshBuilder.CreateTorus(`clkBez_${idx}`, { diameter: 0.5, thickness: 0.028, tessellation: 44 }, scene);
-    bezel.parent = root;
-    bezel.rotation.x = Math.PI / 2;
-    bezel.position.set(localX, 0.52, 0.26);
-    bezel.material = gold;
+  // Painel esquerdo (Sator Engine)
+  const panelL = MeshBuilder.CreateBox("clkPanelL", { width: 0.88, height: 0.62, depth: 0.04 }, scene);
+  panelL.parent = root; panelL.position.set(-0.56, 0.58, 0.345); panelL.material = displayMat;
 
-    const dial = MeshBuilder.CreateCylinder(`clkDial_${idx}`, { diameter: 0.42, height: 0.035, tessellation: 48 }, scene);
-    dial.parent = root;
-    dial.rotation.x = Math.PI / 2;
-    dial.position.set(localX, 0.52, 0.28);
-    dial.material = face;
+  // Painel direito (Human Player)
+  const panelR = MeshBuilder.CreateBox("clkPanelR", { width: 0.88, height: 0.62, depth: 0.04 }, scene);
+  panelR.parent = root; panelR.position.set(0.56, 0.58, 0.345); panelR.material = displayMat;
 
-    const pivotH = new TransformNode(`clkPivH_${idx}`, scene);
-    pivotH.parent = root;
-    pivotH.position.set(localX, 0.52, 0.3);
-    const hHour = MeshBuilder.CreateBox(`clkHH_${idx}`, { width: 0.022, height: 0.024, depth: 0.1 }, scene);
-    hHour.parent = pivotH;
-    hHour.position.z = 0.05;
-    hHour.material = handMat;
-
-    const pivotM = new TransformNode(`clkPivM_${idx}`, scene);
-    pivotM.parent = root;
-    pivotM.position.set(localX, 0.52, 0.3);
-    const hMin = MeshBuilder.CreateBox(`clkHM_${idx}`, { width: 0.016, height: 0.02, depth: 0.14 }, scene);
-    hMin.parent = pivotM;
-    hMin.position.z = 0.07;
-    hMin.material = handMat;
-
-    pivots.push({ hour: pivotH, min: pivotM });
+  // Dígitos âmbar (barras horizontais e verticais simulando display 7-segmentos)
+  // Painel esquerdo: 4 barras horizontais (simula "19:47")
+  for (let i = 0; i < 4; i++) {
+    const bar = MeshBuilder.CreateBox(`clkBarL_${i}`, { width: 0.18, height: 0.04, depth: 0.02 }, scene);
+    bar.parent = root;
+    bar.position.set(-0.72 + (i % 2) * 0.28, 0.72 - Math.floor(i / 2) * 0.22, 0.36);
+    bar.material = amberMat;
+  }
+  // Painel direito: 4 barras horizontais (simula "23:12")
+  for (let i = 0; i < 4; i++) {
+    const bar = MeshBuilder.CreateBox(`clkBarR_${i}`, { width: 0.18, height: 0.04, depth: 0.02 }, scene);
+    bar.parent = root;
+    bar.position.set(0.38 + (i % 2) * 0.28, 0.72 - Math.floor(i / 2) * 0.22, 0.36);
+    bar.material = amberMat;
   }
 
-  addDial(-0.52, 0);
-  addDial(0.52, 1);
+  // Rótulos (planos emissivos com texto)
+  const labelMat = new StandardMaterial("clkLabel", scene);
+  labelMat.diffuseColor  = new Color3(0.62, 0.48, 0.18);
+  labelMat.emissiveColor = new Color3(0.38, 0.28, 0.08);
+  labelMat.specularColor = Color3.Black();
+  const labelL = MeshBuilder.CreateBox("clkLabelL", { width: 0.72, height: 0.08, depth: 0.02 }, scene);
+  labelL.parent = root; labelL.position.set(-0.56, 0.96, 0.35); labelL.material = labelMat;
+  const labelR = MeshBuilder.CreateBox("clkLabelR", { width: 0.72, height: 0.08, depth: 0.02 }, scene);
+  labelR.parent = root; labelR.position.set(0.56, 0.96, 0.35); labelR.material = labelMat;
 
-  scene.registerBeforeRender(() => {
-    const d = new Date();
-    const min = d.getMinutes() + d.getSeconds() / 60;
-    const hr = (d.getHours() % 12) + min / 60;
-    const angM = (min / 60) * Math.PI * 2;
-    const angH = (hr / 12) * Math.PI * 2;
-    for (const p of pivots) {
-      p.min.rotation.y = -angM;
-      p.hour.rotation.y = -angH;
-    }
-  });
+  // Botões de pressionar no topo
+  for (const [bx] of [[-0.56], [0.56]]) {
+    const btn = MeshBuilder.CreateCylinder(`clkBtn_${bx}`, { diameter: 0.18, height: 0.12, tessellation: 12 }, scene);
+    btn.parent = root; btn.position.set(bx, 1.12, 0); btn.material = brass;
+  }
 
-  const lever = MeshBuilder.CreateBox("clkLever", { width: 0.08, height: 0.06, depth: 0.22 }, scene);
-  lever.parent = root;
-  lever.position.set(0, 0.96, -0.08);
-  lever.material = gold;
+  // Pino de latão decorativo
+  for (const [bx, bz] of [[-1.1, 0.28], [1.1, 0.28], [-1.1, -0.28], [1.1, -0.28]]) {
+    const rivet = MeshBuilder.CreateSphere(`clkRivet_${bx}_${bz}`, { diameter: 0.055, segments: 8 }, scene);
+    rivet.parent = root; rivet.position.set(bx, 0.52, bz); rivet.material = brass;
+  }
 }
 
 function createScene(canvas) {
@@ -1542,15 +1790,16 @@ function createScene(canvas) {
   const scene = new Scene(engine);
   buildChessClubEnvironment(scene);
 
-  const camera = new ArcRotateCamera("cam", -Math.PI / 2.06, 0.66, 11.75, new Vector3(0, 0.22, 0.12), scene);
+  // Câmera first-person: perspectiva baixa inclinada para o tabuleiro
+  const camera = new ArcRotateCamera("cam", -Math.PI / 2, 0.78, 12.5, new Vector3(0, 1.2, -1.5), scene);
   camera.allowUpsideDown = false;
-  camera.minZ = 0.12;
-  camera.maxZ = 500;
-  camera.fov = 0.94;
+  camera.minZ = 0.08;
+  camera.maxZ = 600;
+  camera.fov = 1.05; // FOV mais amplo para perspectiva first-person
   camera.inertia = 0.72;
   camera.attachControl(canvas, false);
   bindArcRotateRightMouseOnly(camera, scene, canvas);
-  camera.wheelPrecision = 38;
+  camera.wheelPrecision = 42;
   camera.panningSensibility = 0;
   const ptrIn = camera.inputs.attached?.pointers;
   if (ptrIn) {
@@ -1559,79 +1808,190 @@ function createScene(canvas) {
   }
   cameraRef = camera;
 
-  // Luz hemisférica ambiente — levemente quente no topo, fria no chão
-  const hemi = new HemisphericLight("hemi", new Vector3(0.2, 1, 0.35), scene);
-  hemi.intensity = 0.52;
-  hemi.diffuse = new Color3(0.86, 0.84, 0.80);
-  hemi.groundColor = new Color3(0.06, 0.065, 0.09);
+  // Luz ambiente muito baixa (sala escura)
+  const hemi = new HemisphericLight("hemi", new Vector3(0, 1, 0), scene);
+  hemi.intensity = 0.12;
+  hemi.diffuse = new Color3(0.72, 0.58, 0.38);
+  hemi.groundColor = new Color3(0.04, 0.025, 0.012);
 
-  // Luz direcional principal — simula luz de janela lateral
-  const dir = new DirectionalLight("dir", new Vector3(-0.55, -1.05, -0.25), scene);
-  dir.position = new Vector3(12, 16, 6);
-  dir.intensity = 0.78;
-  dir.diffuse = new Color3(1.0, 0.97, 0.92);
+  // Luz da lareira: laranja quente pulsante vinda de trás-direita
+  const fireplaceLight = new PointLight("fireplaceLight", new Vector3(4.5, 1.2, -11.5), scene);
+  fireplaceLight.intensity = 1.8;
+  fireplaceLight.diffuse = new Color3(1.0, 0.42, 0.08);
+  fireplaceLight.specular = new Color3(0.9, 0.32, 0.04);
+  fireplaceLight.range = 22;
+  // Pulsação da lareira
+  let fireT = 0;
+  scene.registerBeforeRender(() => {
+    fireT += 0.04;
+    fireplaceLight.intensity = 1.6 + 0.4 * Math.sin(fireT) + 0.2 * Math.sin(fireT * 2.3);
+  });
 
-  // Luz pontual dourada sobre o tabuleiro — efeito de lâmpada de clube
-  const boardLight = new PointLight("boardLight", new Vector3(0, 8.5, 0), scene);
-  boardLight.intensity = 0.55;
-  boardLight.diffuse = new Color3(1.0, 0.88, 0.58);
-  boardLight.specular = new Color3(1.0, 0.9, 0.65);
-  boardLight.range = 18;
+  // Luz pontual sobre o tabuleiro (lâmpada de mesa)
+  const boardLight = new PointLight("boardLight", new Vector3(0, 5.5, 0), scene);
+  boardLight.intensity = 0.85;
+  boardLight.diffuse = new Color3(1.0, 0.88, 0.62);
+  boardLight.specular = new Color3(1.0, 0.85, 0.55);
+  boardLight.range = 14;
 
-  // Luz de preenchimento fria — simula reflexo das paredes
-  const fillLight = new PointLight("fillLight", new Vector3(-8, 5, -8), scene);
-  fillLight.intensity = 0.18;
-  fillLight.diffuse = new Color3(0.55, 0.65, 0.88);
-  fillLight.specular = new Color3(0.3, 0.4, 0.7);
-  fillLight.range = 22;
+  // Luz do orbe de IA (dourada, acima das peças pretas)
+  const orbLight = new PointLight("orbLight", new Vector3(0, 5.5, -5.0), scene);
+  orbLight.intensity = 0.75;
+  orbLight.diffuse = new Color3(1.0, 0.82, 0.28);
+  orbLight.specular = new Color3(0.9, 0.72, 0.22);
+  orbLight.range = 12;
+
+  // Luz de preenchimento fria (janela vitral à esquerda)
+  const windowLight = new PointLight("windowLight", new Vector3(-11.5, 5.2, 4.5), scene);
+  windowLight.intensity = 0.22;
+  windowLight.diffuse = new Color3(0.38, 0.52, 0.88);
+  windowLight.specular = new Color3(0.28, 0.42, 0.72);
+  windowLight.range = 18;
 
   buildPlayerChessTable(scene);
 
-  const marbleLight = createMarbleTexture(scene, "marbleLight", true, 9001);
-  const marbleDark = createMarbleTexture(scene, "marbleDark", false, 7001);
-
-  const base = MeshBuilder.CreateBox("base", { width: 8.6, height: 0.18, depth: 8.6 }, scene);
-  base.position.y = -0.1;
+  // --- TABULEIRO: madeira escura uniforme + linhas douradas emissivas ---
+  // Base do tabuleiro (madeira de mogno escura)
+  const base = MeshBuilder.CreateBox("base", { width: 9.2, height: 0.22, depth: 9.2 }, scene);
+  base.position.y = -0.11;
   const bmat = new StandardMaterial("bm", scene);
-  bmat.diffuseTexture = marbleDark;
-  bmat.diffuseTexture.uScale = 1.6;
-  bmat.diffuseTexture.vScale = 1.6;
-  bmat.specularColor = new Color3(0.38, 0.36, 0.44);
-  bmat.emissiveColor = new Color3(0.008, 0.007, 0.01);
-  bmat.specularPower = 140;
+  bmat.diffuseColor  = new Color3(0.16, 0.085, 0.038); // mogno escuro
+  bmat.specularColor = new Color3(0.32, 0.24, 0.12);
+  bmat.specularPower = 95;
   base.material = bmat;
   addSatorMarbleInscriptions(scene, base);
 
-  const matLightSq = new StandardMaterial("tileMarbleLight", scene);
-  matLightSq.diffuseTexture = marbleLight;
-  matLightSq.diffuseTexture.uScale = 2.2;
-  matLightSq.diffuseTexture.vScale = 2.2;
-  matLightSq.specularColor = new Color3(0.52, 0.50, 0.46);
-  matLightSq.emissiveColor = new Color3(0.012, 0.011, 0.009);
-  matLightSq.specularPower = 130;
-
-  const matDarkSq = new StandardMaterial("tileMarbleDark", scene);
-  matDarkSq.diffuseTexture = marbleDark;
-  matDarkSq.diffuseTexture.uScale = 2.2;
-  matDarkSq.diffuseTexture.vScale = 2.2;
-  matDarkSq.specularColor = new Color3(0.36, 0.34, 0.42);
-  matDarkSq.emissiveColor = new Color3(0.006, 0.005, 0.008);
-  matDarkSq.specularPower = 130;
+  // Casas do tabuleiro: madeira escura uniforme (sem contraste claro/escuro)
+  const matTile = new StandardMaterial("tileDark", scene);
+  matTile.diffuseColor  = new Color3(0.18, 0.10, 0.048); // madeira mogno
+  matTile.specularColor = new Color3(0.28, 0.20, 0.10);
+  matTile.specularPower = 80;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      const light = (row + col) % 2 === 1;
       const tile = MeshBuilder.CreateBox(`tile_${row}_${col}`, { width: SQ * 0.99, height: 0.06, depth: SQ * 0.99 }, scene);
       const cx = (col - 3.5) * SQ + SQ / 2;
       const cz = (3.5 - row) * SQ - SQ / 2;
       tile.position.set(cx, 0.03, cz);
-      tile.material = light ? matLightSq : matDarkSq;
+      tile.material = matTile;
       tile.metadata = { square: squareFromBoardRC(row, col), isTile: true };
     }
   }
 
+  // Linhas douradas emissivas da grade 8x8
+  const gridLineMat = new StandardMaterial("gridLine", scene);
+  gridLineMat.diffuseColor  = new Color3(0.65, 0.45, 0.06);
+  gridLineMat.emissiveColor = new Color3(0.72, 0.48, 0.05); // âmbar suave
+  gridLineMat.specularColor = Color3.Black();
+  const lineH = 0.012;
+  const lineW = 0.028;
+  // Linhas horizontais (9 linhas ao longo do eixo Z)
+  for (let i = 0; i <= 8; i++) {
+    const lz = (i - 4) * SQ;
+    const hLine = MeshBuilder.CreateBox(`hLine_${i}`, { width: 8.0, height: lineH, depth: lineW }, scene);
+    hLine.position.set(0, 0.068, lz);
+    hLine.material = gridLineMat;
+    hLine.isPickable = false;
+  }
+  // Linhas verticais (9 linhas ao longo do eixo X)
+  for (let i = 0; i <= 8; i++) {
+    const lx = (i - 4) * SQ;
+    const vLine = MeshBuilder.CreateBox(`vLine_${i}`, { width: lineW, height: lineH, depth: 8.0 }, scene);
+    vLine.position.set(lx, 0.068, 0);
+    vLine.material = gridLineMat;
+    vLine.isPickable = false;
+  }
+
   addBoardBrassFrame(scene);
 
+  // --- ORB DE IA (flutuando sobre o tabuleiro) ---
+  (function buildAIOrb() {
+    const orbRoot = new TransformNode("aiOrbRoot", scene);
+    orbRoot.position.set(0, 5.5, -5.0); // acima e atrás das peças pretas
+
+    // Núcleo luminoso
+    const core = MeshBuilder.CreateSphere("aiOrbCore", { diameter: 0.18, segments: 20 }, scene);
+    core.parent = orbRoot;
+    const coreMat = new StandardMaterial("aiOrbCoreMat", scene);
+    coreMat.diffuseColor  = new Color3(1.0, 0.92, 0.55);
+    coreMat.emissiveColor = new Color3(1.0, 0.82, 0.22);
+    coreMat.specularColor = Color3.Black();
+    core.material = coreMat;
+
+    // Hálo externo
+    const halo = MeshBuilder.CreateSphere("aiOrbHalo", { diameter: 0.32, segments: 16 }, scene);
+    halo.parent = orbRoot;
+    const haloMat = new StandardMaterial("aiOrbHaloMat", scene);
+    haloMat.diffuseColor  = new Color3(0.88, 0.62, 0.12);
+    haloMat.emissiveColor = new Color3(0.42, 0.26, 0.04);
+    haloMat.alpha = 0.28;
+    haloMat.specularColor = Color3.Black();
+    halo.material = haloMat;
+
+    // Anéis orbitais (Merkabah/átomo) — menores
+    const ringMat = new StandardMaterial("aiRingMat", scene);
+    ringMat.diffuseColor  = new Color3(0.88, 0.68, 0.18);
+    ringMat.emissiveColor = new Color3(0.65, 0.44, 0.08);
+    ringMat.specularColor = new Color3(0.9, 0.75, 0.3);
+    ringMat.specularPower = 120;
+
+    const ring1 = MeshBuilder.CreateTorus("aiRing1", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
+    ring1.parent = orbRoot; ring1.rotation.x = Math.PI / 2; ring1.material = ringMat;
+    const ring2 = MeshBuilder.CreateTorus("aiRing2", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
+    ring2.parent = orbRoot; ring2.rotation.x = Math.PI / 4; ring2.rotation.y = Math.PI / 4; ring2.material = ringMat;
+    const ring3 = MeshBuilder.CreateTorus("aiRing3", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
+    ring3.parent = orbRoot; ring3.rotation.x = -Math.PI / 4; ring3.rotation.y = Math.PI / 4; ring3.material = ringMat;
+
+    // Rotação e flutuação animadas
+    let orbT = 0;
+    scene.registerBeforeRender(() => {
+      orbT += 0.012;
+      orbRoot.rotation.y = orbT * 0.4;
+      ring1.rotation.z = orbT * 0.8;
+      ring2.rotation.z = -orbT * 0.6;
+      ring3.rotation.z = orbT * 0.5;
+      orbRoot.position.y = 5.5 + Math.sin(orbT * 0.5) * 0.18;
+      // Pulsação do núcleo
+      const pulse = 0.9 + 0.1 * Math.sin(orbT * 2.2);
+      core.scaling.setAll(pulse);
+      coreMat.emissiveColor = new Color3(1.0 * pulse, 0.75 * pulse, 0.18 * pulse);
+    });
+  })();
+
+  // --- MÃO DO JOGADOR (first-person, borda inferior) ---
+  (function buildPlayerHand() {
+    const handMat = new StandardMaterial("playerHandMat", scene);
+    handMat.diffuseColor  = new Color3(0.12, 0.09, 0.07); // luva de couro escuro
+    handMat.specularColor = new Color3(0.18, 0.14, 0.10);
+    handMat.specularPower = 35;
+
+    // Palma
+    const palm = MeshBuilder.CreateBox("handPalm", { width: 1.1, height: 0.18, depth: 0.75 }, scene);
+    palm.position.set(0.2, -0.55, 3.8); // posicionada na borda inferior da câmera
+    palm.rotation.x = -0.35;
+    palm.material = handMat;
+
+    // Dedos
+    for (let fi = 0; fi < 4; fi++) {
+      const fx = -0.32 + fi * 0.22;
+      const finger = MeshBuilder.CreateCylinder(`handFinger_${fi}`, {
+        diameterTop: 0.055, diameterBottom: 0.07, height: 0.38, tessellation: 8
+      }, scene);
+      finger.position.set(fx, -0.42, 3.55);
+      finger.rotation.x = -0.55;
+      finger.material = handMat;
+    }
+    // Polegar
+    const thumb = MeshBuilder.CreateCylinder("handThumb", {
+      diameterTop: 0.06, diameterBottom: 0.08, height: 0.28, tessellation: 8
+    }, scene);
+    thumb.position.set(0.62, -0.52, 3.72);
+    thumb.rotation.z = -0.7;
+    thumb.rotation.x = -0.3;
+    thumb.material = handMat;
+  })();
+
+  // --- RELÓGIO STEAMPUNK (display digital âmbar) ---
   try {
     buildClassicChessClock(scene);
   } catch (err) {
