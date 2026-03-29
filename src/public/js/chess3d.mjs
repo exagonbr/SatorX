@@ -91,9 +91,9 @@ let pieceNodes = [];
 let busy = false;
 
 // ── Relógio com tempo real ─────────────────────────────────────────────────────────────────────────────
-const CLOCK_INITIAL_SECS = 20 * 60; // 20 minutos por jogador
-let clockWhiteSecs = CLOCK_INITIAL_SECS;
-let clockBlackSecs = CLOCK_INITIAL_SECS;
+const CLOCK_INITIAL_SECS = 0; // Conta para cima (tempo gasto)
+let clockWhiteSecs = 0;
+let clockBlackSecs = 0;
 let clockInterval  = null;
 let clockRunning   = false;
 let clockWhiteTex  = null; // DynamicTexture para display esquerdo
@@ -136,14 +136,11 @@ function renderClockTexture(tex, timeStr, label, isActive) {
 function tickClock() {
   if (!clockRunning || game.isGameOver()) return;
   if (game.turn() === 'w') {
-    clockWhiteSecs = Math.max(0, clockWhiteSecs - 1);
+    clockWhiteSecs++;
   } else {
-    clockBlackSecs = Math.max(0, clockBlackSecs - 1);
+    clockBlackSecs++;
   }
   updateClockDisplays();
-  if (clockWhiteSecs <= 0 || clockBlackSecs <= 0) {
-    stopClock();
-  }
 }
 
 function updateClockDisplays() {
@@ -166,8 +163,8 @@ function stopClock() {
 
 function resetClock() {
   stopClock();
-  clockWhiteSecs = CLOCK_INITIAL_SECS;
-  clockBlackSecs = CLOCK_INITIAL_SECS;
+  clockWhiteSecs = 0;
+  clockBlackSecs = 0;
   updateClockDisplays();
 }
 /** Seleção por clique (sem arrastar). Toca-mover: após escolher peça, não pode trocar por outra própria. */
@@ -548,12 +545,13 @@ function syncChessClockPlacement() {
   if (!chessClockRootRef) return;
   const whiteSide = getMode() === "human" || getPlayerColor() === "w";
   if (whiteSide) {
-    // À direita do jogador (+X), na borda da mesa, bem fora do tabuleiro.
-    chessClockRootRef.position.set(5.95, 0.44, -5.38);
-    chessClockRootRef.rotation.y = -1.02;
+    // À direita do jogador (+X), na borda da mesa, bem paralelo ao tabuleiro
+    chessClockRootRef.position.set(5.6, 0.22, 0);
+    chessClockRootRef.rotation.y = -Math.PI / 2; // Virado para a esquerda (-X), para o tabuleiro
   } else {
-    chessClockRootRef.position.set(-5.95, 0.44, 5.38);
-    chessClockRootRef.rotation.y = 1.02;
+    // À esquerda do jogador (-X), borda da mesa, paralelo
+    chessClockRootRef.position.set(-5.6, 0.22, 0);
+    chessClockRootRef.rotation.y = Math.PI / 2; // Virado para a direita (+X), para o tabuleiro
   }
 }
 
@@ -1911,6 +1909,8 @@ function buildClassicChessClock(scene) {
   matL.diffuseTexture  = texL;
   matL.emissiveTexture = texL;
   matL.specularColor   = Color3.Black();
+  matL.backFaceCulling = false; // Garante que a textura seja vista
+  panelL.rotation.y = Math.PI; // Vira para o lado certo
   panelL.material = matL;
   clockWhiteTex = texL;
 
@@ -1924,6 +1924,8 @@ function buildClassicChessClock(scene) {
   matR.diffuseTexture  = texR;
   matR.emissiveTexture = texR;
   matR.specularColor   = Color3.Black();
+  matR.backFaceCulling = false;
+  panelR.rotation.y = Math.PI;
   panelR.material = matR;
   clockBlackTex = texR;
 
@@ -2005,9 +2007,6 @@ function createScene(canvas) {
   dirLight.diffuse = new Color3(1.0, 0.9, 0.8);
   dirLight.specular = new Color3(1.0, 0.9, 0.7);
 
-  // Adiciona orbe mágico sobre o centro do tabuleiro com partículas e brilho
-  createMagicOrb(scene);
-
   buildPlayerChessTable(scene);
 
   // ── TABULEIRO: base de mármore Nero Gold com casas clássicas branco/preto ──────────────────────────────────────────────────
@@ -2022,17 +2021,17 @@ function createScene(canvas) {
   addSatorMarbleInscriptions(scene, base);
 
   // ── Casas do tabuleiro: mármore clássico branco/preto alternado ──────────────────────────────────────────────────
-  // Casa clara: marfim suave
+  // Casa clara: marfim
   const matLight = new StandardMaterial("tileLight", scene);
-  matLight.diffuseColor = new Color3(0.55, 0.45, 0.3); // um pouco mais neutro/madeira
-  matLight.specularColor = new Color3(0.2, 0.18, 0.15);
-  matLight.specularPower = 60; // menos brilhante para não estourar
+  matLight.diffuseColor = new Color3(0.9, 0.88, 0.82); // marfim
+  matLight.specularColor = new Color3(0.4, 0.4, 0.38);
+  matLight.specularPower = 120; // um pouco brilhante
 
-  // Casa escura: madeira / mármore marrom escuro
+  // Casa escura: preto
   const matDark = new StandardMaterial("tileDark", scene);
-  matDark.diffuseColor = new Color3(0.12, 0.08, 0.05); // marrom quente escuro
-  matDark.specularColor = new Color3(0.15, 0.12, 0.1);
-  matDark.specularPower = 50;
+  matDark.diffuseColor = new Color3(0.12, 0.12, 0.12); // preto profundo
+  matDark.specularColor = new Color3(0.25, 0.25, 0.25);
+  matDark.specularPower = 120;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
