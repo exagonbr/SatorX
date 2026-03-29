@@ -21,7 +21,17 @@
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif; }
-    #renderCanvas { width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+    /* fixed + inset: o canvas ocupa sempre o viewport (evita altura 0 com % no body). */
+    #renderCanvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      touch-action: none;
+      outline: none;
+      z-index: 0;
+    }
     .hud {
       position: fixed;
       top: 0; left: 0; right: 0;
@@ -51,7 +61,33 @@
       backdrop-filter: blur(12px);
       box-shadow: 0 16px 48px rgba(0,0,0,0.45);
     }
-    .panel h2 { margin: 0 0 10px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+    .panel h2 { margin: 0; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+    .panel__head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .panel__toggle {
+      flex-shrink: 0;
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,0.35);
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .panel__toggle:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+    .panel--collapsed .panel__rest { display: none; }
+    .panel--collapsed { padding-bottom: 14px; }
     .status { font-size: 0.95rem; line-height: 1.45; min-height: 3.2em; transition: color 0.2s ease; }
     .status.status--check { color: #ffb84d; font-weight: 600; }
     .status.status--mate { color: #ff5c5c; font-weight: 700; }
@@ -209,9 +245,13 @@
   <canvas id="renderCanvas"></canvas>
   <div class="hud">
     <div class="brand">Sator <span>Chess</span> 3D</div>
-    <div class="panel">
-      <h2>Partida</h2>
+    <div class="panel" id="partidaPanel">
+      <div class="panel__head">
+        <h2>Partida</h2>
+        <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Recolher painel">Recolher</button>
+      </div>
       <div class="status" id="status">Carregando…</div>
+      <div id="panelRest" class="panel__rest">
       <p class="hint" style="margin:10px 0 0;font-size:0.78rem;color:var(--muted);line-height:1.45">
         Lance: clique na peça, depois na casa de destino (sem arrastar). <kbd style="font-size:0.85em;border:1px solid var(--border);padding:1px 5px;border-radius:4px">Esc</kbd> cancela a seleção. Toca-mover: depois de escolher a peça, não pode trocar por outra sua.
       </p>
@@ -266,6 +306,7 @@
       </ul>
       <div class="row" style="margin-top:14px;">
         <a class="link" href="/">← Tabuleiro 2D</a>
+      </div>
       </div>
     </div>
   </div>

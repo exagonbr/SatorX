@@ -12,7 +12,6 @@ import {
   StandardMaterial,
   Color3,
   PointerEventTypes,
-  ShadowGenerator,
   Mesh,
   Matrix,
   Material,
@@ -83,7 +82,7 @@ function pieceMetaFromPickedMesh(mesh) {
 
 const game = new Chess();
 let sceneRef = null;
-let shadowGenRef = null;
+let cameraRef = null;
 let pieceNodes = [];
 let busy = false;
 /** Seleção por clique (sem arrastar). Toca-mover: após escolher peça, não pode trocar por outra própria. */
@@ -330,6 +329,28 @@ function syncModeUI() {
   document.getElementById("wrapColor").style.display = engine ? "flex" : "none";
   document.getElementById("depth").disabled = !engine;
   document.getElementById("timeMs").disabled = !engine;
+}
+
+/**
+ * POV ao nível do jogador: atrás das próprias peças, olhar ligeiramente para o lado adversário.
+ * Brancas em z negativo; pretas em z positivo (ver sqToWorld).
+ */
+function applyPlayerPovCamera() {
+  if (!cameraRef) return;
+  const cam = cameraRef;
+  const whiteSide = getMode() === "human" || getPlayerColor() === "w";
+  const targetZ = whiteSide ? 0.65 : -0.65;
+  cam.setTarget(new Vector3(0, 0.4, targetZ));
+  const alpha = whiteSide ? -Math.PI / 2 : Math.PI / 2;
+  const beta = 1.47;
+  const radius = 8.2;
+  cam.alpha = alpha;
+  cam.beta = beta;
+  cam.radius = radius;
+  cam.lowerAlphaLimit = cam.upperAlphaLimit = alpha;
+  cam.lowerBetaLimit = cam.upperBetaLimit = beta;
+  cam.lowerRadiusLimit = 5.6;
+  cam.upperRadiusLimit = 13;
 }
 
 function isPlayerTurn() {
@@ -628,13 +649,25 @@ function createPieceMesh(scene, type, color) {
 
   for (const p of parts) p.material = mat;
 
-  const merged = Mesh.MergeMeshes(parts, true, true, undefined, false, true);
-  merged.name = `piece_${type}_${color}`;
-  merged.material = mat;
-  merged.receiveShadows = true;
-  merged.refreshBoundingInfo(true);
-  merged.metadata = { isPiece: true };
-  return merged;
+  const merged = Mesh.MergeMeshes(parts, false, true, undefined, false, false);
+  if (merged) {
+    for (const p of parts) {
+      try {
+        p.dispose();
+      } catch (_) {}
+    }
+    merged.name = `piece_${type}_${color}`;
+    merged.material = mat;
+    merged.refreshBoundingInfo(true);
+    merged.metadata = { isPiece: true };
+    return merged;
+  }
+  const root = new TransformNode(`piece_${type}_${color}_root`, scene);
+  for (const p of parts) {
+    p.parent = root;
+  }
+  root.metadata = { isPiece: true };
+  return root;
 }
 
 function disposePieces() {
@@ -659,7 +692,6 @@ function syncPiecesFromGame() {
       mesh.position.set(w.x, 0.06 - minY, w.z);
       mesh.metadata = { ...mesh.metadata, square: sq, type: p.type, color: p.color };
       pieceNodes.push(mesh);
-      if (shadowGenRef) shadowGenRef.addShadowCaster(mesh);
     }
   }
   syncCheckKingHighlight();
@@ -880,7 +912,6 @@ function addBoardBrassFrame(scene) {
     const m = MeshBuilder.CreateBox(`brassFrame_${i}`, { width: b.w, height: b.h, depth: b.d }, scene);
     m.position.set(b.x, y, b.z);
     m.material = brass;
-    m.receiveShadows = true;
   }
 }
 
@@ -972,22 +1003,21 @@ function buildClassicChessClock(scene) {
 function createScene(canvas) {
   const engine = new Engine(canvas, true, {
     preserveDrawingBuffer: true,
-    stencil: true,
+    stencil: false,
     adaptToDeviceRatio: true
   });
   const scene = new Scene(engine);
   buildSalonBackdrop(scene);
 
-  const lockAlpha = -Math.PI / 2.35;
-  const lockBeta = 1.05;
-  const camera = new ArcRotateCamera("cam", lockAlpha, lockBeta, 14, Vector3.Zero(), scene);
-  camera.lowerAlphaLimit = camera.upperAlphaLimit = lockAlpha;
-  camera.lowerBetaLimit = camera.upperBetaLimit = lockBeta;
+  const camera = new ArcRotateCamera("cam", -Math.PI / 2, 1.47, 8.2, new Vector3(0, 0.4, 0.65), scene);
+  camera.minZ = 0.05;
+  camera.maxZ = 500;
+  camera.fov = 1.06;
   camera.attachControl(canvas, true);
-  camera.lowerRadiusLimit = 8;
-  camera.upperRadiusLimit = 22;
-  camera.wheelPrecision = 40;
+  camera.wheelPrecision = 38;
   camera.panningSensibility = 0;
+  cameraRef = camera;
+  applyPlayerPovCamera();
 
   const hemi = new HemisphericLight("hemi", new Vector3(0.25, 1, 0.2), scene);
   hemi.intensity = 0.55;
@@ -995,9 +1025,7 @@ function createScene(canvas) {
 
   const dir = new DirectionalLight("dir", new Vector3(-0.4, -1, -0.35), scene);
   dir.position = new Vector3(10, 18, 8);
-  dir.intensity = 0.85;
-  dir.shadowMinZ = 1;
-  dir.shadowMaxZ = 40;
+  dir.intensity = 0.95;
 
   const ground = MeshBuilder.CreateGround("ground", { width: 32, height: 32 }, scene);
   ground.position.y = -0.02;
@@ -1006,7 +1034,6 @@ function createScene(canvas) {
   gmat.specularColor = new Color3(0.04, 0.035, 0.03);
   gmat.specularPower = 24;
   ground.material = gmat;
-  ground.receiveShadows = true;
 
   buildClassicChessClock(scene);
 
@@ -1045,18 +1072,11 @@ function createScene(canvas) {
       const cz = (3.5 - row) * SQ - SQ / 2;
       tile.position.set(cx, 0.03, cz);
       tile.material = light ? matLightSq : matDarkSq;
-      tile.receiveShadows = true;
       tile.metadata = { square: squareFromBoardRC(row, col), isTile: true };
     }
   }
 
   addBoardBrassFrame(scene);
-
-  const shadow = new ShadowGenerator(2048, dir);
-  // Blur ESM falha ou trava em alguns drivers (Linux/Mesa); PCF é bem mais estável.
-  shadow.usePercentageCloserFiltering = true;
-  shadow.filteringQuality = ShadowGenerator.QUALITY_MEDIUM;
-  shadowGenRef = shadow;
 
   scene.onPointerObservable.add((pi) => {
     if (pi.type !== PointerEventTypes.POINTERDOWN) return;
@@ -1142,6 +1162,7 @@ function startNewGame() {
   game.reset();
   clearTapSelection();
   syncModeUI();
+  applyPlayerPovCamera();
   syncPiecesFromGame();
   updateStatus();
   if (getMode() === "engine" && getPlayerColor() === "b") {
@@ -1149,6 +1170,21 @@ function startNewGame() {
   }
   refreshNNStatus();
 }
+
+(function setupPartidaPanelToggle() {
+  const panel = document.getElementById("partidaPanel");
+  const btn = document.getElementById("btnPanelToggle");
+  if (!panel || !btn) return;
+  function applyCollapsed(collapsed) {
+    panel.classList.toggle("panel--collapsed", collapsed);
+    btn.setAttribute("aria-expanded", String(!collapsed));
+    btn.textContent = collapsed ? "Expandir" : "Recolher";
+    btn.title = collapsed ? "Expandir painel" : "Recolher painel";
+  }
+  btn.addEventListener("click", () => {
+    applyCollapsed(!panel.classList.contains("panel--collapsed"));
+  });
+})();
 
 document.getElementById("btnNew").addEventListener("click", () => startNewGame());
 const btnGoNew = document.getElementById("btnGoNew");
@@ -1171,6 +1207,7 @@ document.getElementById("mode").addEventListener("change", () => {
 });
 document.getElementById("playerColor").addEventListener("change", () => {
   if (getMode() === "engine") startNewGame();
+  else applyPlayerPovCamera();
 });
 
 const canvas = document.getElementById("renderCanvas");
