@@ -39,14 +39,7 @@
      * evita “faixas pretas” de % auto em panorâmicas. O pan horizontal usa quase 0–100% da imagem.
      */
     #library-parallax-root {
-      position: fixed;
-      inset: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 0;
-      pointer-events: none;
-      overflow: hidden;
-      background: #120e0a;
+      display: none;
     }
     #library-parallax-root .library-parallax-layer {
       position: absolute;
@@ -521,10 +514,12 @@
 </head>
 <body>
   <!-- Fundo desfocado: biblioteca vitoriana -->
+  <!-- Parallax substituído por cilindros 3D
   <div id="library-parallax-root" aria-hidden="true">
     <div id="library-bg-far" class="library-parallax-layer"></div>
     <div id="library-bg-near" class="library-parallax-layer"></div>
   </div>
+  -->
   <div id="library-vignette" aria-hidden="true"></div>
   <canvas id="renderCanvas"></canvas>
 

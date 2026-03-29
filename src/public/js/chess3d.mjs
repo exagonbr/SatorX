@@ -513,7 +513,7 @@ function applyBoardCamera() {
    * - Alvo levemente acima do tabuleiro para ver o orbe e o ambiente atrás
    * - Raio menor para ficar mais perto da mesa (imersão)
    */
-  const limA = 0.78;         // ~±45° — pan largo para parallax 180° no fundo
+  const limA = Math.PI / 2; // ±90° — pan total de 180 graus na tela
   const playerRadius = 11.2; // mais próximo para imersão
   const playerBeta  = 0.82;  // ângulo fixo de inclinação (olhando levemente para baixo)
 
@@ -1395,16 +1395,13 @@ function buildChessClubEnvironment(scene) {
   darkFloor.specularPower = 60;
 
   // --- PISO ---
-  const floor = MeshBuilder.CreateGround("libFloor", { width: 40, height: 40 }, scene);
+  const floor = MeshBuilder.CreateGround("libFloor", { width: 66, height: 66 }, scene);
   floor.position.set(0, -0.22, 0);
   floor.material = darkFloor;
 
   // --- PAREDES (painéis de mogno) ---
-  // Parede traseira (atrás da cadeira do adversário)
-  const backWall = MeshBuilder.CreateBox("libBackWall", { width: 28, height: 12, depth: 0.4 }, scene);
-  backWall.position.set(0, 5.8, -12.5);
-  backWall.material = mognoDark;
-
+  // Removidas as paredes fechadas para dar lugar ao panorama 180 graus de fundo.
+  
   // Painéis verticais da parede traseira
   for (let i = -2; i <= 2; i++) {
     const panel = MeshBuilder.CreateBox(`bwPanel_${i}`, { width: 0.12, height: 9.5, depth: 0.55 }, scene);
@@ -1419,21 +1416,9 @@ function buildChessClubEnvironment(scene) {
   frisoBackTop.position.set(0, 8.8, -12.28);
   frisoBackTop.material = mognoMid;
 
-  // Paredes laterais
-  const sideL = MeshBuilder.CreateBox("libSideL", { width: 0.4, height: 12, depth: 28 }, scene);
-  sideL.position.set(-12.5, 5.8, 1.5);
-  sideL.material = mognoDark;
-  const sideR = MeshBuilder.CreateBox("libSideR", { width: 0.4, height: 12, depth: 28 }, scene);
-  sideR.position.set(12.5, 5.8, 1.5);
-  sideR.material = mognoDark;
-
-  // Teto de caixotão
-  const ceil = MeshBuilder.CreateBox("libCeil", { width: 28, height: 0.4, depth: 28 }, scene);
-  ceil.position.set(0, 11.8, 1.5);
-  const ceilMat = new StandardMaterial("libCeilMat", scene);
-  ceilMat.diffuseColor  = new Color3(0.10, 0.07, 0.04);
-  ceilMat.specularColor = Color3.Black();
-  ceil.material = ceilMat;
+  // Paredes laterais (removidas para ver o panorama)
+  
+  // Teto de caixotão (removido o teto sólido)
   // Vigas do teto
   for (let i = -2; i <= 2; i++) {
     const beam = MeshBuilder.CreateBox(`beam_${i}`, { width: 0.22, height: 0.35, depth: 28 }, scene);
@@ -1670,6 +1655,46 @@ function buildChessClubEnvironment(scene) {
     pen.rotation.y = 0.8 + pi * 0.3;
     pen.material = penMat;
   }
+
+  // --- FUNDO 180 GRAUS (PARALLAX EM 3D) ---
+  const farMat = new StandardMaterial("bgFarMat", scene);
+  farMat.diffuseTexture = new Texture("/img/library-parallax-1.png", scene);
+  farMat.diffuseTexture.uScale = -2; 
+  farMat.diffuseTexture.vScale = -1;
+  farMat.diffuseTexture.uOffset = 0.5; // Centraliza a imagem no eixo Z
+  farMat.emissiveColor = new Color3(1, 1, 1);
+  farMat.emissiveTexture = farMat.diffuseTexture;
+  farMat.disableLighting = true;
+  farMat.backFaceCulling = false;
+
+  const bgFar = MeshBuilder.CreateCylinder("bgFar", {
+    diameter: 64,
+    height: 38,
+    sideOrientation: Mesh.BACKSIDE
+  }, scene);
+  bgFar.position.set(0, 8, 0);
+  // bgFar.rotation.y = Math.PI / 2; // Substituído por uOffset
+  bgFar.material = farMat;
+
+  const nearMat = new StandardMaterial("bgNearMat", scene);
+  nearMat.diffuseTexture = new Texture("/img/library-parallax-2.png", scene);
+  nearMat.diffuseTexture.uScale = -2;
+  nearMat.diffuseTexture.vScale = -1;
+  nearMat.diffuseTexture.uOffset = 0.5; // Centraliza a imagem no eixo Z
+  nearMat.emissiveColor = new Color3(1, 1, 1);
+  nearMat.emissiveTexture = nearMat.diffuseTexture;
+  nearMat.disableLighting = true;
+  nearMat.alpha = 0.55;
+  nearMat.backFaceCulling = false;
+
+  const bgNear = MeshBuilder.CreateCylinder("bgNear", {
+    diameter: 56, 
+    height: 34,
+    sideOrientation: Mesh.BACKSIDE
+  }, scene);
+  bgNear.position.set(0, 8, 0);
+  // bgNear.rotation.y = Math.PI / 2; // Substituído por uOffset
+  bgNear.material = nearMat;
 }
 
 /** Nome antigo do cenário — mantido para compatibilidade e caches agressivos do browser. */
@@ -1942,7 +1967,8 @@ function createScene(canvas) {
     }
   }
 
-  // Linhas douradas emissivas da grade 8x8
+  // Linhas douradas emissivas da grade 8x8 removidas
+  /*
   const gridLineMat = new StandardMaterial("gridLine", scene);
   gridLineMat.diffuseColor  = new Color3(0.65, 0.45, 0.06);
   gridLineMat.emissiveColor = new Color3(0.72, 0.48, 0.05); // âmbar suave
@@ -1965,6 +1991,7 @@ function createScene(canvas) {
     vLine.material = gridLineMat;
     vLine.isPickable = false;
   }
+  */
 
   addBoardBrassFrame(scene);
 
@@ -2200,10 +2227,11 @@ if (getMode() === "engine" && getPlayerColor() === "b") {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PARALLAX 3D: desloca o background da biblioteca conforme o ângulo da câmera
-// Cria ilusão de perspectiva real quando o usuário rotaciona o tabuleiro
+// PARALLAX 3D no HTML foi desativado (usamos cilindros no WebGL agora)
 // ─────────────────────────────────────────────────────────────────────────────
+
 (function initParallaxBackground() {
+  return; // DESATIVADO
   const bgFar = document.getElementById('library-bg-far');
   const bgNear = document.getElementById('library-bg-near');
   if (!bgFar || !bgNear) return;
