@@ -533,6 +533,7 @@
     let mpServerEndShown = false;
     let mpCaps = null;
     let mpCapsPromise = null;
+    let mpRealtimeConnectGen = 0;
 
     var MP_LOBBY_UNSUPPORTED_MSG =
       "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
@@ -549,10 +550,16 @@
       return { ok: true, persistentLobbies: false, websocketLobby: false };
     }
 
-    function ensureLobbyCapabilities() {
+    function ensureLobbyCapabilities(options) {
+      var force = options && options.force === true;
+      if (force) {
+        mpCaps = null;
+        mpCapsPromise = null;
+      }
       if (mpCaps) return Promise.resolve(mpCaps);
       if (mpCapsPromise) return mpCapsPromise;
-      mpCapsPromise = fetch("/api/lobby/capabilities")
+      var fetchInit = force ? { cache: "no-store" } : {};
+      mpCapsPromise = fetch("/api/lobby/capabilities", fetchInit)
         .then(async function (r) {
           var j = null;
           try {
@@ -591,6 +598,24 @@
       } catch (e) {
         return false;
       }
+    }
+
+    var SS_MP_GUEST_SECRET = "satorx_mp_guest_";
+    function readMpGuestSecret(lobbyId) {
+      if (!lobbyId) return "";
+      try {
+        var raw = sessionStorage.getItem(SS_MP_GUEST_SECRET + lobbyId);
+        if (!raw) return "";
+        var j = JSON.parse(raw);
+        return typeof j.secret === "string" ? j.secret : "";
+      } catch (e) {
+        return "";
+      }
+    }
+    function rememberMpGuestSecret(lobbyId, secret) {
+      try {
+        if (lobbyId && secret) sessionStorage.setItem(SS_MP_GUEST_SECRET + lobbyId, JSON.stringify({ secret: secret }));
+      } catch (e) {}
     }
 
     function lobbyNamesLine(names, playersCount, lobbyId) {
@@ -647,22 +672,31 @@
         return;
       }
 
-      const startWs = function () {
-        if (!mpCaps || mpCaps.websocketLobby !== true) {
+      var myGen = ++mpRealtimeConnectGen;
+
+      void (async function () {
+        var caps = await ensureLobbyCapabilities({ force: true });
+        if (myGen !== mpRealtimeConnectGen) return;
+        if (currentLobbyId !== lobbyId) return;
+
+        if (caps.websocketLobby !== true) {
           mpWsSecret = secret;
           scheduleMultiplayerPoll();
           updateMpConnStats();
           return;
         }
+
+        if (myGen !== mpRealtimeConnectGen || currentLobbyId !== lobbyId) return;
+
         mpWsSecret = secret;
-        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const ws = new WebSocket(proto + "//" + window.location.host + "/api/lobby/socket");
+        var proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        var ws = new WebSocket(proto + "//" + window.location.host + "/api/lobby/socket");
         mpSocket = ws;
         ws.addEventListener("open", function () {
           ws.send(JSON.stringify({ type: "auth", lobbyId: lobbyId, secret: mpWsSecret }));
           mpPingIntervalId = setInterval(function () {
             if (ws.readyState !== WebSocket.OPEN) return;
-            const id = Date.now();
+            var id = Date.now();
             ws._lastPingId = id;
             ws.send(JSON.stringify({ type: "ping", id: id }));
           }, 2800);
@@ -670,7 +704,7 @@
           scheduleMultiplayerPoll();
         });
         ws.addEventListener("message", function (ev) {
-          let msg;
+          var msg;
           try {
             msg = JSON.parse(ev.data);
           } catch (e) {
@@ -712,7 +746,7 @@
             return;
           }
           if (msg.type === "seat_claimed") {
-            const st = document.getElementById("lobbyStatus");
+            var st = document.getElementById("lobbyStatus");
             if (st && msg.names && currentLobbyId) {
               st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId);
             }
@@ -740,10 +774,7 @@
         ws.addEventListener("error", function () {
           /* fallback para HTTP; sem alerta para evitar spam */
         });
-      };
-
-      if (mpCaps) startWs();
-      else void ensureLobbyCapabilities().then(startWs);
+      })();
     }
 
     function updateMpClaimUi(res) {
@@ -856,6 +887,7 @@
         }
         document.getElementById("lobbyStatus").textContent = lobbyNamesLine(res.names, 2, id);
         updateStatus();
+        if (res.color === "b") rememberMpGuestSecret(id, res.wsSecret);
         connectMpRealtime(id, res.wsSecret);
         document.getElementById("mpClaimRow").style.display = "none";
       } catch (e) {
@@ -1275,10 +1307,13 @@
           alert(MP_LOBBY_UNSUPPORTED_MSG);
           return;
         }
+        var previousSecret = readMpGuestSecret(id);
+        var joinBody = { lobbyId: id, playerName: playerName, password: joinPass };
+        if (previousSecret) joinBody.previousSecret = previousSecret;
         const r = await fetch("/api/lobby/join", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lobbyId: id, playerName, password: joinPass })
+          body: JSON.stringify(joinBody)
         });
         const res = await r.json();
         if (r.ok && res.ok) {
@@ -1294,6 +1329,7 @@
           setMpBoardOrientation();
           document.getElementById("lobbyStatus").textContent = lobbyNamesLine(res.names, 2, res.lobbyId);
           updateStatus();
+          if (res.color === "b") rememberMpGuestSecret(res.lobbyId, res.wsSecret);
           connectMpRealtime(res.lobbyId, res.wsSecret);
         } else {
           alert(res.error || "Não foi possível entrar na sala.");

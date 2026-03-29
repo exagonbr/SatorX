@@ -74,6 +74,8 @@ const mpChatSeenIds = new Set();
 /** @type {{ ok: boolean, persistentLobbies?: boolean, websocketLobby?: boolean, httpPollFallback?: boolean } | null} */
 let mpCaps = null;
 let mpCapsPromise = null;
+/** Incrementado em cada `connectMpRealtime` para ignorar resultados de tentativas antigas (async). */
+let mpRealtimeConnectGen = 0;
 
 function defaultMpCapsWhenUnknown() {
   const h = typeof location !== "undefined" ? location.hostname : "";
@@ -87,10 +89,17 @@ function defaultMpCapsWhenUnknown() {
   return { ok: true, persistentLobbies: false, websocketLobby: false };
 }
 
-function ensureLobbyCapabilities() {
+/** @param {{ force?: boolean } | undefined} [options] */
+function ensureLobbyCapabilities(options) {
+  const force = options && options.force === true;
+  if (force) {
+    mpCaps = null;
+    mpCapsPromise = null;
+  }
   if (mpCaps) return Promise.resolve(mpCaps);
   if (mpCapsPromise) return mpCapsPromise;
-  mpCapsPromise = fetch("/api/lobby/capabilities")
+  const fetchInit = force ? { cache: "no-store" } : {};
+  mpCapsPromise = fetch("/api/lobby/capabilities", fetchInit)
     .then(async (r) => {
       let j = null;
       try {
@@ -134,6 +143,26 @@ function isMpHostOfLobby(lobbyId) {
   } catch (_) {
     return false;
   }
+}
+
+const SS_MP_GUEST_SECRET = "satorx_mp_guest_";
+
+function readMpGuestSecret(lobbyId) {
+  if (!lobbyId) return "";
+  try {
+    const raw = sessionStorage.getItem(SS_MP_GUEST_SECRET + lobbyId);
+    if (!raw) return "";
+    const j = JSON.parse(raw);
+    return typeof j.secret === "string" ? j.secret : "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberMpGuestSecret(lobbyId, secret) {
+  try {
+    if (lobbyId && secret) sessionStorage.setItem(SS_MP_GUEST_SECRET + lobbyId, JSON.stringify({ secret }));
+  } catch (_) {}
 }
 
 function showToast(message, variant = "info") {
@@ -861,13 +890,22 @@ function connectMpRealtime(lobbyId, secret) {
     return;
   }
 
-  const startWs = () => {
-    if (!mpCaps || mpCaps.websocketLobby !== true) {
+  const myGen = ++mpRealtimeConnectGen;
+
+  void (async () => {
+    const caps = await ensureLobbyCapabilities({ force: true });
+    if (myGen !== mpRealtimeConnectGen) return;
+    if (currentLobbyId !== lobbyId) return;
+
+    if (caps.websocketLobby !== true) {
       mpWsSecret = secret;
       scheduleMultiplayerPoll();
       updateMpConnStats();
       return;
     }
+
+    if (myGen !== mpRealtimeConnectGen || currentLobbyId !== lobbyId) return;
+
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     const url = `${proto}//${window.location.host}/api/lobby/socket`;
     mpWsSecret = secret;
@@ -887,96 +925,96 @@ function connectMpRealtime(lobbyId, secret) {
     });
 
     ws.addEventListener("message", (ev) => {
-    let msg;
-    try {
-      msg = JSON.parse(ev.data);
-    } catch {
-      return;
-    }
-    if (msg.type === "hello_ack") {
-      mpIsSpectator = msg.role === "spectator";
-      if (msg.fen && msg.fen !== game.fen()) {
-        try {
-          game.load(msg.fen);
-          syncPiecesFromGame();
-          updateStatus();
-        } catch (_) {
-          /* ignore */
+      let msg;
+      try {
+        msg = JSON.parse(ev.data);
+      } catch {
+        return;
+      }
+      if (msg.type === "hello_ack") {
+        mpIsSpectator = msg.role === "spectator";
+        if (msg.fen && msg.fen !== game.fen()) {
+          try {
+            game.load(msg.fen);
+            syncPiecesFromGame();
+            updateStatus();
+          } catch (_) {
+            /* ignore */
+          }
         }
-      }
-      applyBoardCamera();
-      const log = document.getElementById("mpChatLog");
-      if (log && Array.isArray(msg.chat)) {
-        log.textContent = "";
-        mpChatSeenIds.clear();
-        for (const e of msg.chat) {
-          if (e && e.id) mpChatSeenIds.add(e.id);
-          appendMpChatLine(e);
+        applyBoardCamera();
+        const log = document.getElementById("mpChatLog");
+        if (log && Array.isArray(msg.chat)) {
+          log.textContent = "";
+          mpChatSeenIds.clear();
+          for (const e of msg.chat) {
+            if (e && e.id) mpChatSeenIds.add(e.id);
+            appendMpChatLine(e);
+          }
         }
+        scheduleMultiplayerPoll();
+        return;
       }
-      scheduleMultiplayerPoll();
-      return;
-    }
-    if (msg.type === "pong" && msg.id === ws._lastPingId) {
-      mpLastRttMs = Date.now() - msg.id;
-      updateMpConnStats();
-      return;
-    }
-    if (
-      msg.type === "state" &&
-      msg.fen &&
-      msg.fromColor &&
-      (mpIsSpectator || msg.fromColor !== myMultiplayerColor)
-    ) {
-      if (msg.fen !== game.fen()) {
-        try {
-          game.load(msg.fen);
-          syncPiecesFromGame();
-          updateStatus();
-        } catch (_) {
-          /* ignore */
+      if (msg.type === "pong" && msg.id === ws._lastPingId) {
+        mpLastRttMs = Date.now() - msg.id;
+        updateMpConnStats();
+        return;
+      }
+      if (
+        msg.type === "state" &&
+        msg.fen &&
+        msg.fromColor &&
+        (mpIsSpectator || msg.fromColor !== myMultiplayerColor)
+      ) {
+        if (msg.fen !== game.fen()) {
+          try {
+            game.load(msg.fen);
+            syncPiecesFromGame();
+            updateStatus();
+          } catch (_) {
+            /* ignore */
+          }
         }
+        return;
       }
-      return;
-    }
-    if (msg.type === "chat" && msg.text) {
-      if (msg.id) {
-        if (mpChatSeenIds.has(msg.id)) return;
-        mpChatSeenIds.add(msg.id);
+      if (msg.type === "chat" && msg.text) {
+        if (msg.id) {
+          if (mpChatSeenIds.has(msg.id)) return;
+          mpChatSeenIds.add(msg.id);
+        }
+        appendMpChatLine(msg);
+        return;
       }
-      appendMpChatLine(msg);
-      return;
-    }
-    if (msg.type === "handshake") {
-      showToast("Handshake com o oponente: canal em tempo real ativo.", "success");
-      updateMpConnStats();
-      return;
-    }
-    if (msg.type === "seat_claimed") {
-      const st = document.getElementById("lobbyStatus");
-      if (st && msg.names) {
-        st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId || "");
+      if (msg.type === "handshake") {
+        showToast("Handshake com o oponente: canal em tempo real ativo.", "success");
+        updateMpConnStats();
+        return;
       }
-      showToast((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".", "info");
-      return;
-    }
-    if (msg.type === "game_over") {
-      mpResultPosted = true;
-      if (!mpServerEndShown) {
-        openMpServerEndOverlay(msg.reasonLabel, msg.winner);
+      if (msg.type === "seat_claimed") {
+        const st = document.getElementById("lobbyStatus");
+        if (st && msg.names) {
+          st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId || "");
+        }
+        showToast((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".", "info");
+        return;
       }
-      return;
-    }
-    if (msg.type === "rematch" && msg.fen) {
-      applyMpRematchBoard(msg.fen);
-      if (!mpIsSpectator) {
-        showToast("Nova partida na mesma sala.", "success");
+      if (msg.type === "game_over") {
+        mpResultPosted = true;
+        if (!mpServerEndShown) {
+          openMpServerEndOverlay(msg.reasonLabel, msg.winner);
+        }
+        return;
       }
-      return;
-    }
-    if (msg.type === "error" && msg.message) {
-      showToast(msg.message, "error");
-    }
+      if (msg.type === "rematch" && msg.fen) {
+        applyMpRematchBoard(msg.fen);
+        if (!mpIsSpectator) {
+          showToast("Nova partida na mesma sala.", "success");
+        }
+        return;
+      }
+      if (msg.type === "error" && msg.message) {
+        showToast(msg.message, "error");
+      }
     });
 
     ws.addEventListener("close", () => {
@@ -992,10 +1030,7 @@ function connectMpRealtime(lobbyId, secret) {
     ws.addEventListener("error", () => {
       /* fallback para HTTP; sem toast para evitar spam */
     });
-  };
-
-  if (mpCaps) startWs();
-  else void ensureLobbyCapabilities().then(startWs);
+  })();
 }
 
 async function pollLobbyOnce() {
@@ -1106,6 +1141,7 @@ async function claimLobbySeat(seat) {
     applyBoardCamera();
     updateStatus();
     showToast("Lugar ocupado — ligue o tempo real.", "success");
+    if (res.color === "b") rememberMpGuestSecret(id, res.wsSecret);
     connectMpRealtime(id, res.wsSecret);
     document.getElementById("mpClaimRow").style.display = "none";
   } catch (e) {
@@ -1210,10 +1246,16 @@ async function joinLobby(id) {
       showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
       return;
     }
+    const previousSecret = readMpGuestSecret(id);
     const r = await fetch("/api/lobby/join", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lobbyId: id, playerName, password: joinPass })
+      body: JSON.stringify({
+        lobbyId: id,
+        playerName,
+        password: joinPass,
+        ...(previousSecret ? { previousSecret } : {})
+      })
     });
     const res = await r.json();
 
@@ -1233,6 +1275,7 @@ async function joinLobby(id) {
       showToast("Ligado à sala com sucesso.", "success");
       updateStatus();
       clearMpChatUi();
+      if (res.color === "b") rememberMpGuestSecret(res.lobbyId, res.wsSecret);
       connectMpRealtime(res.lobbyId, res.wsSecret);
     } else {
       showToast(res.error || "Não foi possível entrar na sala.", "error");

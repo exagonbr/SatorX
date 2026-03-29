@@ -458,14 +458,45 @@ function lobbyPasswordOk(lobby, provided) {
 }
 
 /** @returns {null | { status: number, json: object }} */
-function lobbyMutateJoin(lobby, joinName, password) {
+function lobbyMutateJoin(lobby, joinName, password, previousSecret) {
   if (!lobbyPasswordOk(lobby, password)) {
     return { status: 403, json: { error: "Senha incorreta" } };
   }
-  if (lobby.players.length !== 1) {
-    return { status: 400, json: { error: "Sala cheia ou não existe" } };
-  }
   lobbyEnsureExtras(lobby);
+
+  const prev =
+    typeof previousSecret === "string" && previousSecret.length > 0 ? previousSecret : "";
+
+  if (lobby.players.length === 2) {
+    if (lobby.wsSecrets.b && prev && prev === lobby.wsSecrets.b) {
+      if (joinName) {
+        if (!lobby.names) lobby.names = { white: null, black: null, opponentExpected: null };
+        lobby.names.black = joinName;
+      }
+      lobby.updatedAt = Date.now();
+      return null;
+    }
+    const wc = lobby.wsCount || { w: 0, b: 0 };
+    if (!usePersistedLobbies() && (wc.b ?? 0) > 0) {
+      return { status: 400, json: { error: "Sala cheia — o lugar das pretas já está ligado." } };
+    }
+    if (joinName) {
+      if (!lobby.names) lobby.names = { white: null, black: null, opponentExpected: null };
+      lobby.names.black = joinName;
+    }
+    if (!lobby.wsSecrets) lobby.wsSecrets = { w: makeSecret(), b: null, spectators: {} };
+    if (!lobby.wsSecrets.spectators) lobby.wsSecrets.spectators = {};
+    lobby.wsSecrets.b = makeSecret();
+    lobby.updatedAt = Date.now();
+    lobby.disconnectStartedAt = lobby.disconnectStartedAt || { w: null, b: null };
+    lobby.disconnectStartedAt.b = null;
+    lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
+    return null;
+  }
+
+  if (lobby.players.length !== 1) {
+    return { status: 400, json: { error: "Sala não existe" } };
+  }
   lobby.players.push(2);
   lobby.updatedAt = Date.now();
   lobby.startedAt = Date.now();
@@ -565,9 +596,13 @@ app.post("/api/lobby/join", async (req, res) => {
   }
   const joinName = sanitizeLobbyName(req.body?.playerName);
   const password = req.body?.password;
+  const previousSecret =
+    typeof req.body?.previousSecret === "string" ? req.body.previousSecret.trim() : "";
   try {
     if (usePersistedLobbies()) {
-      const tr = await transactionLobbyUpdate(lobbyId, (lobby) => lobbyMutateJoin(lobby, joinName, password));
+      const tr = await transactionLobbyUpdate(lobbyId, (lobby) =>
+        lobbyMutateJoin(lobby, joinName, password, previousSecret)
+      );
       if (!tr.ok) return res.status(tr.error.status).json(tr.error.json);
       const lobby = tr.lobby;
       return res.json({
@@ -587,7 +622,7 @@ app.post("/api/lobby/join", async (req, res) => {
     if (!lobby) {
       return res.status(400).json({ error: "Sala não existe" });
     }
-    const err = lobbyMutateJoin(lobby, joinName, password);
+    const err = lobbyMutateJoin(lobby, joinName, password, previousSecret);
     if (err) return res.status(err.status).json(err.json);
     await persistLobby(memoryLobbies, lobbyId, lobby);
     return res.json({
