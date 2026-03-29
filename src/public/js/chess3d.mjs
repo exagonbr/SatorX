@@ -1325,39 +1325,53 @@ function addRemoteChessTable(scene, cx, cz, w, d, woodMat, darkMat) {
 
 /** Pernas + avental da mesa onde jogas (por baixo do mármore). */
 function buildPlayerChessTable(scene) {
-  const wood = new StandardMaterial("plyrTblWood", scene);
-  // Mogno polido: castanho-avermelhado com reflexos envernizados
-  wood.diffuseColor = new Color3(0.22, 0.11, 0.052);
-  wood.specularColor = new Color3(0.18, 0.13, 0.08);
-  wood.specularPower = 72;
+  // Mesa de mármore Nero Gold/Portoro: preto polido com veios dourados
+  const marbleMat = new StandardMaterial("plyrTblMarble", scene);
+  marbleMat.diffuseColor  = new Color3(0.072, 0.062, 0.052); // preto mármore escuro
+  marbleMat.specularColor = new Color3(0.62, 0.48, 0.22);    // reflexo dourado intenso
+  marbleMat.specularPower = 220;                              // superpolido
+
+  // Bordas de latão (moldura da mesa)
+  const brassMat = new StandardMaterial("plyrTblBrass", scene);
+  brassMat.diffuseColor  = new Color3(0.52, 0.38, 0.12);
+  brassMat.specularColor = new Color3(0.88, 0.72, 0.32);
+  brassMat.specularPower = 160;
+
+  // Tampo da mesa (mármore)
+  const tableTop = MeshBuilder.CreateBox("ptTableTop", { width: 18.0, height: 0.28, depth: 18.0 }, scene);
+  tableTop.position.set(0, -0.14, 0);
+  tableTop.material = marbleMat;
+
+  // Moldura de latão ao redor do tampo
+  const frameN = MeshBuilder.CreateBox("ptFrameN", { width: 18.1, height: 0.30, depth: 0.18 }, scene);
+  frameN.position.set(0, -0.14, -9.05); frameN.material = brassMat;
+  const frameS = MeshBuilder.CreateBox("ptFrameS", { width: 18.1, height: 0.30, depth: 0.18 }, scene);
+  frameS.position.set(0, -0.14,  9.05); frameS.material = brassMat;
+  const frameE = MeshBuilder.CreateBox("ptFrameE", { width: 0.18, height: 0.30, depth: 18.1 }, scene);
+  frameE.position.set( 9.05, -0.14, 0); frameE.material = brassMat;
+  const frameW = MeshBuilder.CreateBox("ptFrameW", { width: 0.18, height: 0.30, depth: 18.1 }, scene);
+  frameW.position.set(-9.05, -0.14, 0); frameW.material = brassMat;
+
+  // Pés torneados de latão
   const legMat = new StandardMaterial("plyrTblLeg", scene);
-  legMat.diffuseColor = new Color3(0.075, 0.055, 0.048);
-  legMat.specularColor = new Color3(0.08, 0.06, 0.05);
-  legMat.specularPower = 38;
+  legMat.diffuseColor  = new Color3(0.38, 0.28, 0.10);
+  legMat.specularColor = new Color3(0.72, 0.58, 0.25);
+  legMat.specularPower = 130;
   const ap = 4.12;
-  const legTop = -0.19;
-  const legBot = -0.76;
+  const legTop = -0.28;
+  const legBot = -1.20;
   const legH = legTop - legBot;
   const cy = (legTop + legBot) / 2;
-  for (const [sx, sz] of [
-    [-1, -1],
-    [-1, 1],
-    [1, -1],
-    [1, 1]
-  ]) {
-    const leg = MeshBuilder.CreateCylinder(`ptLeg_${sx}_${sz}`, { diameter: 0.17, height: legH, tessellation: 16 }, scene);
+  for (const [sx, sz] of [[-1, -1], [-1, 1], [1, -1], [1, 1]]) {
+    const leg = MeshBuilder.CreateCylinder(`ptLeg_${sx}_${sz}`, { diameter: 0.22, height: legH, tessellation: 16 }, scene);
     leg.position.set(sx * ap, cy, sz * ap);
     leg.material = legMat;
   }
-  const apron = MeshBuilder.CreateBox("ptApron", { width: 9.95, height: 0.055, depth: 9.95 }, scene);
-  apron.position.set(0, -0.208, 0);
-  apron.material = wood;
 }
 
 /** Biblioteca vitoriana: paredes de mogno, lareira, estantes, vitral, cadeira do adversário. */
 function buildChessClubEnvironment(scene) {
-  // Fundo escuro quente
-  scene.clearColor = new Color3(0.01, 0.008, 0.006).toColor4(1);
+  // clearColor NÃO definido aqui — mantido transparente (Color4(0,0,0,0)) para o bg CSS da biblioteca aparecer
 
   // Materiais reutilizáveis
   const mognoDark = new StandardMaterial("mognoDark", scene);
@@ -1869,8 +1883,24 @@ function createScene(canvas) {
     alpha: true
   });
   const scene = new Scene(engine);
-  scene.clearColor = new Color4(0.0, 0.0, 0.0, 0.0); // fundo transparente (mostra o bg CSS)
+  // clearColor: marrom-mogno escuro quente — garante fundo visível mesmo sem suporte a canvas transparente
+  scene.clearColor = new Color4(0.038, 0.022, 0.010, 1.0);
   buildChessClubEnvironment(scene);
+
+  // ── PLANO DE FUNDO 3D: biblioteca vitoriana panorâmica ──────────────────────────────────────────────────
+  // Plano grande atrás de tudo — renderiza a imagem panorâmica como cenário
+  const bgPlane = MeshBuilder.CreatePlane("bgLibrary", { width: 160, height: 90 }, scene);
+  bgPlane.position.set(0, 18, -95);
+  bgPlane.isPickable = false;
+  bgPlane.renderingGroupId = 0; // renderiza primeiro (atrás de tudo)
+  const bgTex = new Texture("/img/library-panorama.webp", scene);
+  bgTex.hasAlpha = false;
+  const bgMat = new StandardMaterial("bgLibMat", scene);
+  bgMat.diffuseTexture = bgTex;
+  bgMat.emissiveColor = new Color3(0.72, 0.58, 0.38); // iluminado pela lareira
+  bgMat.backFaceCulling = false;
+  bgMat.disableLighting = true;
+  bgPlane.material = bgMat;
 
   // Câmera first-person: perspectiva baixa inclinada para o tabuleiro
   const camera = new ArcRotateCamera("cam", -Math.PI / 2, 0.78, 12.5, new Vector3(0, 1.2, -1.5), scene);
@@ -1932,30 +1962,38 @@ function createScene(canvas) {
 
   buildPlayerChessTable(scene);
 
-  // --- TABULEIRO: madeira escura uniforme + linhas douradas emissivas ---
-  // Base do tabuleiro (madeira de mogno escura)
-  const base = MeshBuilder.CreateBox("base", { width: 9.2, height: 0.22, depth: 9.2 }, scene);
-  base.position.y = -0.11;
+  // ── TABULEIRO: base de mármore Nero Gold com casas clássicas branco/preto ──────────────────────────────────────────────────
+  // Base do tabuleiro: mármore Nero Gold (preto com veios dourados)
+  const base = MeshBuilder.CreateBox("base", { width: 9.4, height: 0.28, depth: 9.4 }, scene);
+  base.position.y = -0.14;
   const bmat = new StandardMaterial("bm", scene);
-  bmat.diffuseColor  = new Color3(0.16, 0.085, 0.038); // mogno escuro
-  bmat.specularColor = new Color3(0.32, 0.24, 0.12);
-  bmat.specularPower = 95;
+  bmat.diffuseColor  = new Color3(0.065, 0.055, 0.045); // preto mármore
+  bmat.specularColor = new Color3(0.55, 0.42, 0.18);    // reflexo dourado
+  bmat.specularPower = 180;                              // muito polido
   base.material = bmat;
   addSatorMarbleInscriptions(scene, base);
 
-  // Casas do tabuleiro: madeira escura uniforme (sem contraste claro/escuro)
-  const matTile = new StandardMaterial("tileDark", scene);
-  matTile.diffuseColor  = new Color3(0.18, 0.10, 0.048); // madeira mogno
-  matTile.specularColor = new Color3(0.28, 0.20, 0.10);
-  matTile.specularPower = 80;
+  // ── Casas do tabuleiro: mármore clássico branco/preto alternado ──────────────────────────────────────────────────
+  // Casa clara: Calacatta branco-marfim com reflexo especular alto
+  const matLight = new StandardMaterial("tileLight", scene);
+  matLight.diffuseColor  = new Color3(0.92, 0.88, 0.80); // branco-marfim quente
+  matLight.specularColor = new Color3(0.75, 0.72, 0.65);
+  matLight.specularPower = 140;
+
+  // Casa escura: Nero Marquina preto com reflexo especular sutil
+  const matDark = new StandardMaterial("tileDark", scene);
+  matDark.diffuseColor  = new Color3(0.055, 0.048, 0.042); // preto-antracite
+  matDark.specularColor = new Color3(0.22, 0.18, 0.14);
+  matDark.specularPower = 110;
 
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      const tile = MeshBuilder.CreateBox(`tile_${row}_${col}`, { width: SQ * 0.99, height: 0.06, depth: SQ * 0.99 }, scene);
+      const tile = MeshBuilder.CreateBox(`tile_${row}_${col}`, { width: SQ * 0.995, height: 0.065, depth: SQ * 0.995 }, scene);
       const cx = (col - 3.5) * SQ + SQ / 2;
       const cz = (3.5 - row) * SQ - SQ / 2;
-      tile.position.set(cx, 0.03, cz);
-      tile.material = matTile;
+      tile.position.set(cx, 0.032, cz);
+      // Padrão clássico: casa clara quando (row+col) é par
+      tile.material = ((row + col) % 2 === 0) ? matLight : matDark;
       tile.metadata = { square: squareFromBoardRC(row, col), isTile: true };
     }
   }
