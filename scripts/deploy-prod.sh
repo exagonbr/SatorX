@@ -5,6 +5,9 @@
 #
 # Se já existia ai_learning.db criado fora do Prisma e migrate deploy falhar por
 # tabelas duplicadas, uma vez: node scripts/prisma-run.js migrate resolve --applied 20250329120000_init
+#
+# Acesso pelo IP público (menos avisos no browser): exporte antes do deploy, por exemplo:
+#   CERT_EXTRA_SAN="IP:203.0.113.5,DNS:meu.dominio"
 
 set -euo pipefail
 
@@ -23,6 +26,7 @@ need_cmd() {
 need_cmd git
 need_cmd node
 need_cmd npm
+need_cmd openssl
 
 echo "== SatorX deploy (origin/main) =="
 echo "-> DATABASE_URL=$DATABASE_URL"
@@ -36,6 +40,9 @@ npm install
 
 echo "-> data/"
 mkdir -p data/replays
+
+echo "-> Certificado TLS autoassinado (HTTPS / PWA)"
+bash scripts/gen-selfsigned-cert.sh
 
 echo "-> Prisma migrate deploy + prisma generate (scripts/init-ai-db.js)"
 node scripts/init-ai-db.js
@@ -58,3 +65,4 @@ fi
 
 pm2 save
 echo "Concluído. Estado: pm2 status"
+echo "PWA: aceda por https na porta definida em PORT (PM2); na primeira visita aceite o certificado autoassinado."

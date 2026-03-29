@@ -10,6 +10,7 @@
     "db:migrate": "node scripts/prisma-run.js migrate deploy",
     "db:migrate:dev": "node scripts/prisma-run.js migrate dev",
     "deploy:prod": "bash scripts/deploy-prod.sh",
+    "certs:self": "bash scripts/gen-selfsigned-cert.sh",
     "start": "node src/index.js bestmove",
     "analyze": "node src/index.js analyze",
     "bestmove": "node src/index.js bestmove",

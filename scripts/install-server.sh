@@ -28,15 +28,26 @@ need_npm() {
   fi
 }
 
+need_openssl() {
+  if ! command -v openssl >/dev/null 2>&1; then
+    echo "Erro: openssl não encontrado (necessário para HTTPS/PWA)." >&2
+    exit 1
+  fi
+}
+
 echo "== SatorX: instalação no servidor =="
 need_node
 need_npm
+need_openssl
 
 echo "-> npm ci (inclui Prisma para migrações / build)"
 npm ci
 
 echo "-> Diretórios de dados"
 mkdir -p data/replays
+
+echo "-> Certificado TLS autoassinado (HTTPS / PWA)"
+bash scripts/gen-selfsigned-cert.sh
 
 echo "-> Prisma migrate deploy + generate"
 node scripts/init-ai-db.js
@@ -48,5 +59,5 @@ echo ""
 echo "Instalação concluída."
 echo "  Produção PM2: pm2 start ecosystem.config.cjs --env production"
 echo "  Ou direto:    NODE_ENV=production npm run server"
-echo "  Porta:        PORT=3000 (ou defina PORT)"
-echo "  Dados:        $ROOT/data (replays, nnWeights.json, ai_learning.db)"
+echo "  Porta:        PORT=3000 (HTTPS em produção via PM2)"
+echo "  Dados:        $ROOT/data (replays, nnWeights.json, ai_learning.db, certs/)"

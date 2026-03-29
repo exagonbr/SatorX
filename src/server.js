@@ -2,11 +2,15 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const http = require("http");
+const https = require("https");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const REPLAY_DIR = path.join(DATA_DIR, "replays");
+const CERT_DIR = path.join(DATA_DIR, "certs");
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR);
 if (!fs.existsSync(REPLAY_DIR)) fs.mkdirSync(REPLAY_DIR);
+if (!fs.existsSync(CERT_DIR)) fs.mkdirSync(CERT_DIR, { recursive: true });
 
 function nowIso() { return new Date().toISOString(); }
 
@@ -172,5 +176,42 @@ app.get("/api/nn/status", (req, res) => {
   return res.json({ ok: true, ...getStatus() });
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Interface Sator Engine: http://localhost:${PORT}`));
+const PORT = parseInt(process.env.PORT || "3000", 10);
+const HTTPS_ENABLED =
+  process.env.HTTPS_ENABLED === "1" ||
+  process.env.HTTPS_ENABLED === "true" ||
+  process.env.HTTPS_ENABLED === "yes";
+const SSL_KEY_PATH = process.env.SSL_KEY_PATH || path.join(CERT_DIR, "selfsigned.key");
+const SSL_CERT_PATH = process.env.SSL_CERT_PATH || path.join(CERT_DIR, "selfsigned.crt");
+
+function listenHttp() {
+  http.createServer(app).listen(PORT, () => {
+    console.log(`Interface Sator Engine: http://localhost:${PORT}`);
+  });
+}
+
+function listenHttps() {
+  if (!fs.existsSync(SSL_KEY_PATH) || !fs.existsSync(SSL_CERT_PATH)) {
+    console.warn(
+      "[Sator] HTTPS_ENABLED mas ficheiros em falta:",
+      SSL_KEY_PATH,
+      SSL_CERT_PATH,
+      "— a usar HTTP. Corra: bash scripts/gen-selfsigned-cert.sh"
+    );
+    listenHttp();
+    return;
+  }
+  const opts = {
+    key: fs.readFileSync(SSL_KEY_PATH),
+    cert: fs.readFileSync(SSL_CERT_PATH)
+  };
+  https.createServer(opts, app).listen(PORT, () => {
+    console.log(`Interface Sator Engine: https://localhost:${PORT} (certificado autoassinado — aceite o aviso no browser para o PWA)`);
+  });
+}
+
+if (HTTPS_ENABLED) {
+  listenHttps();
+} else {
+  listenHttp();
+}
