@@ -29,9 +29,32 @@
       margin: 0;
       height: 100%;
       overflow: hidden;
-      background: var(--bg);
+      background: #06080d;
       color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif;
+    }
+
+    /* ── Fundo desfocado: biblioteca vitoriana ───────────────────────── */
+    #library-bg {
+      position: fixed;
+      inset: -8px; /* compensa o blur para não mostrar bordas */
+      background-image: url('/img/library-bg.webp');
+      background-size: cover;
+      background-position: center 30%;
+      filter: blur(8px) brightness(0.65) saturate(0.80);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Gradiente de vinheta sobre o fundo para escurecer bordas */
+    #library-vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse 90% 70% at 50% 50%, transparent 30%, rgba(2,1,0,0.72) 100%),
+        linear-gradient(to bottom, rgba(2,1,0,0.55) 0%, transparent 25%, transparent 65%, rgba(2,1,0,0.75) 100%);
     }
 
     /* ── Canvas 3D ──────────────────────────────────────────────── */
@@ -43,7 +66,9 @@
       display: block;
       touch-action: none;
       outline: none;
-      z-index: 0;
+      z-index: 2;
+      /* Canvas com fundo transparente para mostrar a biblioteca atrás */
+      background: transparent !important;
     }
 
     /* ── HUD principal ──────────────────────────────────────────── */
@@ -466,6 +491,9 @@
   </script>
 </head>
 <body>
+  <!-- Fundo desfocado: biblioteca vitoriana -->
+  <div id="library-bg" aria-hidden="true"></div>
+  <div id="library-vignette" aria-hidden="true"></div>
   <canvas id="renderCanvas"></canvas>
 
   <div class="hud">
@@ -570,5 +598,97 @@
   </div>
 
   <script type="module" src="js/chess3d.mjs"></script>
+
+  <!-- Som ambiente de lareira (Web Audio API — síntese procedural) -->
+  <script>
+  (function initFireplaceAudio() {
+    let ctx = null, gainNode = null, started = false;
+
+    function buildFireSound(audioCtx) {
+      // Nós de ruído marrom (Brown noise) para simular crepitar de fogo
+      const bufferSize = audioCtx.sampleRate * 4; // 4 segundos de buffer
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      let lastOut = 0.0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        // Brown noise: integração do ruído branco
+        lastOut = (lastOut + 0.02 * white) / 1.02;
+        data[i] = lastOut * 3.5;
+      }
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = noiseBuffer;
+      source.loop = true;
+
+      // Filtro passa-baixa para suavizar (som de fogo grave)
+      const lowpass = audioCtx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = 380;
+      lowpass.Q.value = 0.8;
+
+      // Filtro passa-alta para remover sub-bass excessivo
+      const highpass = audioCtx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 55;
+      highpass.Q.value = 0.5;
+
+      // Compressor dinâmico para naturalidade
+      const compressor = audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -24;
+      compressor.knee.value = 30;
+      compressor.ratio.value = 4;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
+
+      // Ganho principal (volume baixo)
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = 0.0; // começa mudo, fade in
+
+      // Conexões: source -> lowpass -> highpass -> compressor -> gain -> destino
+      source.connect(lowpass);
+      lowpass.connect(highpass);
+      highpass.connect(compressor);
+      compressor.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      source.start(0);
+
+      // Fade in suave até volume baixo
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.055, audioCtx.currentTime + 3.5);
+
+      // Crepitar: LFO de amplitude lento e irregular
+      function crackle() {
+        if (!gainNode) return;
+        const baseVol = 0.055;
+        const variation = (Math.random() * 0.018) - 0.009;
+        gainNode.gain.setTargetAtTime(baseVol + variation, audioCtx.currentTime, 0.12 + Math.random() * 0.28);
+        setTimeout(crackle, 180 + Math.random() * 420);
+      }
+      setTimeout(crackle, 4000);
+    }
+
+    function startAudio() {
+      if (started) return;
+      started = true;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      buildFireSound(ctx);
+    }
+
+    // Inicia no primeiro clique/toque (política de autoplay dos browsers)
+    const startEvents = ['click', 'keydown', 'touchstart', 'pointerdown'];
+    function onFirstInteraction() {
+      startAudio();
+      startEvents.forEach(ev => document.removeEventListener(ev, onFirstInteraction));
+    }
+    startEvents.forEach(ev => document.addEventListener(ev, onFirstInteraction, { once: true, passive: true }));
+
+    // Tenta iniciar automaticamente após 1.5s (funciona em alguns browsers)
+    setTimeout(() => {
+      try { startAudio(); } catch(_) {}
+    }, 1500);
+  })();
+  </script>
 </body>
 </html>

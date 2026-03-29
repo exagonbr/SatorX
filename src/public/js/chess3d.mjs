@@ -18,7 +18,8 @@ import {
   Material,
   DynamicTexture,
   Texture,
-  TransformNode
+  TransformNode,
+  Color4
 } from "@babylonjs/core";
 import { Chess } from "chess.js";
 
@@ -1785,9 +1786,11 @@ function createScene(canvas) {
   const engine = new Engine(canvas, true, {
     preserveDrawingBuffer: true,
     stencil: false,
-    adaptToDeviceRatio: true
+    adaptToDeviceRatio: true,
+    alpha: true
   });
   const scene = new Scene(engine);
+  scene.clearColor = new Color4(0.0, 0.0, 0.0, 0.0); // fundo transparente (mostra o bg CSS)
   buildChessClubEnvironment(scene);
 
   // Câmera first-person: perspectiva baixa inclinada para o tabuleiro
@@ -1834,12 +1837,12 @@ function createScene(canvas) {
   boardLight.specular = new Color3(1.0, 0.85, 0.55);
   boardLight.range = 14;
 
-  // Luz do orbe de IA (dourada, acima das peças pretas)
-  const orbLight = new PointLight("orbLight", new Vector3(0, 5.5, -5.0), scene);
-  orbLight.intensity = 0.75;
+  // Luz do orbe de IA (dourada, sobre a cadeira do adversário)
+  const orbLight = new PointLight("orbLight", new Vector3(0, 8.5, -12.0), scene);
+  orbLight.intensity = 0.55;
   orbLight.diffuse = new Color3(1.0, 0.82, 0.28);
   orbLight.specular = new Color3(0.9, 0.72, 0.22);
-  orbLight.range = 12;
+  orbLight.range = 14;
 
   // Luz de preenchimento fria (janela vitral à esquerda)
   const windowLight = new PointLight("windowLight", new Vector3(-11.5, 5.2, 4.5), scene);
@@ -1904,10 +1907,10 @@ function createScene(canvas) {
 
   addBoardBrassFrame(scene);
 
-  // --- ORB DE IA (flutuando sobre o tabuleiro) ---
+  // --- ORB DE IA (flutuando sobre a cadeira do adversário, fora do tabuleiro) ---
   (function buildAIOrb() {
     const orbRoot = new TransformNode("aiOrbRoot", scene);
-    orbRoot.position.set(0, 5.5, -5.0); // acima e atrás das peças pretas
+    orbRoot.position.set(0, 8.5, -12.0); // acima da cadeira do adversário, bem ao fundo
 
     // Núcleo luminoso
     const core = MeshBuilder.CreateSphere("aiOrbCore", { diameter: 0.18, segments: 20 }, scene);
@@ -1942,6 +1945,17 @@ function createScene(canvas) {
     const ring3 = MeshBuilder.CreateTorus("aiRing3", { diameter: 0.68, thickness: 0.032, tessellation: 48 }, scene);
     ring3.parent = orbRoot; ring3.rotation.x = -Math.PI / 4; ring3.rotation.y = Math.PI / 4; ring3.material = ringMat;
 
+    // Orbe inicialmente invisível no modo first-person
+    // Fica visível nos presets "quarter" e "top" (câmera mais alta)
+    const orbMeshes = [core, halo, ring1, ring2, ring3];
+    function updateOrbVisibility() {
+      const preset = typeof getCameraView === 'function' ? getCameraView() : 'player';
+      const visible = (preset === 'quarter' || preset === 'top');
+      orbMeshes.forEach(m => { m.isVisible = visible; });
+    }
+    updateOrbVisibility();
+    scene.registerBeforeRender(updateOrbVisibility);
+
     // Rotação e flutuação animadas
     let orbT = 0;
     scene.registerBeforeRender(() => {
@@ -1950,7 +1964,7 @@ function createScene(canvas) {
       ring1.rotation.z = orbT * 0.8;
       ring2.rotation.z = -orbT * 0.6;
       ring3.rotation.z = orbT * 0.5;
-      orbRoot.position.y = 5.5 + Math.sin(orbT * 0.5) * 0.18;
+      orbRoot.position.y = 8.5 + Math.sin(orbT * 0.5) * 0.22;
       // Pulsação do núcleo
       const pulse = 0.9 + 0.1 * Math.sin(orbT * 2.2);
       core.scaling.setAll(pulse);
@@ -2058,6 +2072,14 @@ function createScene(canvas) {
       showLegalMovesFor(meta.square);
     }
   });
+
+  // --- DEPTH OF FIELD: fundo desfocado para ambiência ---
+  // Usa fog exponencial do Babylon para simular profundidade de campo sem pipeline pesado
+  scene.fogMode = Scene.FOGMODE_EXP2;
+  scene.fogDensity = 0.028;
+  scene.fogColor = new Color3(0.08, 0.045, 0.02); // marrom escuro quente (cor da sala)
+  scene.fogStart = 8;
+  scene.fogEnd = 32;
 
   engine.runRenderLoop(() => scene.render());
 
