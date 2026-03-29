@@ -1,6 +1,7 @@
 {
   "name": "sator-chess-engine",
   "version": "0.6.0",
+  "packageManager": "pnpm@9.15.5",
   "description": "Motor de xadrez (8x8) com avaliação Sator + heurísticas Sun Tzu e Kasparov-style.",
   "main": "src/index.js",
   "type": "commonjs",

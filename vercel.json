@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npx -y npm@10.9.2 ci --omit=dev",
-  "buildCommand": "npm run build",
+  "installCommand": "pnpm install --frozen-lockfile --prod",
+  "buildCommand": "pnpm run build",
   "outputDirectory": "src/public",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
