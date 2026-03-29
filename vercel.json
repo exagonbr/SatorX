@@ -7,6 +7,10 @@
       "config": {
         "excludeFiles": "src/public/**"
       }
+    },
+    {
+      "src": "src/public/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -16,8 +20,7 @@
     },
     {
       "src": "/(.*)",
-      "dest": "/$1"
+      "dest": "/src/public/$1"
     }
-  ],
-  "outputDirectory": "src/public"
+  ]
 }
