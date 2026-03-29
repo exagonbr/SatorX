@@ -4,6 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const { FEATURE_DIM } = require("./featureVector");
+const { recordTdStep, maybeRecordWeightsSnapshot } = require("../db/aiLearningStore");
 
 const DATA_DIR = path.join(__dirname, "..", "..", "data");
 const WEIGHTS_PATH = path.join(DATA_DIR, "nnWeights.json");
@@ -205,6 +206,30 @@ function tdStep(p) {
   }
 
   saveToDisk();
+
+  const snapshotPayload = {
+    W1: state.W1,
+    b1: state.b1,
+    W2: state.W2,
+    b2: state.b2,
+    hidden: state.hidden,
+    inputDim: state.inputDim,
+    updates: state.updates,
+    lastTdError: state.lastTdError,
+    lastLearnAt: state.lastLearnAt
+  };
+  recordTdStep({
+    createdAt: state.lastLearnAt,
+    tdError: delta,
+    vBefore: f0.out,
+    vAfter: p.terminal ? null : vNext,
+    tdTarget,
+    terminal: p.terminal,
+    outcomeForMover: p.outcomeForMover,
+    updates: state.updates
+  });
+  maybeRecordWeightsSnapshot(snapshotPayload, state.lastLearnAt, state.updates);
+
   return {
     tdError: delta,
     vBefore: f0.out,
