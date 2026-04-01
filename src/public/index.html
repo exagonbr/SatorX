@@ -468,9 +468,11 @@
       let W, H, nodes = [];
       let mx = 0, my = 0, pointerOn = false;
       const R_ATTRACT = 260;
-      const ATTRACT = 0.052;
-      const DAMP = 0.987;
-      const VMAX = 0.82;
+      const ATTRACT = 0.068;
+      const DAMP = 0.965;
+      const VMAX = 0.95;
+      const SPRING_ON = 0.0005;
+      const SPRING_OFF = 0.0032;
       const R_LINE_BOOST = 190;
       const R_CURSOR_SEG = 135;
 
@@ -493,9 +495,11 @@
         nodes = [];
         const count = Math.min(72, Math.floor((W * H) / 24000));
         for (let i = 0; i < count; i++) {
+          const hx = Math.random() * W, hy = Math.random() * H;
           nodes.push({
-            x: Math.random() * W, y: Math.random() * H,
-            vx: (Math.random() - 0.5) * 0.22, vy: (Math.random() - 0.5) * 0.22,
+            homeX: hx, homeY: hy,
+            x: hx, y: hy,
+            vx: 0, vy: 0,
             r: Math.random() * 1.8 + 0.4,
             opacity: Math.random() * 0.55 + 0.2,
             phase: Math.random() * Math.PI * 2,
@@ -517,6 +521,9 @@
               n.vy += (dy / d) * t;
             }
           }
+          const spr = pointerOn ? SPRING_ON : SPRING_OFF;
+          n.vx += (n.homeX - n.x) * spr;
+          n.vy += (n.homeY - n.y) * spr;
           n.vx *= DAMP;
           n.vy *= DAMP;
           const sp = Math.hypot(n.vx, n.vy);
@@ -526,8 +533,8 @@
           }
           n.x += n.vx;
           n.y += n.vy;
-          if (n.x < 0) n.x = W; if (n.x > W) n.x = 0;
-          if (n.y < 0) n.y = H; if (n.y > H) n.y = 0;
+          n.x = Math.max(1, Math.min(W - 1, n.x));
+          n.y = Math.max(1, Math.min(H - 1, n.y));
         }
         const maxDist = 155;
         for (let i = 0; i < nodes.length; i++) {
