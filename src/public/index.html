@@ -466,6 +466,23 @@
       const canvas = document.getElementById("constellation");
       const ctx = canvas.getContext("2d");
       let W, H, nodes = [];
+      let mx = 0, my = 0, pointerOn = false;
+      const R_ATTRACT = 260;
+      const ATTRACT = 0.052;
+      const DAMP = 0.987;
+      const VMAX = 0.82;
+      const R_LINE_BOOST = 190;
+      const R_CURSOR_SEG = 135;
+
+      window.addEventListener("mousemove", function (e) {
+        mx = e.clientX;
+        my = e.clientY;
+        pointerOn = true;
+      });
+      window.addEventListener("mouseout", function (e) {
+        if (!e.relatedTarget) pointerOn = false;
+      });
+      window.addEventListener("blur", function () { pointerOn = false; });
 
       function resize() {
         W = canvas.width  = window.innerWidth;
@@ -490,7 +507,25 @@
       function draw() {
         ctx.clearRect(0, 0, W, H);
         for (const n of nodes) {
-          n.x += n.vx; n.y += n.vy; n.phase += n.speed;
+          n.phase += n.speed;
+          if (pointerOn) {
+            const dx = mx - n.x, dy = my - n.y;
+            const d = Math.hypot(dx, dy);
+            if (d > 2 && d < R_ATTRACT) {
+              const t = (1 - d / R_ATTRACT) * ATTRACT;
+              n.vx += (dx / d) * t;
+              n.vy += (dy / d) * t;
+            }
+          }
+          n.vx *= DAMP;
+          n.vy *= DAMP;
+          const sp = Math.hypot(n.vx, n.vy);
+          if (sp > VMAX) {
+            n.vx *= VMAX / sp;
+            n.vy *= VMAX / sp;
+          }
+          n.x += n.vx;
+          n.y += n.vy;
           if (n.x < 0) n.x = W; if (n.x > W) n.x = 0;
           if (n.y < 0) n.y = H; if (n.y > H) n.y = 0;
         }
@@ -500,11 +535,38 @@
             const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
             const dist = Math.sqrt(dx*dx + dy*dy);
             if (dist < maxDist) {
+              let alpha = (1 - dist / maxDist) * 0.6;
+              let lw = 1.5;
+              if (pointerOn) {
+                const mpx = (nodes[i].x + nodes[j].x) * 0.5;
+                const mpy = (nodes[i].y + nodes[j].y) * 0.5;
+                const dm = Math.hypot(mx - mpx, my - mpy);
+                if (dm < R_LINE_BOOST) {
+                  const boost = 1 - dm / R_LINE_BOOST;
+                  alpha += boost * 0.38;
+                  lw += boost * 0.9;
+                }
+              }
+              if (alpha > 1) alpha = 1;
               ctx.beginPath();
-              ctx.strokeStyle = "rgba(201,168,76," + ((1 - dist/maxDist) * 0.6) + ")";
-              ctx.lineWidth = 1.5;
+              ctx.strokeStyle = "rgba(201,168,76," + alpha + ")";
+              ctx.lineWidth = lw;
               ctx.moveTo(nodes[i].x, nodes[i].y);
               ctx.lineTo(nodes[j].x, nodes[j].y);
+              ctx.stroke();
+            }
+          }
+        }
+        if (pointerOn) {
+          for (const n of nodes) {
+            const d = Math.hypot(mx - n.x, my - n.y);
+            if (d < R_CURSOR_SEG && d > 3) {
+              const a = (1 - d / R_CURSOR_SEG) * 0.48;
+              ctx.beginPath();
+              ctx.strokeStyle = "rgba(240,204,90," + a + ")";
+              ctx.lineWidth = 1.1;
+              ctx.moveTo(mx, my);
+              ctx.lineTo(n.x, n.y);
               ctx.stroke();
             }
           }
