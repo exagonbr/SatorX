@@ -4,6 +4,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
+import { bindLiveGame, fetchPositionBook, restoreChess } from "/js/liveGameSession.mjs?v=2";
 
 const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
@@ -57,6 +58,8 @@ let composerRef = null;
 const libraryAnim = { fireLight: null, firePhase: 0 };
 let pieceNodes = [];
 let busy = false;
+let liveApi = null;
+let bookRefreshTimer = null;
 
 let multiplayerPollId = null;
 let myMultiplayerColor = "w";
@@ -596,6 +599,8 @@ function updateStatus() {
     syncCheckKingHighlight();
     updateGameOverOverlay();
     if (getMode() === "multiplayer") postMpFinishIfNeeded();
+    renderMoveHistory3d();
+    refreshBookLine3d();
     return;
   }
   if (game.isCheckmate()) {
@@ -622,6 +627,114 @@ function updateStatus() {
   syncCheckKingHighlight();
   updateGameOverOverlay();
   if (getMode() === "multiplayer") postMpFinishIfNeeded();
+  renderMoveHistory3d();
+  refreshBookLine3d();
+}
+
+function renderMoveHistory3d() {
+  const el = document.getElementById("moveHistory3d");
+  if (!el) return;
+  const verbose = game.history({ verbose: true });
+  if (!verbose.length) {
+    el.textContent = "Nenhum lance ainda.";
+    return;
+  }
+  const rows = [];
+  for (let i = 0; i < verbose.length; i += 2) {
+    const n = Math.floor(i / 2) + 1;
+    const w = verbose[i] ? verbose[i].san : "";
+    const b = verbose[i + 1] ? verbose[i + 1].san : "";
+    rows.push(n + ". " + w + (b ? "  " + b : ""));
+  }
+  el.textContent = rows.join("\n");
+}
+
+function refreshBookLine3d() {
+  const el = document.getElementById("bookLine3d");
+  if (!el) return;
+  clearTimeout(bookRefreshTimer);
+  bookRefreshTimer = setTimeout(async () => {
+    const data = await fetchPositionBook(game.fen());
+    if (!data || !data.ok) {
+      el.textContent = "Livro da posição: indisponível.";
+      return;
+    }
+    const localMoves = (data.local && data.local.moves) || [];
+    const top = localMoves.slice(0, 4).map((m) => m.san + " (" + m.plays + ")");
+    const remote = data.lichess && data.lichess.moves && data.lichess.moves[0]
+      ? " · Lichess: " + data.lichess.moves[0].san
+      : "";
+    el.textContent = top.length
+      ? "Livro SatorX: " + top.join(" · ") + remote
+      : "Livro da posição: sem amostras locais" + remote;
+  }, 200);
+}
+
+async function sendMoveLearn(fenBefore, fenAfter, san) {
+  try {
+    await fetch("/api/move-learn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fenBefore, fenAfter, san, enabled: true })
+    });
+  } catch {
+    /* offline */
+  }
+}
+
+function saveReplayAuto() {
+  const pgn = game.pgn();
+  let result = "unknown";
+  if (game.isCheckmate()) result = game.turn() === "w" ? "black" : "white";
+  else if (game.isDraw()) result = "draw";
+  fetch("/api/replay/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pgn,
+      fen: game.fen(),
+      result,
+      moves: game.history(),
+      meta: {
+        auto: true,
+        ui: "chess3d",
+        mode: getMode(),
+        sessionId: liveApi && liveApi.snapshot ? liveApi.snapshot().id : null
+      }
+    })
+  }).catch(() => {});
+}
+
+function applyLiveState(state) {
+  if (!state || getMode() === "multiplayer") return;
+  restoreChess(game, state);
+  if (state.mode) {
+    const modeEl = document.getElementById("mode");
+    if (modeEl && modeEl.value !== "multiplayer") modeEl.value = state.mode;
+  }
+  if (state.playerColor) {
+    const pc = document.getElementById("playerColor");
+    if (pc) pc.value = state.playerColor;
+  }
+  if (state.depth) {
+    const d = document.getElementById("depth");
+    if (d) d.value = String(state.depth);
+  }
+  if (state.timeMs) {
+    const t = document.getElementById("timeMs");
+    if (t) t.value = String(state.timeMs);
+  }
+  if (state.clocks) {
+    clockWhiteSecs = Number(state.clocks.white) || 0;
+    clockBlackSecs = Number(state.clocks.black) || 0;
+    if (state.clocks.paused) stopClock();
+    else startClock();
+    updateClockDisplays();
+  }
+  clearTapSelection();
+  syncPiecesFromGame();
+  applyBoardCamera();
+  updateStatus();
 }
 
 // ── Geometria das Peças ─────────────────────────────────────────────────────────────────
@@ -1419,6 +1532,17 @@ async function tryMove(from, to) {
   syncPiecesFromGame();
   updateStatus();
 
+  void sendMoveLearn(fenBefore, fenAfter, move.san);
+  if (liveApi) {
+    void liveApi.logMove({
+      ply: game.history().length,
+      san: move.san,
+      fenBefore,
+      fenAfter,
+      source: "player"
+    });
+  }
+
   if (getMode() === "multiplayer" && currentLobbyId) {
     if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
       mpSocket.send(JSON.stringify({ type: "move", san: move.san, fen: fenAfter }));
@@ -1432,10 +1556,12 @@ async function tryMove(from, to) {
   }
 
   updateClockDisplays();
-  if (game.isGameOver()) stopClock();
+  if (game.isGameOver()) {
+    stopClock();
+    saveReplayAuto();
+  }
 
   if (getMode() === "engine") maybeEngineReply();
-  // else if (game.isGameOver()) saveReplayAuto();
 
   return true;
 }
@@ -1460,6 +1586,21 @@ async function callBestMove() {
     syncPiecesFromGame();
     clearTapSelection();
     updateStatus();
+    const fenAfter = game.fen();
+    void sendMoveLearn(fenBefore, fenAfter, res.bestMove.san);
+    if (liveApi) {
+      void liveApi.logMove({
+        ply: game.history().length,
+        san: res.bestMove.san,
+        fenBefore,
+        fenAfter,
+        source: "engine"
+      });
+    }
+    if (game.isGameOver()) {
+      stopClock();
+      saveReplayAuto();
+    }
   }
   busy = false;
   updateStatus();
@@ -1948,7 +2089,28 @@ window.addEventListener("DOMContentLoaded", () => {
   createScene();
   updateStatus();
 
-  document.getElementById("btnNew")?.addEventListener("click", () => {
+  liveApi = bindLiveGame({
+    view: "3d",
+    getGame: () => game,
+    getMeta: () => ({
+      mode: getMode(),
+      playerColor: getPlayerColor(),
+      depth: parseInt(document.getElementById("depth")?.value, 10) || 7,
+      timeMs: parseInt(document.getElementById("timeMs")?.value, 10) || 2500,
+      clocks: {
+        white: clockWhiteSecs,
+        black: clockBlackSecs,
+        paused: !clockRunning,
+        side: game.turn()
+      }
+    }),
+    applyState: applyLiveState
+  });
+
+  document.getElementById("btnNew")?.addEventListener("click", async () => {
+    const view = liveApi ? await liveApi.chooseNewGame() : "3d";
+    if (!view) return;
+    if (liveApi) liveApi.beginNewSession();
     game.reset();
     resetClock();
     startClock();
@@ -1956,6 +2118,11 @@ window.addEventListener("DOMContentLoaded", () => {
     syncPiecesFromGame();
     updateStatus();
     updateGameOverOverlay();
+    if (liveApi) liveApi.publish();
+    if (view === "2d") {
+      liveApi.goToView("2d");
+      return;
+    }
     if (getMode() === "engine") maybeEngineReply();
   });
 
@@ -1968,6 +2135,12 @@ window.addEventListener("DOMContentLoaded", () => {
     clearTapSelection();
     syncPiecesFromGame();
     updateStatus();
+    if (liveApi) liveApi.publish();
+  });
+
+  document.getElementById("btnSwitch2d")?.addEventListener("click", () => {
+    if (liveApi) liveApi.goToView("2d");
+    else window.location.href = "/board2d.html";
   });
 
   document.getElementById("btnGoNew")?.addEventListener("click", () => {
@@ -2100,6 +2273,20 @@ window.addEventListener("DOMContentLoaded", () => {
     if (e.key === "Escape") clearTapSelection();
   });
 
-  startClock();
-  if (getMode() === "engine") maybeEngineReply();
+  document.getElementById("btnSwitch2dFooter")?.addEventListener("click", () => {
+    document.getElementById("btnSwitch2d")?.click();
+  });
+
+  const skipLive = Boolean(urlLobby || urlJoin);
+  if (!skipLive && liveApi) {
+    void liveApi.restore().then((restored) => {
+      if (restored && restored.clocks && !restored.clocks.paused) startClock();
+      else if (!restored || !(restored.sans && restored.sans.length)) startClock();
+      updateStatus();
+      if (getMode() === "engine") maybeEngineReply();
+    });
+  } else {
+    startClock();
+    if (getMode() === "engine") maybeEngineReply();
+  }
 });

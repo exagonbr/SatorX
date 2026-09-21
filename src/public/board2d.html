@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"/>
   <script defer src="/_vercel/speed-insights/script.js"></script>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
   <meta name="description" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -42,6 +42,9 @@
       font-family: "Source Sans 3", system-ui, sans-serif;
       line-height: 1.5;
       min-height: 100vh;
+      min-height: 100dvh;
+      overflow-x: hidden;
+      max-width: 100%;
     }
 
     /* ── Fundo decorativo ───────────────────────────────────────── */
@@ -61,9 +64,21 @@
     .page-wrap {
       position: relative;
       z-index: 1;
-      padding: 24px 24px 48px;
-      max-width: 1200px;
+      width: 100%;
+      max-width: 1360px;
       margin: 0 auto;
+      padding: 16px 16px 36px;
+      padding-top: max(16px, env(safe-area-inset-top));
+      padding-left: max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(36px, env(safe-area-inset-bottom));
+    }
+    @media (min-width: 768px) {
+      .page-wrap {
+        padding: 24px 24px 48px;
+        padding-left: max(24px, env(safe-area-inset-left));
+        padding-right: max(24px, env(safe-area-inset-right));
+      }
     }
 
     /* ── Cabeçalho ──────────────────────────────────────────────── */
@@ -123,22 +138,228 @@
     /* ── Layout de colunas ──────────────────────────────────────── */
     .row {
       display: flex;
-      gap: 28px;
+      gap: 24px;
       flex-wrap: wrap;
       align-items: flex-start;
+      width: 100%;
+      min-width: 0;
+    }
+    .play-row {
+      display: grid;
+      grid-template-columns: minmax(0, 460px) minmax(180px, 240px);
+      grid-template-areas:
+        "board history"
+        "tools history";
+      gap: 14px 18px;
+      flex: 1 1 640px;
+      min-width: 0;
+      align-items: start;
+      width: 100%;
+    }
+    .board-stack {
+      grid-area: board;
+      min-width: 0;
+      width: 100%;
+      max-width: 460px;
+    }
+    .board-tools {
+      grid-area: tools;
+      min-width: 0;
+      width: 100%;
+      max-width: 460px;
     }
 
     /* ── Tabuleiro ──────────────────────────────────────────────── */
-    .board-wrap {
-      flex-shrink: 0;
-    }
-    #board {
-      width: min(92vw, 440px);
+    .board-stage {
+      position: relative;
+      width: 100%;
       border-radius: 4px;
-      overflow: hidden;
+      overflow: visible;
       box-shadow:
         0 20px 60px rgba(0, 0, 0, 0.6),
         0 0 0 1px rgba(212, 175, 55, 0.15);
+    }
+    #board { width: 100%; max-width: 100%; }
+    #board .board-b72b1 { max-width: 100%; }
+    .board-arrows {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 12;
+      overflow: visible;
+    }
+
+    /* ── Relógio ────────────────────────────────────────────────── */
+    .clock-face {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.45);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+    .clock-face.is-bottom { margin-bottom: 0; margin-top: 8px; }
+    .clock-face.is-active {
+      border-color: var(--gold);
+      box-shadow: 0 0 18px rgba(212, 175, 55, 0.18);
+      background: rgba(212, 175, 55, 0.08);
+    }
+    .clock-face.is-paused { opacity: 0.72; }
+    .clock-face__meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .clock-face__label {
+      font-size: 0.68rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .clock-face.is-active .clock-face__label { color: var(--gold); }
+    .clock-face__side {
+      font-size: 0.75rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .clock-face__time {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: clamp(1.15rem, 5vw, 1.55rem);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+    .clock-face.is-active .clock-face__time { color: var(--gold-bright); }
+    .clock-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .clock-auto {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+      margin: 0;
+    }
+    .clock-auto input { accent-color: var(--gold); }
+    .clock-hint {
+      width: 100%;
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .btn-clock-press {
+      border-color: var(--gold);
+      color: var(--gold-bright);
+      background: rgba(212, 175, 55, 0.16);
+    }
+
+    /* ── Histórico ──────────────────────────────────────────────── */
+    .history-panel {
+      grid-area: history;
+      width: auto;
+      min-width: 0;
+      min-height: 0;
+      align-self: stretch;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      max-height: min(72vh, 720px);
+    }
+    .history-panel h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .history-scroll {
+      overflow: auto;
+      flex: 1;
+      min-height: 180px;
+      border: 1px solid rgba(212, 175, 55, 0.08);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.28);
+    }
+    .history-empty {
+      margin: 0;
+      padding: 16px 12px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    table.history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+    }
+    table.history-table th {
+      position: sticky;
+      top: 0;
+      background: #121820;
+      color: var(--muted);
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    table.history-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid rgba(212, 175, 55, 0.06);
+      vertical-align: middle;
+    }
+    table.history-table td.num { color: var(--muted); width: 2.2em; }
+    table.history-table td.san { color: var(--text); }
+    table.history-table tr.is-last td {
+      background: rgba(212, 175, 55, 0.1);
+      color: var(--gold-bright);
+    }
+    .move-legend-2d {
+      list-style: none;
+      padding: 0;
+      margin: 12px 0 0;
+      font-size: 0.68rem;
+      color: var(--muted);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 8px;
+    }
+    .move-legend-2d li {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .move-legend-2d .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
     }
 
     /* ── Barra de ferramentas ───────────────────────────────────── */
@@ -146,7 +367,7 @@
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      margin-top: 14px;
+      margin-top: 0;
     }
 
     /* ── Controles ──────────────────────────────────────────────── */
@@ -154,6 +375,32 @@
       margin-top: 14px;
       display: grid;
       gap: 10px;
+      min-width: 0;
+    }
+    .controls > label {
+      min-width: 0;
+    }
+    .controls select {
+      flex: 1;
+      min-width: 0;
+    }
+    .mp-join-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .mp-join-row input[type="text"],
+    .mp-join-row input[type="password"] {
+      min-width: 0;
+      flex: 1 1 120px;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      font-family: inherit;
     }
     label {
       display: flex;
@@ -177,6 +424,7 @@
       font-weight: 600;
       letter-spacing: 0.02em;
       transition: border-color 0.18s, color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.12s;
+      touch-action: manipulation;
     }
     .btn:hover:not(:disabled) {
       background: rgba(212, 175, 55, 0.18);
@@ -222,8 +470,8 @@
 
     /* ── Painel lateral ─────────────────────────────────────────── */
     .panel {
-      flex: 1;
-      min-width: 280px;
+      flex: 1 1 300px;
+      min-width: 0;
       max-width: 580px;
       background: var(--surface);
       border: 1px solid var(--border);
@@ -371,6 +619,73 @@
     .black-3c85d { background-color: #8b6914 !important; }
     .highlight-white { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
     .highlight-black { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
+
+    @media (pointer: coarse) {
+      .btn { min-height: 44px; }
+    }
+
+    @media (max-width: 1100px) {
+      .panel { max-width: none; }
+    }
+
+    @media (max-width: 860px) {
+      .play-row {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "board"
+          "history"
+          "tools";
+        flex: 1 1 100%;
+      }
+      .board-stack,
+      .board-tools {
+        max-width: none;
+      }
+      .history-panel {
+        max-height: 240px;
+      }
+      .panel {
+        flex: 1 1 100%;
+        max-width: none;
+        padding: 16px;
+      }
+      .page-title { font-size: 1.35rem; }
+      .lead { font-size: 0.82rem; margin-bottom: 16px; }
+      .clock-face { padding: 8px 12px; }
+      .controls > label {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+      .controls select,
+      .controls input[type="number"],
+      .controls input[type="text"] {
+        width: 100%;
+      }
+      .toolbar .btn { flex: 1 1 calc(50% - 8px); }
+      .mp-join-row input { flex: 1 1 100%; }
+      .mp-join-row .btn { flex: 1 1 auto; }
+    }
+
+    @media (max-width: 480px) {
+      .page-header { gap: 8px; padding-bottom: 12px; }
+      .badge { font-size: 0.6rem; }
+      .history-panel { padding: 12px; max-height: 200px; }
+      .history-scroll { min-height: 120px; }
+      .move-legend-2d { font-size: 0.62rem; }
+      .toolbar .btn { flex: 1 1 100%; }
+      pre { font-size: 0.68rem; }
+    }
+
+    @media (max-width: 860px) and (orientation: landscape) {
+      .play-row {
+        grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
+        grid-template-areas:
+          "board history"
+          "tools tools";
+      }
+      .history-panel { max-height: min(70vh, 420px); }
+    }
   </style>
 </head>
 <body>
@@ -379,16 +694,65 @@
       <h1 class="page-title">Sator <span>Engine</span></h1>
       <span class="badge">Aprendizado profundo</span>
       <a class="nav-link" href="/">← Menu</a>
-      <a class="nav-link" href="/chess3d.html">Vista 3D ↗</a>
+      <span class="live-switch">
+        <button type="button" id="btnSwitch3d">Continuar em 3D</button>
+      </span>
     </div>
     <p class="lead">
-      Jogue no navegador, salve partidas como <strong>dados</strong> e veja como isso se conecta a redes neurais
-      (política π, valor V, buffer de experiência). O motor usa busca clássica; o caminho para RL supervisionado está no repositório.
+      Vista 2D com setas de lance, histórico na lateral e relógio. Auto-clique troca o tempo ao jogar;
+      desligue para mover e só depois pausar / passar o relógio.
     </p>
 
     <div class="row">
-      <div class="board-wrap">
-        <div id="board"></div>
+      <div class="play-row">
+      <div class="board-stack">
+        <div class="clock-face" id="clockTop">
+          <div class="clock-face__meta">
+            <span class="clock-face__label" id="clockTopLabel">Pretas</span>
+            <span class="clock-face__side" id="clockTopSide">Oponente</span>
+          </div>
+          <span class="clock-face__time" id="clockTopTime">00:00</span>
+        </div>
+        <div class="board-stage">
+          <div id="board"></div>
+          <svg id="boardArrows" class="board-arrows" aria-hidden="true"></svg>
+        </div>
+        <div class="clock-face is-bottom" id="clockBottom">
+          <div class="clock-face__meta">
+            <span class="clock-face__label" id="clockBottomLabel">Brancas</span>
+            <span class="clock-face__side" id="clockBottomSide">Você</span>
+          </div>
+          <span class="clock-face__time" id="clockBottomTime">00:00</span>
+        </div>
+        <div class="clock-controls">
+          <label class="clock-auto">
+            <input type="checkbox" id="clockAutoClick" checked />
+            Auto-clique
+          </label>
+          <button type="button" class="btn" id="btnClockPause">Pausar</button>
+          <button type="button" class="btn btn-clock-press" id="btnClockPress" hidden>Passar relógio</button>
+          <p class="clock-hint" id="clockHint">O relógio começa no primeiro lance. Auto-clique troca o lado automaticamente.</p>
+        </div>
+      </div>
+
+      <aside class="history-panel" aria-label="Histórico de jogadas">
+        <h2>Histórico de jogadas</h2>
+        <div class="history-scroll" id="moveHistory">
+          <p class="history-empty">Nenhum lance ainda.</p>
+        </div>
+        <ul class="move-legend-2d" aria-label="Legenda das setas">
+          <li><span class="dot" style="background:#d4af37"></span> Último lance</li>
+          <li><span class="dot" style="background:#2eb861"></span> Lance simples</li>
+          <li><span class="dot" style="background:#e5382e"></span> Captura</li>
+          <li><span class="dot" style="background:#3866f2"></span> Roque</li>
+          <li><span class="dot" style="background:#9447e0"></span> En passant</li>
+          <li><span class="dot" style="background:#26c6d8"></span> Avanço duplo</li>
+          <li><span class="dot" style="background:#ebad1f"></span> Promoção</li>
+          <li><span class="dot" style="background:#f2c82e"></span> Selecionada</li>
+        </ul>
+      </aside>
+
+      <div class="board-tools">
         <div class="toolbar">
           <button type="button" class="btn" id="btnNew">Novo jogo</button>
           <button type="button" class="btn" id="btnUndo">Desfazer</button>
@@ -429,9 +793,9 @@
             <div style="display:flex; gap: 8px; margin-top: 10px; flex-wrap:wrap;">
               <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
             </div>
-            <div style="display:flex; gap: 8px; margin-top:8px; flex-wrap:wrap; align-items:center;">
-              <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
-              <input type="password" id="mpJoinPassword" placeholder="Senha" maxlength="64" style="flex:1;min-width:100px;padding:6px;background:rgba(0,0,0,0.4);border:1px solid var(--border);color:white;border-radius:4px;"/>
+            <div class="mp-join-row">
+              <input type="text" id="lobbyIdInput" placeholder="ID da Sala" />
+              <input type="password" id="mpJoinPassword" placeholder="Senha" maxlength="64"/>
               <button type="button" class="btn" id="btnJoinLobby">Entrar (jogador)</button>
               <button type="button" class="btn" id="btnSpectateLobby">Assistir (cima)</button>
             </div>
@@ -459,6 +823,7 @@
           </details>
         </div>
       </div>
+      </div>
 
       <div class="panel">
         <h2>Estado da partida</h2>
@@ -471,6 +836,14 @@
 
         <h3>Relatório (Tabula + métricas)</h3>
         <pre id="report">{}</pre>
+
+        <h3>Livro e busca (SatorX + Lichess)</h3>
+        <p id="bookLine" class="clock-hint">Livro da posição: —</p>
+        <div class="clock-controls" style="margin-top:8px;">
+          <input type="search" id="gameSearchQ" placeholder="Buscar partidas (e4, kasparov, draw…)" style="flex:1;min-width:140px;padding:8px;border-radius:7px;border:1px solid var(--border);background:rgba(0,0,0,0.4);color:var(--text);"/>
+          <button type="button" class="btn" id="btnGameSearch">Buscar</button>
+        </div>
+        <pre id="gameSearchOut">[]</pre>
 
         <h3>Replays</h3>
         <pre id="replays">[]</pre>
@@ -516,6 +889,7 @@
   <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
+    import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=2";
     const game = new Chess();
     let board = null;
     let busy = false;
@@ -534,6 +908,32 @@
     let mpCaps = null;
     let mpCapsPromise = null;
     let mpRealtimeConnectGen = 0;
+
+    const KIND_HEX = {
+      selected: "#f2c82e",
+      quiet: "#2eb861",
+      capture: "#e5382e",
+      castle: "#3866f2",
+      ep: "#9447e0",
+      promo: "#ebad1f",
+      double: "#26c6d8",
+      capture_promo: "#eb6b1a",
+      last: "#d4af37"
+    };
+    let selectedSq = null;
+    let lastMoveArrow = null;
+    let ignoreNextClick = false;
+    function swallowTrailingClick() {
+      ignoreNextClick = true;
+      setTimeout(function () { ignoreNextClick = false; }, 80);
+    }
+    let clockWhiteSecs = 0;
+    let clockBlackSecs = 0;
+    let clockInterval = null;
+    let clockPaused = true;
+    let awaitingClockPress = false;
+    let clockSide = "w";
+    let liveApi = null;
 
     var MP_LOBBY_UNSUPPORTED_MSG =
       "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
@@ -636,6 +1036,8 @@
       if (!board) return;
       if (mpIsSpectator) board.orientation("white");
       else board.orientation(myMultiplayerColor === "w" ? "white" : "black");
+      updateClockUi();
+      scheduleBoardGraphics();
     }
 
     function updateMpConnStats() {
@@ -976,6 +1378,393 @@
 
     function getMode() { return document.getElementById("mode").value; }
     function getPlayerColor() { return document.getElementById("playerColor").value; }
+    function isAutoClick() {
+      const el = document.getElementById("clockAutoClick");
+      return el ? el.checked : true;
+    }
+
+    function fmtClock(secs) {
+      const s = Math.max(0, Math.floor(secs));
+      const m = Math.floor(s / 60);
+      const ss = s % 60;
+      return String(m).padStart(2, "0") + ":" + String(ss).padStart(2, "0");
+    }
+
+    function clockSideLabel(color) {
+      if (getMode() === "human") return color === "w" ? "Brancas" : "Pretas";
+      if (getMode() === "multiplayer") return color === "w" ? "Brancas" : "Pretas";
+      if (getMode() === "engine") {
+        return color === getPlayerColor() ? "Você" : "Motor Sator";
+      }
+      return color === "w" ? "Brancas" : "Pretas";
+    }
+
+    function updateClockUi() {
+      const topEl = document.getElementById("clockTop");
+      const botEl = document.getElementById("clockBottom");
+      if (!topEl || !botEl) return;
+      const orientWhite = !board || board.orientation() === "white";
+      const topColor = orientWhite ? "b" : "w";
+      const botColor = orientWhite ? "w" : "b";
+      const sides = [
+        { el: topEl, color: topColor, timeId: "clockTopTime", labelId: "clockTopLabel", sideId: "clockTopSide" },
+        { el: botEl, color: botColor, timeId: "clockBottomTime", labelId: "clockBottomLabel", sideId: "clockBottomSide" }
+      ];
+      const ticking = !clockPaused && !game.isGameOver();
+      for (const s of sides) {
+        const active = ticking && clockSide === s.color;
+        s.el.classList.toggle("is-active", active);
+        s.el.classList.toggle("is-paused", clockPaused && !game.isGameOver());
+        const timeEl = document.getElementById(s.timeId);
+        const labelEl = document.getElementById(s.labelId);
+        const sideEl = document.getElementById(s.sideId);
+        if (timeEl) timeEl.textContent = fmtClock(s.color === "w" ? clockWhiteSecs : clockBlackSecs);
+        if (labelEl) labelEl.textContent = s.color === "w" ? "Brancas" : "Pretas";
+        if (sideEl) sideEl.textContent = clockSideLabel(s.color);
+      }
+      const pauseBtn = document.getElementById("btnClockPause");
+      if (pauseBtn) pauseBtn.textContent = clockPaused ? "Continuar" : "Pausar";
+      const pressBtn = document.getElementById("btnClockPress");
+      if (pressBtn) pressBtn.hidden = isAutoClick() || !awaitingClockPress || game.isGameOver();
+      const hint = document.getElementById("clockHint");
+      if (hint) {
+        if (game.isGameOver()) hint.textContent = "Partida encerrada — relógio parado.";
+        else if (clockPaused) hint.textContent = "Relógio pausado. Continue ou faça o lance e use Pausar / Passar relógio.";
+        else if (awaitingClockPress) hint.textContent = "Lance feito — aperte Pausar ou Passar relógio para entregar o tempo ao oponente.";
+        else if (isAutoClick()) hint.textContent = "Auto-clique ligado: o relógio troca de lado sozinho após cada lance.";
+        else hint.textContent = "Auto-clique desligado: jogue e depois passe o relógio (ou pause).";
+      }
+    }
+
+    function tickClock() {
+      if (clockPaused || game.isGameOver()) return;
+      if (getMode() === "multiplayer" && !mpIsSpectator && !mpOpponentReady) return;
+      if (clockSide === "w") clockWhiteSecs++;
+      else clockBlackSecs++;
+      updateClockUi();
+    }
+
+    function ensureClockTicking() {
+      if (game.isGameOver() || clockPaused) return;
+      if (clockInterval) return;
+      clockInterval = setInterval(tickClock, 1000);
+    }
+
+    function pauseClock() {
+      clockPaused = true;
+      if (clockInterval) {
+        clearInterval(clockInterval);
+        clockInterval = null;
+      }
+      updateClockUi();
+    }
+
+    function resumeClock() {
+      if (game.isGameOver()) return;
+      clockPaused = false;
+      if (!awaitingClockPress) clockSide = game.turn();
+      ensureClockTicking();
+      updateClockUi();
+    }
+
+    function resetClock() {
+      pauseClock();
+      clockWhiteSecs = 0;
+      clockBlackSecs = 0;
+      awaitingClockPress = false;
+      clockSide = "w";
+      updateClockUi();
+    }
+
+    function onClockAfterMove(movedColor) {
+      if (game.isGameOver()) {
+        pauseClock();
+        return;
+      }
+      if (isAutoClick()) {
+        awaitingClockPress = false;
+        clockSide = game.turn();
+      } else {
+        awaitingClockPress = true;
+        clockSide = movedColor;
+      }
+      clockPaused = false;
+      ensureClockTicking();
+      updateClockUi();
+    }
+
+    function pressClock() {
+      if (!awaitingClockPress || game.isGameOver()) return;
+      awaitingClockPress = false;
+      clockSide = game.turn();
+      clockPaused = false;
+      ensureClockTicking();
+      updateClockUi();
+    }
+
+    function toggleClockPause() {
+      if (game.isGameOver()) return;
+      if (!isAutoClick() && awaitingClockPress && !clockPaused) {
+        pressClock();
+        if (liveApi) liveApi.publish();
+        return;
+      }
+      if (clockPaused) resumeClock();
+      else pauseClock();
+      if (liveApi) liveApi.publish();
+    }
+
+    function moveKind(mv) {
+      const f = (mv && mv.flags) || "";
+      if (f.includes("k") || f.includes("q")) return "castle";
+      if (f.includes("e")) return "ep";
+      if (f.includes("p") && f.includes("c")) return "capture_promo";
+      if (f.includes("p")) return "promo";
+      if (f.includes("c")) return "capture";
+      if (f.includes("b")) return "double";
+      return "quiet";
+    }
+
+    function rememberLastMove(mv) {
+      if (mv && mv.from && mv.to) lastMoveArrow = { from: mv.from, to: mv.to };
+      else lastMoveArrow = null;
+    }
+
+    function syncLastMoveFromHistory() {
+      const verbose = game.history({ verbose: true });
+      const last = verbose[verbose.length - 1];
+      rememberLastMove(last || null);
+    }
+
+    function getSquareCenter(sq) {
+      const el = document.querySelector("#board .square-" + sq);
+      const stage = document.querySelector(".board-stage");
+      if (!el || !stage) return null;
+      const a = el.getBoundingClientRect();
+      const b = stage.getBoundingClientRect();
+      return {
+        cx: a.left - b.left + a.width / 2,
+        cy: a.top - b.top + a.height / 2,
+        r: a.width / 2
+      };
+    }
+
+    function arrowMarkup(from, to, color, markerId, width) {
+      const a = getSquareCenter(from);
+      const b = getSquareCenter(to);
+      if (!a || !b) return "";
+      const dx = b.cx - a.cx;
+      const dy = b.cy - a.cy;
+      const len = Math.hypot(dx, dy) || 1;
+      const x1 = a.cx + (dx / len) * a.r * 0.28;
+      const y1 = a.cy + (dy / len) * a.r * 0.28;
+      const x2 = b.cx - (dx / len) * (b.r * 0.42);
+      const y2 = b.cy - (dy / len) * (b.r * 0.42);
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${width}" stroke-linecap="round" marker-end="url(#${markerId})" opacity="0.92"/>`;
+    }
+
+    function destMarkup(sq, color, kind) {
+      const p = getSquareCenter(sq);
+      if (!p) return "";
+      if (kind === "capture" || kind === "capture_promo" || kind === "ep") {
+        return `<circle cx="${p.cx}" cy="${p.cy}" r="${p.r * 0.42}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.85"/>`;
+      }
+      return `<circle cx="${p.cx}" cy="${p.cy}" r="${Math.max(5, p.r * 0.16)}" fill="${color}" opacity="0.88"/>`;
+    }
+
+    function highlightLastMoveSquares() {
+      const squares = document.querySelectorAll("#board .square-55d63");
+      for (const el of squares) {
+        el.classList.remove("highlight-white", "highlight-black");
+      }
+      if (!lastMoveArrow) return;
+      [lastMoveArrow.from, lastMoveArrow.to].forEach(function (sq) {
+        const el = document.querySelector("#board .square-" + sq);
+        if (!el) return;
+        const light = el.classList.contains("white-1e1d7");
+        el.classList.add(light ? "highlight-white" : "highlight-black");
+      });
+    }
+
+    function drawBoardGraphics() {
+      const svg = document.getElementById("boardArrows");
+      const stage = document.querySelector(".board-stage");
+      if (!svg || !stage) return;
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+      svg.setAttribute("width", String(w));
+      svg.setAttribute("height", String(h));
+      const markers = Object.keys(KIND_HEX).map(function (k) {
+        return `<marker id="ah-${k}" markerWidth="8" markerHeight="8" refX="6.2" refY="4" orient="auto">
+          <path d="M0,0.6 L8,4 L0,7.4 z" fill="${KIND_HEX[k]}"/>
+        </marker>`;
+      }).join("");
+      const parts = [`<defs>${markers}</defs>`];
+      if (lastMoveArrow) {
+        parts.push(arrowMarkup(lastMoveArrow.from, lastMoveArrow.to, KIND_HEX.last, "ah-last", 6));
+      }
+      if (selectedSq) {
+        const origin = getSquareCenter(selectedSq);
+        if (origin) {
+          parts.push(`<circle cx="${origin.cx}" cy="${origin.cy}" r="${origin.r * 0.46}" fill="${KIND_HEX.selected}" opacity="0.22"/>`);
+        }
+        const moves = game.moves({ square: selectedSq, verbose: true });
+        for (const mv of moves) {
+          const kind = moveKind(mv);
+          const color = KIND_HEX[kind] || KIND_HEX.quiet;
+          parts.push(arrowMarkup(mv.from, mv.to, color, "ah-" + kind, 3.4));
+          parts.push(destMarkup(mv.to, color, kind));
+        }
+      }
+      svg.innerHTML = parts.join("");
+      highlightLastMoveSquares();
+    }
+
+    function scheduleBoardGraphics() {
+      requestAnimationFrame(function () {
+        drawBoardGraphics();
+      });
+    }
+
+    let resizeBoardFrame = 0;
+    function resizeBoardUi() {
+      if (resizeBoardFrame) cancelAnimationFrame(resizeBoardFrame);
+      resizeBoardFrame = requestAnimationFrame(function () {
+        resizeBoardFrame = 0;
+        const el = document.getElementById("board");
+        if (el) {
+          const parent = el.parentElement;
+          const w = parent ? Math.floor(parent.getBoundingClientRect().width) : 0;
+          if (w > 0) el.style.width = w + "px";
+        }
+        if (board) board.resize();
+        scheduleBoardGraphics();
+        updateClockUi();
+      });
+    }
+
+    function renderMoveHistory() {
+      const wrap = document.getElementById("moveHistory");
+      if (!wrap) return;
+      const verbose = game.history({ verbose: true });
+      if (!verbose.length) {
+        wrap.innerHTML = '<p class="history-empty">Nenhum lance ainda.</p>';
+        return;
+      }
+      const rows = [];
+      for (let i = 0; i < verbose.length; i += 2) {
+        const n = i / 2 + 1;
+        const w = verbose[i];
+        const b = verbose[i + 1];
+        const isLast = i === verbose.length - 1 || i + 1 === verbose.length - 1;
+        rows.push(
+          `<tr class="${isLast ? "is-last" : ""}">
+            <td class="num">${n}.</td>
+            <td class="san">${w ? w.san : ""}</td>
+            <td class="san">${b ? b.san : ""}</td>
+          </tr>`
+        );
+      }
+      wrap.innerHTML =
+        `<table class="history-table"><thead><tr><th>#</th><th>Brancas</th><th>Pretas</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function canControlPiece(piece) {
+      if (!piece) return false;
+      if (getMode() === "human") return piece.color === game.turn();
+      if (getMode() === "engine") return piece.color === getPlayerColor() && isPlayerTurn();
+      if (getMode() === "multiplayer") {
+        if (mpIsSpectator || !mpOpponentReady) return false;
+        return piece.color === myMultiplayerColor && isPlayerTurn();
+      }
+      return false;
+    }
+
+    function trySelectOrMove(sq) {
+      if (busy || game.isGameOver()) return;
+      if (getMode() === "multiplayer" && (mpIsSpectator || !mpOpponentReady)) return;
+      if (getMode() === "engine" && !isPlayerTurn()) return;
+      const piece = game.get(sq);
+      if (selectedSq) {
+        if (sq === selectedSq) {
+          selectedSq = null;
+          drawBoardGraphics();
+          return;
+        }
+        const legal = game.moves({ square: selectedSq, verbose: true }).some(function (m) { return m.to === sq; });
+        if (legal) {
+          const from = selectedSq;
+          selectedSq = null;
+          void applyPlayerMove(from, sq);
+          return;
+        }
+        if (piece && canControlPiece(piece)) {
+          selectedSq = sq;
+          drawBoardGraphics();
+          return;
+        }
+        selectedSq = null;
+        drawBoardGraphics();
+        return;
+      }
+      if (piece && canControlPiece(piece)) {
+        selectedSq = sq;
+        drawBoardGraphics();
+      }
+    }
+
+    async function applyPlayerMove(source, target) {
+      const fenBefore = game.fen();
+      const move = game.move({ from: source, to: target, promotion: "q" });
+      if (!move) return false;
+      rememberLastMove(move);
+      selectedSq = null;
+      swallowTrailingClick();
+      board.position(game.fen());
+      onClockAfterMove(move.color);
+      await sendMoveLearn(fenBefore, game.fen(), move.san);
+      if (liveApi) {
+        void liveApi.logMove({
+          ply: game.history().length,
+          san: move.san,
+          fenBefore: fenBefore,
+          fenAfter: game.fen(),
+          source: "player"
+        });
+      }
+
+      if (getMode() === "multiplayer" && currentLobbyId && !mpIsSpectator) {
+        const fenAfter = game.fen();
+        if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
+          mpSocket.send(JSON.stringify({ type: "move", san: move.san, fen: fenAfter }));
+        } else {
+          fetch("/api/lobby/move", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lobbyId: currentLobbyId, move: move.san, fen: fenAfter })
+          }).catch(function (e) {
+            console.error("Erro no multiplayer move", e);
+          });
+        }
+      }
+
+      updateStatus();
+      if (game.isGameOver()) {
+        pauseClock();
+        saveReplayAuto();
+        return true;
+      }
+      if (getMode() === "engine" && !isPlayerTurn()) {
+        busy = true;
+        updateStatus();
+        await callBestMove();
+        busy = false;
+        updateStatus();
+      }
+      return true;
+    }
 
     function setStatus(msg) { document.getElementById("status").textContent = msg; }
 
@@ -1038,7 +1827,11 @@
         mpServerEndShown = false;
         mpLastPlayersPollCount = 0;
         mpOpponentReady = false;
-        board.orientation("white");
+        if (board) {
+          board.orientation("white");
+          updateClockUi();
+          scheduleBoardGraphics();
+        }
       } else {
         void ensureLobbyCapabilities().then(function (caps) {
           if (caps.persistentLobbies === false) {
@@ -1086,6 +1879,64 @@
       }
     }
 
+    let bookRefreshTimer = null;
+    function refreshBookLine() {
+      const el = document.getElementById("bookLine");
+      if (!el) return;
+      clearTimeout(bookRefreshTimer);
+      bookRefreshTimer = setTimeout(async function () {
+        const data = await fetchPositionBook(game.fen());
+        if (!data || !data.ok) {
+          el.textContent = "Livro da posição: indisponível.";
+          return;
+        }
+        const localMoves = (data.local && data.local.moves) || [];
+        const top = localMoves.slice(0, 5).map(function (m) {
+          return m.san + " (" + m.plays + ")";
+        });
+        const remote = data.lichess && data.lichess.moves && data.lichess.moves[0]
+          ? " · Lichess: " + data.lichess.moves[0].san
+          : "";
+        el.textContent = top.length
+          ? "Livro SatorX: " + top.join(" · ") + remote
+          : "Livro da posição: sem amostras locais" + remote;
+      }, 180);
+    }
+
+    function applyLiveState(state) {
+      if (!state || getMode() === "multiplayer") return;
+      restoreChess(game, state);
+      selectedSq = null;
+      if (state.lastMove && state.lastMove.from) {
+        lastMoveArrow = { from: state.lastMove.from, to: state.lastMove.to };
+      } else {
+        syncLastMoveFromHistory();
+      }
+      if (state.mode && document.getElementById("mode")) {
+        document.getElementById("mode").value = state.mode;
+      }
+      if (state.playerColor && document.getElementById("playerColor")) {
+        document.getElementById("playerColor").value = state.playerColor;
+      }
+      if (state.depth && document.getElementById("depth")) {
+        document.getElementById("depth").value = state.depth;
+      }
+      if (state.timeMs && document.getElementById("timeMs")) {
+        document.getElementById("timeMs").value = state.timeMs;
+      }
+      if (state.clocks) {
+        clockWhiteSecs = Number(state.clocks.white) || 0;
+        clockBlackSecs = Number(state.clocks.black) || 0;
+        clockSide = state.clocks.side || game.turn();
+        awaitingClockPress = Boolean(state.clocks.awaiting);
+        if (state.clocks.paused) pauseClock();
+        else resumeClock();
+      }
+      if (board) board.position(game.fen());
+      updateStatus();
+      updateClockUi();
+    }
+
     function scheduleRatingPredictiveRefresh() {
       const line = document.getElementById("ratingPredictiveLine");
       if (!line) return;
@@ -1116,6 +1967,9 @@
     }
 
     function updateStatus() {
+      const verboseMoves = game.history({ verbose: true });
+      if (verboseMoves.length) syncLastMoveFromHistory();
+      else lastMoveArrow = null;
       let s = "";
       if (
         getMode() === "multiplayer" &&
@@ -1128,7 +1982,10 @@
         setStatus(s);
         setFen();
         renderTensorGrid();
+        renderMoveHistory();
+        scheduleBoardGraphics();
         scheduleRatingPredictiveRefresh();
+        refreshBookLine();
         if (getMode() === "multiplayer") postMpFinishIfNeeded();
         return;
       }
@@ -1152,7 +2009,10 @@
       setStatus(s);
       setFen();
       renderTensorGrid();
+      renderMoveHistory();
+      scheduleBoardGraphics();
       scheduleRatingPredictiveRefresh();
+      refreshBookLine();
       if (getMode() === "multiplayer") postMpFinishIfNeeded();
     }
 
@@ -1170,44 +2030,29 @@
         if (!isPlayerTurn()) return false;
         if (piece.startsWith(myMultiplayerColor === "w" ? "b" : "w")) return false;
       }
+      selectedSq = source;
+      swallowTrailingClick();
+      scheduleBoardGraphics();
       return true;
     }
 
-    async function onDrop(source, target) {
-      const fenBefore = game.fen();
-      const move = game.move({ from: source, to: target, promotion: "q" });
-      if (!move) return "snapback";
-      board.position(game.fen());
-      await sendMoveLearn(fenBefore, game.fen(), move.san);
-      
-      if (getMode() === "multiplayer" && currentLobbyId && !mpIsSpectator) {
-        const fenAfter = game.fen();
-        if (mpSocket && mpSocket.readyState === WebSocket.OPEN) {
-          mpSocket.send(JSON.stringify({ type: "move", san: move.san, fen: fenAfter }));
-        } else {
-          fetch("/api/lobby/move", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ lobbyId: currentLobbyId, move: move.san, fen: fenAfter })
-          }).catch(function (e) {
-            console.error("Erro no multiplayer move", e);
-          });
-        }
+    function onDrop(source, target) {
+      if (!target || source === target) {
+        scheduleBoardGraphics();
+        return "snapback";
       }
-      
-      updateStatus();
-      if (game.isGameOver()) { saveReplayAuto(); return; }
-      if (getMode() === "engine" && !isPlayerTurn()) {
-        busy = true;
-        updateStatus();
-        await callBestMove();
-        busy = false;
-        updateStatus();
+      const trial = game.move({ from: source, to: target, promotion: "q" });
+      if (!trial) {
+        scheduleBoardGraphics();
+        return "snapback";
       }
+      game.undo();
+      void applyPlayerMove(source, target);
     }
 
     function onSnapEnd() {
       board.position(game.fen());
+      scheduleBoardGraphics();
     }
 
     async function callBestMove() {
@@ -1221,13 +2066,28 @@
           body: JSON.stringify({ fen: game.fen(), depth, timeMs })
         }).then(r => r.json());
         if (res.bestMove && res.bestMove.san) {
-          game.move(res.bestMove.san);
+          const mv = game.move(res.bestMove.san);
+          if (mv) rememberLastMove(mv);
+          selectedSq = null;
           board.position(game.fen());
+          if (mv) onClockAfterMove(mv.color);
           await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
+          if (liveApi && mv) {
+            void liveApi.logMove({
+              ply: game.history().length,
+              san: mv.san,
+              fenBefore: fenBefore,
+              fenAfter: game.fen(),
+              source: "engine"
+            });
+          }
           document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
           if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
         }
-        if (game.isGameOver()) saveReplayAuto();
+        if (game.isGameOver()) {
+          pauseClock();
+          saveReplayAuto();
+        }
       } catch (e) {
         console.error("bestmove error", e);
       }
@@ -1241,7 +2101,10 @@
       await fetch("/api/replay/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pgn, fen: game.fen(), result, moves: game.history(), meta: { auto: true, ui: "board2d", mode: getMode() } })
+        body: JSON.stringify({
+          pgn, fen: game.fen(), result, moves: game.history(),
+          meta: { auto: true, ui: "board2d", mode: getMode(), sessionId: liveApi && liveApi.snapshot ? liveApi.snapshot().id : null }
+        })
       }).catch(() => {});
     }
 
@@ -1252,10 +2115,42 @@
         onDragStart,
         onDrop,
         onSnapEnd,
+        onMoveEnd: scheduleBoardGraphics,
         pieceTheme: "https://cdn.jsdelivr.net/gh/oakmac/chessboardjs@1.0.0/website/img/chesspieces/wikipedia/{piece}.png"
       };
       board = Chessboard("board", cfg);
+      const boardEl = document.getElementById("board");
+      if (boardEl) {
+        boardEl.addEventListener("click", function (ev) {
+          if (ignoreNextClick) {
+            ignoreNextClick = false;
+            return;
+          }
+          const sqEl = ev.target.closest(".square-55d63");
+          if (!sqEl) return;
+          const cls = Array.from(sqEl.classList).find(function (c) {
+            return /^square-[a-h][1-8]$/.test(c);
+          });
+          if (!cls) return;
+          trySelectOrMove(cls.slice("square-".length));
+        });
+      }
+      window.addEventListener("resize", resizeBoardUi);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", resizeBoardUi);
+      }
+      window.addEventListener("orientationchange", function () {
+        setTimeout(resizeBoardUi, 150);
+      });
+      if (typeof ResizeObserver === "function") {
+        const stage = document.querySelector(".board-stage");
+        if (stage) {
+          const ro = new ResizeObserver(function () { resizeBoardUi(); });
+          ro.observe(stage);
+        }
+      }
       updateStatus();
+      updateClockUi();
     }
 
     async function createLobby() {
@@ -1424,18 +2319,31 @@
       }
     }
 
-    document.getElementById("btnNew").onclick = () => {
+    function resetLocalGame() {
       game.reset();
       board.start();
+      selectedSq = null;
+      lastMoveArrow = null;
+      resetClock();
       syncModeUI();
-      if (getMode() === "multiplayer" && currentLobbyId) {
-        // Posição inicial no lobby não é forçada a reiniciar para evitar desync sem API.
-      }
       updateStatus();
+      if (liveApi) liveApi.publish();
       if (getMode() === "engine" && getPlayerColor() === "b") {
         busy = true;
+        clockSide = "w";
+        resumeClock();
         updateStatus();
         callBestMove().then(() => { busy = false; updateStatus(); });
+      }
+    }
+
+    document.getElementById("btnNew").onclick = async () => {
+      const view = liveApi ? await liveApi.chooseNewGame() : "2d";
+      if (!view) return;
+      if (liveApi) liveApi.beginNewSession();
+      resetLocalGame();
+      if (view === "3d") {
+        liveApi.goToView("3d");
       }
     };
     document.getElementById("btnUndo").onclick = () => {
@@ -1443,8 +2351,48 @@
       if (getMode() === "multiplayer") return;
       if (getMode() === "engine") { game.undo(); game.undo(); }
       else game.undo();
+      selectedSq = null;
+      awaitingClockPress = false;
+      clockSide = game.turn();
+      syncLastMoveFromHistory();
       board.position(game.fen());
       updateStatus();
+      if (liveApi) liveApi.publish();
+    };
+    const btnSwitch3d = document.getElementById("btnSwitch3d");
+    if (btnSwitch3d) {
+      btnSwitch3d.onclick = function () {
+        if (liveApi) liveApi.goToView("3d");
+        else window.location.href = "/chess3d.html";
+      };
+    }
+    const btnGameSearch = document.getElementById("btnGameSearch");
+    if (btnGameSearch) {
+      btnGameSearch.onclick = async function () {
+        const qEl = document.getElementById("gameSearchQ");
+        const out = await searchSatorGames(qEl ? qEl.value : "");
+        const pre = document.getElementById("gameSearchOut");
+        if (pre) pre.textContent = JSON.stringify({ list: out.list || [], moves: out.moves || [] }, null, 2);
+      };
+    }
+    const gameSearchQ = document.getElementById("gameSearchQ");
+    if (gameSearchQ) {
+      gameSearchQ.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          if (btnGameSearch) btnGameSearch.click();
+        }
+      });
+    }
+    document.getElementById("btnClockPause").onclick = function () {
+      toggleClockPause();
+    };
+    document.getElementById("btnClockPress").onclick = function () {
+      pressClock();
+    };
+    document.getElementById("clockAutoClick").onchange = function () {
+      if (isAutoClick() && awaitingClockPress) pressClock();
+      else updateClockUi();
     };
     document.getElementById("btnAnalyze").onclick = async () => {
       try {
@@ -1468,10 +2416,10 @@
     };
     document.getElementById("mode").onchange = () => {
       syncModeUI();
-      document.getElementById("btnNew").click();
+      resetLocalGame();
     };
     document.getElementById("playerColor").onchange = () => {
-      if (getMode() === "engine") document.getElementById("btnNew").click();
+      if (getMode() === "engine") resetLocalGame();
     };
     
     document.getElementById("btnCreateLobby").onclick = () => {
@@ -1494,6 +2442,35 @@
     };
 
     const urlParams = new URLSearchParams(window.location.search);
+    initBoard();
+    liveApi = bindLiveGame({
+      view: "2d",
+      getGame: function () { return game; },
+      getMeta: function () {
+        return {
+          mode: getMode(),
+          playerColor: getPlayerColor(),
+          depth: parseInt(document.getElementById("depth").value, 10) || 7,
+          timeMs: parseInt(document.getElementById("timeMs").value, 10) || 2500,
+          trainOnline: trainOnlineEnabled(),
+          clocks: {
+            white: clockWhiteSecs,
+            black: clockBlackSecs,
+            paused: clockPaused,
+            side: clockSide,
+            awaiting: awaitingClockPress
+          }
+        };
+      },
+      applyState: applyLiveState
+    });
+    if (!urlParams.get("join") && !urlParams.get("lobby")) {
+      void liveApi.restore().then(function () {
+        if (board) board.position(game.fen());
+        updateStatus();
+        updateClockUi();
+      });
+    }
     var urlJoin = urlParams.get("join");
     var urlLobby = urlParams.get("lobby");
     if (urlLobby || urlJoin) {
@@ -1526,7 +2503,6 @@
       syncModeUI();
     }
     void ensureLobbyCapabilities();
-    initBoard();
   </script>
   <script src="/js/pwa-register.js" defer></script>
 </body>

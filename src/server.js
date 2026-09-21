@@ -49,6 +49,10 @@ const { runMasterSeedBurst } = require("./lib/masterStyleSeed");
 const replayStore = require("./db/replayStore");
 const { schedulePostGameTrain } = require("./db/postGameTrainScheduler");
 const { getPostgresConnectionString } = require("./db/aiLearningStore");
+const liveSessionStore = require("./db/liveSessionStore");
+const gameLogStore = require("./db/gameLogStore");
+const openingStats = require("./lib/openingStats");
+const { scheduleContinuousLearn } = require("./lib/continuousLearn");
 
 const app = express();
 app.use(cors());
@@ -84,7 +88,8 @@ if (!process.env.VERCEL) {
         if (filePath.endsWith("manifest.webmanifest")) {
           res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
         }
-        if (path.basename(filePath) === "sw.js") {
+        const base = path.basename(filePath);
+        if (base === "sw.js" || filePath.endsWith(".mjs") || filePath.endsWith(".html")) {
           res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
         }
       }
@@ -99,11 +104,18 @@ if (!process.env.VERCEL) {
 
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
-app.post("/api/bestmove", (req, res) => {
+app.post("/api/bestmove", async (req, res) => {
   const { fen, depth = 7, timeMs = 2500 } = req.body || {};
   const chess = new Chess();
   if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
-  const result = findBestMove(chess, depth, timeMs);
+  let book = {};
+  try {
+    const local = await openingStats.localBook(fen);
+    book = local.scores || {};
+  } catch {
+    book = {};
+  }
+  const result = findBestMove(chess, depth, timeMs, { book });
   return res.json(result);
 });
 
@@ -126,6 +138,7 @@ app.post("/api/replay/save", async (req, res) => {
   try {
     const { bufferRowsInserted } = await replayStore.saveReplayWithBuffer(record);
     schedulePostGameTrain();
+    scheduleContinuousLearn("replay");
     return res.json({ ok: true, id, bufferRowsInserted });
   } catch (e) {
     console.error("[replay/save]", e.message);
@@ -254,6 +267,80 @@ app.post("/api/nn/predict-rating", (req, res) => {
     referenceOpponentElo: pred.referenceOpponentElo,
     note: "Estimativa heurística a partir da rede de valor (não é rating oficial)."
   });
+});
+
+app.post("/api/live-session", async (req, res) => {
+  try {
+    const state = req.body || {};
+    if (!state.id) return res.status(400).json({ error: "id obrigatório" });
+    await liveSessionStore.upsertLiveSession(state);
+    return res.json({ ok: true, id: state.id });
+  } catch (e) {
+    console.error("[live-session]", e.message);
+    return res.status(500).json({ error: "Falha ao gravar sessão ao vivo" });
+  }
+});
+
+app.get("/api/live-session/:id", async (req, res) => {
+  try {
+    const state = await liveSessionStore.getLiveSession(req.params.id);
+    if (!state) return res.status(404).json({ ok: false, error: "Sessão não encontrada" });
+    return res.json({ ok: true, state });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.post("/api/game-log/move", async (req, res) => {
+  try {
+    const out = await gameLogStore.logMove(req.body || {});
+    scheduleContinuousLearn("move");
+    return res.json({ ok: true, ...out });
+  } catch (e) {
+    return res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
+app.post("/api/stats/position", async (req, res) => {
+  const fen = (req.body && req.body.fen) || "";
+  const ingest = Boolean(req.body && req.body.ingest);
+  if (!fen) return res.status(400).json({ error: "Envie fen" });
+  try {
+    const data = await openingStats.blendedPosition(fen, ingest);
+    return res.json({ ok: true, ...data });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get("/api/search/games", async (req, res) => {
+  try {
+    const data = await gameLogStore.searchGames(req.query.q, req.query.limit);
+    const list = data.list || [];
+    const moves = data.moves || [];
+    return res.json({ ok: true, count: list.length, list, moves });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+app.get("/api/learn/status", async (req, res) => {
+  try {
+    const logs = await gameLogStore.recentMoveLogs(8);
+    return res.json({ ok: true, nn: getStatus(), recentMoves: logs.length });
+  } catch (e) {
+    return res.json({ ok: true, nn: getStatus(), recentMoves: 0 });
+  }
+});
+
+app.post("/api/learn/tick", async (req, res) => {
+  try {
+    const { tickContinuousLearn } = require("./lib/continuousLearn");
+    const out = await tickContinuousLearn("force");
+    return res.json({ ok: true, ...out });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
 });
 
 // ---------- Multiplayer API (memória no processo; requer Node long-running para produção) ----------
@@ -1019,7 +1106,7 @@ const HTTPS_ENABLED =
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH || path.join(CERT_DIR, "selfsigned.key");
 const SSL_CERT_PATH = process.env.SSL_CERT_PATH || path.join(CERT_DIR, "selfsigned.crt");
 
-/** Aprendizado contínuo na subida: replays sintéticos (Kasparov, Carlsen, Polgár) + TD(0) na value net. */
+/** Aprendizado contínuo na subida: replays sintéticos (Kasparov, Carlsen, Polgár, Belenkaya) + TD(0) na value net. */
 function scheduleMasterContinuousSeed() {
   if (process.env.SATOR_DISABLE_MASTER_SEED === "1") return;
   const gamesPerMaster = parseInt(process.env.SATOR_MASTER_SEED_GAMES || "1", 10);
@@ -1037,6 +1124,7 @@ function scheduleMasterContinuousSeed() {
     } catch (e) {
       console.error("[Sator] Seed de mestres falhou:", e.message);
     }
+    scheduleContinuousLearn("boot");
   });
 }
 

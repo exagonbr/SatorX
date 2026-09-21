@@ -129,16 +129,20 @@ function clearTranspositionTable() {
   TT.clear();
 }
 
-function findBestMove(chess, depth = 7, timeMs = 3000) {
+function findBestMove(chess, depth = 7, timeMs = 3000, options = {}) {
   const start = Date.now();
   let best = null, bestScore = -Infinity, bestDepth = 1;
+  const book = options.book && typeof options.book === "object" ? options.book : {};
 
   for (let d=1; d<=depth; d++) {
     if (Date.now() - start > timeMs) break;
 
     let localBest=null, localScore=-Infinity;
     let alpha = -Infinity;
-    let moves = orderMoves(chess.moves({ verbose: true }), d);
+    let moves = chess.moves({ verbose: true })
+      .map((m) => ({ m, s: moveScore(m, d) + Math.round((book[m.san] || 0) * 2200) }))
+      .sort((a, b) => b.s - a.s)
+      .map((x) => x.m);
 
     for (let i=0; i<moves.length; i++) {
       if (Date.now() - start > timeMs) break;

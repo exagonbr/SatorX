@@ -1,6 +1,6 @@
 /**
- * Seed Kasparov / Carlsen / Polgár (replays + opcional TD na value net).
- * Uso: node src/tools/seedMasters.js [all|kasparov|carlsen|polgar] [partidas_por_mestre] [max_meia_jogadas] [feedNN: 0|1]
+ * Seed Kasparov / Carlsen / Polgár / Belenkaya (replays + opcional TD na value net).
+ * Uso: node src/tools/seedMasters.js [all|kasparov|carlsen|polgar|belenkaya] [partidas_por_mestre] [max_meia_jogadas] [feedNN: 0|1]
  * Ou: SATOR_SEED_FEED_NN=1 para forçar feedNN no último argumento omitido.
  */
 const { runMasterSeedBurst, parseStylesArg, REPLAY_DIR } = require("../lib/masterStyleSeed");

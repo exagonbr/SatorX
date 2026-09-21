@@ -788,9 +788,14 @@
         <p class="hint">
           Lance: clique na peça, depois na casa de destino (sem arrastar). <kbd>Esc</kbd> cancela a seleção. Toca-mover: após escolher a peça, não pode trocar por outra sua.
         </p>
+        <div class="hist-3d" id="moveHistory3d" aria-label="Histórico de jogadas">Nenhum lance ainda.</div>
+        <p class="hint" id="bookLine3d">Livro da posição: —</p>
         <div class="row">
           <button type="button" class="btn" id="btnNew">Novo jogo</button>
           <button type="button" class="btn" id="btnUndo">Desfazer</button>
+        </div>
+        <div class="row">
+          <button type="button" class="btn" id="btnSwitch2d">Continuar em 2D</button>
         </div>
         <div class="row">
           <label>Modo
@@ -895,7 +900,7 @@
         <div class="row" style="margin-top:14px; border-top:1px solid rgba(212,175,55,0.1); padding-top:12px;">
           <a class="link" href="/">← Menu</a>
           <span style="color:rgba(212,175,55,0.2)">·</span>
-          <a class="link" href="/board2d.html">Tabuleiro 2D</a>
+          <button type="button" class="link" id="btnSwitch2dFooter" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;">Tabuleiro 2D</button>
         </div>
       </div>
     </div>
@@ -923,7 +928,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/chess3d.mjs"></script>
+  <script type="module" src="js/chess3d.mjs?v=2"></script>
 
   <!-- Ambiente sonoro leve: ar da sala + fogo muito suave (Web Audio API) -->
   <script>

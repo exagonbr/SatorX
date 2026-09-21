@@ -96,3 +96,46 @@ model LobbySession {
   @@index([updatedAt], map: "idx_lobby_sessions_updated")
   @@map("lobby_sessions")
 }
+
+/// Partida ao vivo partilhada entre vistas 2D e 3D.
+model LiveGameSession {
+  id        String   @id
+  payload   String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([updatedAt], map: "idx_live_game_sessions_updated")
+  @@map("live_game_sessions")
+}
+
+/// Log lance-a-lance para treino, seeds e estatísticas.
+model GameMoveLog {
+  id        Int    @id @default(autoincrement())
+  sessionId String @map("session_id")
+  ply       Int
+  san       String
+  fenBefore String @map("fen_before")
+  fenAfter  String @map("fen_after")
+  ui        String
+  source    String
+  createdAt String @map("created_at")
+
+  @@index([sessionId], map: "idx_game_move_logs_session")
+  @@index([createdAt], map: "idx_game_move_logs_created")
+  @@map("game_move_logs")
+}
+
+/// Frequência de lances por posição (livro SatorX + ingestão Lichess).
+model MoveStat {
+  fenCore   String @map("fen_core")
+  san       String
+  plays     Int    @default(0)
+  whiteWins Int    @default(0) @map("white_wins")
+  blackWins Int    @default(0) @map("black_wins")
+  draws     Int    @default(0)
+  lastAt    String @map("last_at")
+  sources   String @default("satorx")
+
+  @@id([fenCore, san])
+  @@map("move_stats")
+}

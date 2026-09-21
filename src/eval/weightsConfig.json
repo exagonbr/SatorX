@@ -1,24 +1,24 @@
 {
   "BASE": {
     "sacred": 0.35,
-    "tactics": 0.55,
-    "king": 0.7
+    "tactics": 0.6560421457669591,
+    "king": 0.7669679666923427
   },
   "POLICY_MULTIPLIERS": {
     "DEF": {
-      "sator": 1.15,
-      "kasparov": 0.7,
-      "suntzu": 0.8
+      "sator": 1.2209426645634125,
+      "kasparov": 0.6640774804129066,
+      "suntzu": 0.7562211191730451
     },
     "ATK": {
-      "sator": 0.95,
-      "kasparov": 1.05,
-      "suntzu": 0.55
+      "sator": 0.7976817398676377,
+      "kasparov": 0.9399725773963826,
+      "suntzu": 0.6001054083952037
     },
     "BAL": {
-      "sator": 1,
-      "kasparov": 0.8,
-      "suntzu": 0.6
+      "sator": 0.9899252578119236,
+      "kasparov": 0.7050436338708276,
+      "suntzu": 0.6115276638125666
     }
   },
   "MODULE_BONUS": {

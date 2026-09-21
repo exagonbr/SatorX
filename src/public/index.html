@@ -5,24 +5,25 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#04060a"/>
-  <meta name="description" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
+  <script src="/js/i18n.js"></script>
+  <meta name="description" data-i18n-content="meta.home.desc" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Sator"/>
-  <title>SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI</title>
+  <title data-i18n="meta.home.title">SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI</title>
 
   <!-- Open Graph -->
   <meta property="og:site_name" content="SatorX"/>
-  <meta property="og:title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
-  <meta property="og:description" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
+  <meta property="og:title" data-i18n-content="meta.home.title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
+  <meta property="og:description" data-i18n-content="meta.home.desc" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
   <meta property="og:url" content="https://satorx.vercel.app/"/>
   <meta property="og:image" content="https://satorx.vercel.app/img/panel1_fundo.webp"/>
 
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image"/>
-  <meta property="twitter:title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
-  <meta property="twitter:description" content="Motor de IA Avançada de Xadrez: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
+  <meta property="twitter:title" data-i18n-content="meta.home.title" content="SatorX Chess Engine — Xadrez Inteligente e Avaliação ExagonX-AI"/>
+  <meta property="twitter:description" data-i18n-content="meta.home.twitter" content="Motor de IA Avançada de Xadrez: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
   <meta property="twitter:image" content="https://satorx.vercel.app/img/panel1_fundo.webp"/>
 
   <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"/>
@@ -249,7 +250,15 @@
     .ia-stats-list span { color: var(--gold-bright); font-family: monospace; font-size: 0.95rem; }
     .masters-list { padding-left: 0 !important; list-style: none; }
     .masters-list > li { margin-bottom: 16px; background: rgba(0,0,0,0.25); border: 1px solid rgba(201,168,76,0.1); border-radius: 4px; padding: 12px; }
-    .masters-list > li > strong { color: var(--gold); display: block; margin-bottom: 6px; font-family: "Cinzel", serif; font-size: 0.9rem; letter-spacing: 0.08em; }
+    .masters-list > li > strong { color: var(--gold); display: block; margin-bottom: 4px; font-family: "Cinzel", serif; font-size: 0.9rem; letter-spacing: 0.08em; }
+    .masters-list .master-meta {
+      font-size: 0.75rem; color: var(--gold-bright); opacity: 0.85;
+      margin: 0 0 8px; font-style: italic; letter-spacing: 0.02em;
+    }
+    .masters-list .master-bio {
+      font-size: 0.8rem; color: rgba(232,224,208,0.82);
+      margin: 0 0 8px; line-height: 1.45;
+    }
     .masters-list ul { padding-left: 18px !important; margin-top: 4px; }
     .masters-list ul li { font-size: 0.8rem; color: rgba(232,224,208,0.75); margin-bottom: 4px; line-height: 1.4; }
 
@@ -337,120 +346,186 @@
     <div class="logo-wrap">
       <picture>
         <source type="image/webp" srcset="/img/panel2_peca.webp"/>
-        <img src="/img/panel2_peca.png" class="peca-central" alt="Peça central" width="482" height="327" decoding="async" draggable="false"/>
+        <img src="/img/panel2_peca.png" class="peca-central" alt="Peça central" data-i18n-alt="alt.piece" width="482" height="327" decoding="async" draggable="false"/>
       </picture>
       <picture>
         <source type="image/webp" srcset="/img/panel3_texto.webp"/>
-        <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" width="482" height="97" decoding="async" draggable="false"/>
+        <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" data-i18n-alt="alt.logo" width="482" height="97" decoding="async" draggable="false"/>
       </picture>
     </div>
 
     <div class="divider"></div>
 
-    <nav class="menu" role="navigation" aria-label="Menu principal">
-      <a href="/chess3d.html" class="btn-menu btn-menu--primary">&#9654; &nbsp;Iniciar Partida</a>
-      <a href="/chess3d.html?lobby=new" class="btn-menu" id="btnMultiplayer">Jogar Online (Lobby)</a>
-      <a href="/ranking.html" class="btn-menu">Ranking — salas online</a>
-      <button type="button" class="btn-menu" id="btnRules">Regras do Xadrez</button>
-      <button type="button" class="btn-menu" id="btnOptions">Configurações</button>
-      <button type="button" class="btn-menu" id="btnIA">IA &amp; Rede Neural</button>
+    <nav class="menu" role="navigation" aria-label="Menu principal" data-i18n-aria="menu.aria">
+      <button type="button" class="btn-menu btn-menu--primary" id="btnStartGame" data-i18n="menu.start">&#9654; &nbsp;Iniciar Partida</button>
+      <a href="/chess3d.html?lobby=new" class="btn-menu" id="btnMultiplayer" data-i18n="menu.online">Jogar Online (Lobby)</a>
+      <a href="/ranking.html" class="btn-menu" data-i18n="menu.ranking">Ranking — salas online</a>
+      <button type="button" class="btn-menu" id="btnRules" data-i18n="menu.rules">Regras do Xadrez</button>
+      <button type="button" class="btn-menu" id="btnOptions" data-i18n="menu.options">Configurações</button>
+      <button type="button" class="btn-menu" id="btnIA" data-i18n="menu.ia">IA &amp; Rede Neural</button>
     </nav>
   </main>
 
-  <footer class="footer">Sator Engine &nbsp;&middot;&nbsp; Motor híbrido V5 &nbsp;&middot;&nbsp; Three.js 3D</footer>
+  <footer class="footer" data-i18n="menu.footer">Sator Engine &nbsp;&middot;&nbsp; Motor híbrido V5 &nbsp;&middot;&nbsp; Three.js 3D</footer>
 
   <!-- Modal: Regras -->
   <div class="overlay" id="overlayRules" role="dialog" aria-modal="true" aria-labelledby="rulesHeading">
     <div class="modal modal--rules">
-      <h2 id="rulesHeading">Regras do Xadrez</h2>
+      <h2 id="rulesHeading" data-i18n="rules.title">Regras do Xadrez</h2>
       <div class="rules-layout">
         <div class="rules-text">
-          <p>O xadrez é jogado em um tabuleiro 8×8 por dois jogadores. O objetivo é dar <button type="button" class="rule-trigger" data-rule="checkmate" aria-describedby="rulesDemoTitle"><strong>xeque-mate</strong></button> ao rei adversário.</p>
+          <p><span data-i18n="rules.introBefore">O xadrez é jogado em um tabuleiro 8×8 por dois jogadores. O objetivo é dar </span><button type="button" class="rule-trigger" data-rule="checkmate" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.checkmate">xeque-mate</strong></button><span data-i18n="rules.introAfter"> ao rei adversário.</span></p>
           <ul>
-            <li><button type="button" class="rule-trigger" data-rule="king" aria-describedby="rulesDemoTitle"><strong>Rei</strong></button>: move-se uma casa em qualquer direção.</li>
-            <li><button type="button" class="rule-trigger" data-rule="queen" aria-describedby="rulesDemoTitle"><strong>Dama</strong></button>: move-se qualquer número de casas em linha reta ou diagonal.</li>
-            <li><button type="button" class="rule-trigger" data-rule="rook" aria-describedby="rulesDemoTitle"><strong>Torre</strong></button>: move-se em linha reta (horizontal ou vertical).</li>
-            <li><button type="button" class="rule-trigger" data-rule="bishop" aria-describedby="rulesDemoTitle"><strong>Bispo</strong></button>: move-se na diagonal.</li>
-            <li><button type="button" class="rule-trigger" data-rule="knight" aria-describedby="rulesDemoTitle"><strong>Cavalo</strong></button>: move-se em “L” (2+1 casas), único que salta peças.</li>
-            <li><button type="button" class="rule-trigger" data-rule="pawn" aria-describedby="rulesDemoTitle"><strong>Peão</strong></button>: avança uma casa (ou duas no primeiro lance), captura na diagonal.</li>
+            <li><button type="button" class="rule-trigger" data-rule="king" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.king">Rei</strong></button><span data-i18n="rules.kingDesc">: move-se uma casa em qualquer direção.</span></li>
+            <li><button type="button" class="rule-trigger" data-rule="queen" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.queen">Dama</strong></button><span data-i18n="rules.queenDesc">: move-se qualquer número de casas em linha reta ou diagonal.</span></li>
+            <li><button type="button" class="rule-trigger" data-rule="rook" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.rook">Torre</strong></button><span data-i18n="rules.rookDesc">: move-se em linha reta (horizontal ou vertical).</span></li>
+            <li><button type="button" class="rule-trigger" data-rule="bishop" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.bishop">Bispo</strong></button><span data-i18n="rules.bishopDesc">: move-se na diagonal.</span></li>
+            <li><button type="button" class="rule-trigger" data-rule="knight" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.knight">Cavalo</strong></button><span data-i18n="rules.knightDesc">: move-se em “L” (2+1 casas), único que salta peças.</span></li>
+            <li><button type="button" class="rule-trigger" data-rule="pawn" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.pawn">Peão</strong></button><span data-i18n="rules.pawnDesc">: avança uma casa (ou duas no primeiro lance), captura na diagonal.</span></li>
           </ul>
-          <p>Lances especiais: <button type="button" class="rule-trigger" data-rule="castling" aria-describedby="rulesDemoTitle"><strong>roque</strong></button>, <button type="button" class="rule-trigger" data-rule="enpassant" aria-describedby="rulesDemoTitle"><strong>en passant</strong></button> (captura em passagem) e <button type="button" class="rule-trigger" data-rule="promotion" aria-describedby="rulesDemoTitle"><strong>promoção</strong></button> (peão na última fileira).</p>
+          <p><span data-i18n="rules.specialBefore">Lances especiais: </span><button type="button" class="rule-trigger" data-rule="castling" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.castling">roque</strong></button><span data-i18n="rules.specialMid1">, </span><button type="button" class="rule-trigger" data-rule="enpassant" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.enpassant">en passant</strong></button><span data-i18n="rules.specialMid2"> (captura em passagem) e </span><button type="button" class="rule-trigger" data-rule="promotion" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.promotion">promoção</strong></button><span data-i18n="rules.specialAfter"> (peão na última fileira).</span></p>
         </div>
         <aside class="rules-demo" aria-live="polite">
-          <p class="rules-demo__title" id="rulesDemoTitle">Passe o mouse ou toque/clique num termo</p>
+          <p class="rules-demo__title" id="rulesDemoTitle" data-i18n="rules.hover">Passe o mouse ou toque/clique num termo</p>
           <svg id="rulesBoardSvg" viewBox="0 0 320 320" role="img" aria-hidden="true"></svg>
         </aside>
       </div>
-      <button class="modal-close" data-close="overlayRules">Fechar</button>
+      <button class="modal-close" data-close="overlayRules" data-i18n="common.close">Fechar</button>
     </div>
   </div>
 
   <!-- Modal: Configurações -->
   <div class="overlay" id="overlayOptions" role="dialog" aria-modal="true">
     <div class="modal">
-      <h2>Configurações</h2>
-      <p>As configurações de profundidade de busca, tempo por lance, modo de jogo e visão de câmera estão disponíveis diretamente no painel lateral da <strong>Vista 3D</strong>.</p>
-      <p>Acesse <a href="/chess3d.html">Vista 3D</a> ou <a href="/board2d.html">Tabuleiro 2D</a> para ajustar as opções em tempo real durante a partida.</p>
-      <button class="modal-close" data-close="overlayOptions">Fechar</button>
+      <h2 data-i18n="options.title">Configurações</h2>
+      <p data-i18n-html="options.p1">As configurações de profundidade de busca, tempo por lance, modo de jogo e visão de câmera estão disponíveis diretamente no painel lateral da <strong>Vista 3D</strong>.</p>
+      <p data-i18n-html="options.p2">Acesse <a href="/chess3d.html">Vista 3D</a> ou <a href="/board2d.html">Tabuleiro 2D</a> para ajustar as opções em tempo real durante a partida.</p>
+      <button class="modal-close" data-close="overlayOptions" data-i18n="common.close">Fechar</button>
     </div>
   </div>
 
   <!-- Modal: IA -->
   <div class="overlay" id="overlayIA" role="dialog" aria-modal="true">
     <div class="modal modal--ia">
-      <h2>IA &amp; Rede Neural</h2>
+      <h2 data-i18n="ia.title">IA &amp; Rede Neural</h2>
       
       <div class="ia-section">
-        <h3>Estado Atual da IA</h3>
-        <p id="iaStatusLoading">A ligar ao Sator Engine...</p>
+        <h3 data-i18n="ia.statusTitle">Estado Atual da IA</h3>
+        <p id="iaStatusLoading" data-i18n="ia.connecting">A ligar ao Sator Engine...</p>
         <div id="iaStatusData" style="display: none;">
           <ul class="ia-stats-list">
-            <li><strong>Updates de Treino:</strong> <span id="iaUpdates">-</span></li>
-            <li><strong>Último Erro (TD-λ):</strong> <span id="iaTdError">-</span></li>
-            <li><strong>Média de Ranking (Elo):</strong> <span id="iaElo">~1850</span> <em>(Referência inicial)</em></li>
+            <li><strong data-i18n="ia.updates">Updates de Treino:</strong> <span id="iaUpdates">-</span></li>
+            <li><strong data-i18n="ia.tdError">Último Erro (TD-λ):</strong> <span id="iaTdError">-</span></li>
+            <li><strong data-i18n="ia.elo">Média de Ranking (Elo):</strong> <span id="iaElo">~1850</span> <em data-i18n="ia.eloRef">(Referência inicial)</em></li>
           </ul>
         </div>
       </div>
 
       <div class="ia-section">
-        <h3>Como são feitos os cálculos</h3>
-        <p>O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).</p>
-        <p>A avaliação utiliza uma <strong>curva logística (Sigmoid)</strong> que converte a saída linear da rede neural (V) numa probabilidade de vitória e Elo estimado. Além disso, usa heurísticas híbridas e <strong>Geometria Sagrada</strong> (Quadrado SATOR) para analisar simetria e conectividade.</p>
+        <h3 data-i18n="ia.calcTitle">Como são feitos os cálculos</h3>
+        <p data-i18n-html="ia.calc1">O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).</p>
+        <p data-i18n-html="ia.calc2">A avaliação utiliza uma <strong>curva logística (Sigmoid)</strong> que converte a saída linear da rede neural (V) numa probabilidade de vitória e Elo estimado. Além disso, usa heurísticas híbridas e <strong>Geometria Sagrada</strong> (Quadrado SATOR) para analisar simetria e conectividade.</p>
         <ul>
-          <li><strong>TD online</strong>: a rede aprende em tempo real durante as partidas.</li>
-          <li><strong>Buffer de replay</strong>: partidas salvas para treino supervisionado.</li>
+          <li><strong data-i18n="ia.tdOnline">TD online</strong><span data-i18n="ia.tdOnlineDesc">: a rede aprende em tempo real durante as partidas.</span></li>
+          <li><strong data-i18n="ia.replay">Buffer de replay</strong><span data-i18n="ia.replayDesc">: partidas salvas para treino supervisionado.</span></li>
         </ul>
       </div>
 
       <div class="ia-section">
-        <h3>Modelos Base (Mestres)</h3>
-        <p>Durante o aprendizado contínuo, a IA simula partidas baseadas no estilo de 3 Grandes Mestres, absorvendo os seus padrões táticos e posicionais:</p>
+        <h3 data-i18n="ia.mastersTitle">Modelos Base (Mestres)</h3>
+        <p data-i18n="ia.mastersIntro">Durante o aprendizado contínuo, a IA simula partidas baseadas no estilo destes mestres, absorvendo os seus padrões táticos e posicionais:</p>
         <ul class="masters-list">
           <li>
             <strong>Garry Kasparov</strong>
+            <p class="master-meta" data-i18n="ia.kas.meta">(Rússia, 63 anos, Elo FIDE 2812 inativo — pico 2851, n.º 1 mundial)</p>
+            <p class="master-bio" data-i18n="ia.kas.bio">Garry Kimovich Kasparov nasceu em Baku a 13 de abril de 1963. Campeão Mundial de 1985 a 2000, foi o n.º 1 do ranking durante 255 meses e retirou-se da competição regular em 2005 ainda no topo. O seu Elo de pico (2851, em 1999) foi recorde mundial até 2013.</p>
             <ul>
-              <li>Preparação de abertura profunda e variantes agressivas</li>
-              <li>Pressão dinâmica e luta pela iniciativa em todas as fases</li>
-              <li>Cálculo de variantes táticas e sacrifícios posicionais calculados</li>
-              <li>Psicologia competitiva: forçar decisões difíceis ao adversário</li>
+              <li data-i18n="ia.kas1">Ataque dinâmico e luta pela iniciativa em todas as fases</li>
+              <li data-i18n="ia.kas2">Preparação profunda de aberturas e variantes agressivas</li>
+              <li data-i18n="ia.kas3">Cálculo tático, sacrifícios posicionais e pressão psicológica</li>
+              <li data-i18n="ia.kas4">Repertório: Ruy López, Siciliana Najdorf, Escocesa, Gambito da Dama, Inglesa, Índia do Rei (Sämisch) e Grünfeld</li>
             </ul>
           </li>
           <li>
             <strong>Magnus Carlsen</strong>
+            <p class="master-meta" data-i18n="ia.car.meta">(Noruega, 35 anos, Elo FIDE 2823 — 1.º do mundo, pico 2882)</p>
+            <p class="master-bio" data-i18n="ia.car.bio">Sven Magnus Øen Carlsen nasceu em Tønsberg a 30 de novembro de 1990. Cinco vezes campeão mundial clássico (2013–2023), lidera o ranking FIDE desde 2011 e detém o recorde de Elo da história (2882). Também acumula títulos mundiais de rápido, blitz e Freestyle.</p>
             <ul>
-              <li>Pragmatismo: escolher posições jogáveis e pouco claras</li>
-              <li>Finais e técnica: converter vantagens mínimas com paciência</li>
-              <li>Versatilidade de aberturas e evitar preparação estreita do adversário</li>
-              <li>Resistência e precisão sob pressão de tempo e cansaço</li>
+              <li data-i18n="ia.car1">Estilo universal e pragmático: posições jogáveis, pouco teóricas</li>
+              <li data-i18n="ia.car2">Técnica de finais e conversão paciente de vantagens mínimas</li>
+              <li data-i18n="ia.car3">Versatilidade de aberturas para evitar preparação estreita</li>
+              <li data-i18n="ia.car4">Repertório: Ruy López (Berlim), Catalã, Siciliana Dragão, Inglesa simétrica, Sistema London, Italiana e Caro-Kann</li>
             </ul>
           </li>
           <li>
             <strong>Judit Polgár</strong>
+            <p class="master-meta" data-i18n="ia.pol.meta">(Hungria, 50 anos, Elo FIDE 2675 inativo — pico 2735, 8.ª do mundo)</p>
+            <p class="master-bio" data-i18n="ia.pol.bio">Judit Polgár nasceu em Budapeste a 23 de julho de 1976. É a única mulher a entrar no top 10 mundial e a ultrapassar 2700 Elo. Tornou-se Grande Mestre aos 15 anos, recusou o circuito feminino e enfrentou a elite masculina até se retirar da competição em 2014.</p>
             <ul>
-              <li>Xadrez de ataque e tática: buscar complicações quando favorece o talento</li>
-              <li>Aberturas agressivas com brancas; defesas dinâmicas com pretas</li>
-              <li>Confiança no cálculo e em posições desequilibradas</li>
-              <li>Estilo de luta constante — evitar simplificações cedendo iniciativa</li>
+              <li data-i18n="ia.pol1">Xadrez de ataque e tática: complicações e posições desequilibradas</li>
+              <li data-i18n="ia.pol2">1.e4 agressivo com brancas; defesas dinâmicas com pretas</li>
+              <li data-i18n="ia.pol3">Luta constante — evita simplificações que cedem a iniciativa</li>
+              <li data-i18n="ia.pol4">Repertório: Siciliana, Italiana, Índia do Rei, Francesa, Gambito do Rei, Ruy López e Ataque Austríaco (Pirc)</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Dina Belenkaya</strong>
+            <p class="master-meta" data-i18n="ia.bel.meta">(França, 32 anos, Elo FIDE 2237 — pico 2364)</p>
+            <p class="master-bio" data-i18n="ia.bel.bio">Dina Vadimovna Belenkaya nasceu em São Petersburgo a 22 de dezembro de 1993. Quatro vezes campeã feminina de São Petersburgo e participante da Copa do Mundo Feminina de 2021. Representou a Rússia até 2022, Israel entre 2022 e 2026, e a França desde 2026. Também é comentarista e criadora de conteúdo de xadrez.</p>
+            <ul>
+              <li data-i18n="ia.bel1">Ataque prático: complicar a posição e forçar erros sob pressão</li>
+              <li data-i18n="ia.bel2">1.e4 agressivo — Italiana, Escocesa e gambitos de iniciativa</li>
+              <li data-i18n="ia.bel3">Defesas dinâmicas com pretas e ritmo de blitz no relógio</li>
+              <li data-i18n="ia.bel4">Repertório: Italiana, Escocesa, Gambito Evans, Siciliana Dragão, Francesa Winawer, Índia do Rei e Escandinava</li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+
+      <button class="modal-close" data-close="overlayIA" data-i18n="common.close">Fechar</button>
+        <ul class="masters-list">
+          <li>
+            <strong>Garry Kasparov</strong>
+            <p class="master-meta">(Rússia, 63 anos, Elo FIDE 2812 inativo — pico 2851, n.º 1 mundial)</p>
+            <p class="master-bio">Garry Kimovich Kasparov nasceu em Baku a 13 de abril de 1963. Campeão Mundial de 1985 a 2000, foi o n.º 1 do ranking durante 255 meses e retirou-se da competição regular em 2005 ainda no topo. O seu Elo de pico (2851, em 1999) foi recorde mundial até 2013.</p>
+            <ul>
+              <li>Ataque dinâmico e luta pela iniciativa em todas as fases</li>
+              <li>Preparação profunda de aberturas e variantes agressivas</li>
+              <li>Cálculo tático, sacrifícios posicionais e pressão psicológica</li>
+              <li>Repertório: Ruy López, Siciliana Najdorf, Escocesa, Gambito da Dama, Inglesa, Índia do Rei (Sämisch) e Grünfeld</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Magnus Carlsen</strong>
+            <p class="master-meta">(Noruega, 35 anos, Elo FIDE 2823 — 1.º do mundo, pico 2882)</p>
+            <p class="master-bio">Sven Magnus Øen Carlsen nasceu em Tønsberg a 30 de novembro de 1990. Cinco vezes campeão mundial clássico (2013–2023), lidera o ranking FIDE desde 2011 e detém o recorde de Elo da história (2882). Também acumula títulos mundiais de rápido, blitz e Freestyle.</p>
+            <ul>
+              <li>Estilo universal e pragmático: posições jogáveis, pouco teóricas</li>
+              <li>Técnica de finais e conversão paciente de vantagens mínimas</li>
+              <li>Versatilidade de aberturas para evitar preparação estreita</li>
+              <li>Repertório: Ruy López (Berlim), Catalã, Siciliana Dragão, Inglesa simétrica, Sistema London, Italiana e Caro-Kann</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Judit Polgár</strong>
+            <p class="master-meta">(Hungria, 50 anos, Elo FIDE 2675 inativo — pico 2735, 8.ª do mundo)</p>
+            <p class="master-bio">Judit Polgár nasceu em Budapeste a 23 de julho de 1976. É a única mulher a entrar no top 10 mundial e a ultrapassar 2700 Elo. Tornou-se Grande Mestre aos 15 anos, recusou o circuito feminino e enfrentou a elite masculina até se retirar da competição em 2014.</p>
+            <ul>
+              <li>Xadrez de ataque e tática: complicações e posições desequilibradas</li>
+              <li>1.e4 agressivo com brancas; defesas dinâmicas com pretas</li>
+              <li>Luta constante — evita simplificações que cedem a iniciativa</li>
+              <li>Repertório: Siciliana, Italiana, Índia do Rei, Francesa, Gambito do Rei, Ruy López e Ataque Austríaco (Pirc)</li>
+            </ul>
+          </li>
+          <li>
+            <strong>Dina Belenkaya</strong>
+            <p class="master-meta">(França, 32 anos, Elo FIDE 2237 — pico 2364)</p>
+            <p class="master-bio">Dina Vadimovna Belenkaya nasceu em São Petersburgo a 22 de dezembro de 1993. Quatro vezes campeã feminina de São Petersburgo e participante da Copa do Mundo Feminina de 2021. Representou a Rússia até 2022, Israel entre 2022 e 2026, e a França desde 2026. Também é comentarista e criadora de conteúdo de xadrez.</p>
+            <ul>
+              <li>Ataque prático: complicar a posição e forçar erros sob pressão</li>
+              <li>1.e4 agressivo — Italiana, Escocesa e gambitos de iniciativa</li>
+              <li>Defesas dinâmicas com pretas e ritmo de blitz no relógio</li>
+              <li>Repertório: Italiana, Escocesa, Gambito Evans, Siciliana Dragão, Francesa Winawer, Índia do Rei e Escandinava</li>
             </ul>
           </li>
         </ul>
@@ -1015,6 +1090,26 @@
     document.addEventListener("keydown", function(e) {
       if (e.key === "Escape") document.querySelectorAll(".overlay.open").forEach(function(ov) { closeModal(ov.id); });
     });
+  </script>
+  <script type="module">
+    import { openViewChooser, viewUrl, newSessionId, writeLocal } from "/js/liveGameSession.mjs?v=2";
+    const btn = document.getElementById("btnStartGame");
+    if (btn) {
+      btn.addEventListener("click", async () => {
+        const view = await openViewChooser();
+        if (!view) return;
+        const id = newSessionId();
+        writeLocal({
+          id,
+          updatedAt: Date.now(),
+          sans: [],
+          pgn: "",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          origin: "menu"
+        });
+        window.location.href = viewUrl(view, id);
+      });
+    }
   </script>
   <script src="/js/pwa-register.js" defer></script>
 </body>
