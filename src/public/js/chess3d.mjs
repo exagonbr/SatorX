@@ -6,6 +6,13 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { Chess } from "chess.js";
 import { bindLiveGame, fetchPositionBook, restoreChess } from "/js/liveGameSession.mjs?v=2";
 
+function t(key, vars) {
+  return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+}
+function apiErr(msg, fallback) {
+  return window.SatorI18n ? window.SatorI18n.apiError(msg, fallback) : (msg || fallback || "");
+}
+
 const SQ = 1;
 const BOARD_PLANE_Y = 0.061;
 const FILES = "abcdefgh";
@@ -124,15 +131,7 @@ function ensureLobbyCapabilities(options) {
   return mpCapsPromise;
 }
 
-const MP_LOBBY_UNSUPPORTED_MSG =
-  "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
-
 const LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
-const MP_HOST_SKIP_JOIN_MSG =
-  "É o anfitrião desta sala — já está nas brancas à espera. Envie o link de convite ao oponente; não use «Entrar na sala».";
-const MP_HOST_SKIP_SPECTATE_MSG =
-  "É o anfitrião desta sala — não pode assistir à própria partida. Aguarde o oponente ou partilhe o link.";
-const MP_ALREADY_IN_LOBBY_MSG = "Já está ligado a esta sala.";
 let mpLobbyActionBusy = false;
 
 function rememberMpHostLobby(lobbyId) {
@@ -189,20 +188,20 @@ function showToast(message, variant = "info") {
 
 function lobbyNamesLine(names, playersCount, lobbyId) {
   const n = names || {};
-  const w = n.white || "Brancas";
+  const w = n.white || t("mp.white");
   const b = n.black || n.opponentExpected || null;
-  const base = "Sala " + lobbyId + " — ";
   if (playersCount > 1 && n.black) {
-    return base + w + " vs " + n.black;
+    return t("mp.roomVs", { id: lobbyId, w: w, b: n.black });
   }
   if (b) {
-    return base + w + " vs " + b + " (a aguardar ligação)";
+    return t("mp.roomWaitLink", { id: lobbyId, w: w, b: b });
   }
-  return base + w + " (a aguardar oponente)";
+  return t("mp.roomWait", { id: lobbyId, w: w });
 }
 
 let mpResultPosted = false;
 let mpServerEndShown = false;
+let lastMpEnd = { reasonLabel: "", winner: "" };
 
 function resetMpMatchReporting() {
   mpResultPosted = false;
@@ -245,7 +244,7 @@ function applyMpRematchBoard(fen) {
 async function requestMpRematch() {
   if (!currentLobbyId) return;
   const pass = (document.getElementById("mpJoinPassword")?.value || "").trim();
-  showToast("A reiniciar a partida na sala…", "info");
+  showToast(t("mp.restarting"), "info");
   try {
     const r = await fetch("/api/lobby/rematch", {
       method: "POST",
@@ -254,34 +253,35 @@ async function requestMpRematch() {
     });
     const res = await r.json();
     if (!r.ok || !res.ok) {
-      showToast(res.error || "Não foi possível iniciar nova partida.", "error");
+      showToast(apiErr(res.error, "mp.errRematch"), "error");
       return;
     }
     applyMpRematchBoard(res.fen);
     if (!mpSocket || mpSocket.readyState !== WebSocket.OPEN) {
-      showToast("Nova partida na mesma sala.", "success");
+      showToast(t("mp.rematchOk"), "success");
     }
   } catch (e) {
-    showToast("Erro de rede.", "error");
+    showToast(t("mp.net"), "error");
   }
 }
 
 function openMpServerEndOverlay(reasonLabel, winner) {
   mpServerEndShown = true;
+  lastMpEnd = { reasonLabel: reasonLabel || "", winner: winner || "" };
   const overlay = document.getElementById("gameOverOverlay");
   const title = document.getElementById("goTitle");
   const detail = document.getElementById("goDetail");
   if (!overlay || !title || !detail) return;
   if (mpIsSpectator) {
-    title.textContent = "Fim de partida";
+    title.textContent = t("go.gameOver");
   } else if (winner === "draw") {
-    title.textContent = "Fim de partida";
+    title.textContent = t("go.gameOver");
   } else if (winner === myMultiplayerColor) {
-    title.textContent = "Vitória";
+    title.textContent = t("go.win");
   } else {
-    title.textContent = "Derrota";
+    title.textContent = t("go.loss");
   }
-  detail.textContent = reasonLabel || "A partida terminou.";
+  detail.textContent = reasonLabel ? apiErr(reasonLabel) : t("go.ended");
   overlay.classList.add("open");
   overlay.setAttribute("aria-hidden", "false");
   stopClock();
@@ -361,8 +361,8 @@ function updateClockDisplays() {
   const p2Time = playerColor === 'w' ? clockBlackSecs : clockWhiteSecs;
   const p1Active = playerColor === 'w' ? whiteTurn : !whiteTurn;
   const p2Active = playerColor === 'w' ? !whiteTurn : whiteTurn;
-  const p1Label = getMode() === "human" ? "BRANCAS" : "VOCÊ";
-  const p2Label = getMode() === "human" ? "PRETAS" : "MOTOR SATOR";
+  const p1Label = getMode() === "human" ? t("clock.white") : t("clock.you");
+  const p2Label = getMode() === "human" ? t("clock.black") : t("clock.engine");
 
   if (clockBlackTex && clockBlackTex.image) {
     renderClockTexture(clockBlackTex.image, fmtClock(p1Time), p1Label, p1Active);
@@ -539,23 +539,23 @@ function updateGameOverOverlay() {
   overlay.classList.add("open");
   overlay.setAttribute("aria-hidden", "false");
   if (game.isCheckmate()) {
-    title.textContent = "Xeque-mate";
-    detail.textContent = game.turn() === "w" ? "As pretas venceram a partida." : "As brancas venceram a partida.";
+    title.textContent = t("go.checkmate");
+    detail.textContent = game.turn() === "w" ? t("go.blackWon") : t("go.whiteWon");
   } else if (game.isStalemate()) {
-    title.textContent = "Afogamento";
-    detail.textContent = "Empate: não há lances legais e o rei não está em xeque.";
+    title.textContent = t("go.stalemate");
+    detail.textContent = t("go.stalemateDetail");
   } else if (game.isInsufficientMaterial()) {
-    title.textContent = "Empate";
-    detail.textContent = "Material insuficiente para forçar xeque-mate.";
+    title.textContent = t("go.draw");
+    detail.textContent = t("go.insufficient");
   } else if (game.isThreefoldRepetition()) {
-    title.textContent = "Empate";
-    detail.textContent = "Tripla repetição da mesma posição.";
+    title.textContent = t("go.draw");
+    detail.textContent = t("go.repetition");
   } else if (game.isDrawByFiftyMoves()) {
-    title.textContent = "Empate";
-    detail.textContent = "Regra dos 50 lances sem captura ou peão.";
+    title.textContent = t("go.draw");
+    detail.textContent = t("go.fifty");
   } else {
-    title.textContent = "Fim de partida";
-    detail.textContent = "A partida terminou em empate.";
+    title.textContent = t("go.gameOver");
+    detail.textContent = t("go.drawEnded");
   }
 }
 
@@ -590,7 +590,7 @@ function updateStatus() {
     !mpOpponentReady &&
     !game.isGameOver()
   ) {
-    s = "A aguardar oponente — o jogo só começa quando o convidado entrar na sala.";
+    s = t("status.waitOpp");
     setStatus(s);
     const stEl = document.getElementById("status");
     if (stEl) {
@@ -604,17 +604,17 @@ function updateStatus() {
     return;
   }
   if (game.isCheckmate()) {
-    s = "Xeque-mate — " + (game.turn() === "w" ? "vitória das pretas." : "vitória das brancas.");
-  } else if (game.isStalemate()) s = "Empate por afogamento.";
-  else if (game.isInsufficientMaterial()) s = "Empate — material insuficiente.";
-  else if (game.isThreefoldRepetition()) s = "Empate — tripla repetição.";
-  else if (game.isDrawByFiftyMoves()) s = "Empate — regra dos 50 lances.";
-  else if (game.isDraw()) s = "Empate.";
+    s = game.turn() === "w" ? t("status.mateBlack") : t("status.mateWhite");
+  } else if (game.isStalemate()) s = t("status.stalemate");
+  else if (game.isInsufficientMaterial()) s = t("status.insufficient");
+  else if (game.isThreefoldRepetition()) s = t("status.repetition");
+  else if (game.isDrawByFiftyMoves()) s = t("status.fifty");
+  else if (game.isDraw()) s = t("status.draw");
   else {
-    s = game.turn() === "w" ? "Vez das brancas." : "Vez das pretas.";
-    if (game.inCheck()) s = "Xeque! " + s;
+    s = game.turn() === "w" ? t("status.turnWhite") : t("status.turnBlack");
+    if (game.inCheck()) s = t("status.check") + s;
     if (getMode() === "engine" && !game.isGameOver()) {
-      s += isPlayerTurn() ? " — sua vez." : " — motor a pensar…";
+      s += isPlayerTurn() ? t("status.yourTurn") : t("status.thinking");
     }
   }
   setStatus(s);
@@ -636,7 +636,7 @@ function renderMoveHistory3d() {
   if (!el) return;
   const verbose = game.history({ verbose: true });
   if (!verbose.length) {
-    el.textContent = "Nenhum lance ainda.";
+    el.textContent = t("board2d.noMoves");
     return;
   }
   const rows = [];
@@ -656,17 +656,17 @@ function refreshBookLine3d() {
   bookRefreshTimer = setTimeout(async () => {
     const data = await fetchPositionBook(game.fen());
     if (!data || !data.ok) {
-      el.textContent = "Livro da posição: indisponível.";
+      el.textContent = t("book.unavailable");
       return;
     }
     const localMoves = (data.local && data.local.moves) || [];
     const top = localMoves.slice(0, 4).map((m) => m.san + " (" + m.plays + ")");
     const remote = data.lichess && data.lichess.moves && data.lichess.moves[0]
-      ? " · Lichess: " + data.lichess.moves[0].san
+      ? t("book.lichess", { san: data.lichess.moves[0].san })
       : "";
     el.textContent = top.length
-      ? "Livro SatorX: " + top.join(" · ") + remote
-      : "Livro da posição: sem amostras locais" + remote;
+      ? t("book.sator", { list: top.join(" · "), remote: remote })
+      : t("book.empty", { remote: remote });
   }, 200);
 }
 
@@ -882,13 +882,13 @@ function updateMpConnStats() {
   const el = document.getElementById("mpConnStats");
   if (!el) return;
   if (!currentLobbyId || getMode() !== "multiplayer") {
-    el.textContent = "Canal: — · Ping: —";
+    el.textContent = t("mp.channelIdle");
     return;
   }
   const wsOk = mpSocket && mpSocket.readyState === WebSocket.OPEN;
-  const ch = wsOk ? "tempo real (WS)" : "HTTP (reserva)";
+  const ch = wsOk ? t("mp.ws") : t("mp.http");
   const ping = mpLastRttMs != null ? `${Math.round(mpLastRttMs)} ms` : "—";
-  el.textContent = `Canal: ${ch} · Ping: ${ping}`;
+  el.textContent = t("mp.channelLine", { ch: ch, ping: ping });
 }
 
 function appendMpChatLine(entry) {
@@ -896,8 +896,8 @@ function appendMpChatLine(entry) {
   if (!log || !entry || !entry.text) return;
   const row = document.createElement("div");
   row.className = "mp-chat-line";
-  let who = entry.name || (entry.from === "w" ? "Brancas" : entry.from === "b" ? "Pretas" : "Espectador");
-  if (entry.spectator || entry.from === "spectator") who = (entry.name || "Espectador") + " (espect.)";
+  let who = entry.name || (entry.from === "w" ? t("mp.white") : entry.from === "b" ? t("mp.black") : t("mp.spectator"));
+  if (entry.spectator || entry.from === "spectator") who = t("mp.specChat", { name: entry.name || t("mp.spectator") });
   const time = entry.t
     ? new Date(entry.t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "";
@@ -951,7 +951,7 @@ async function sendMpChat() {
     caps.httpPollFallback === true ||
     (caps.persistentLobbies === true && caps.websocketLobby === false);
   if (!allowHttpChat || !currentLobbyId || !mpWsSecret) {
-    showToast("Abra o canal em tempo real (reconecte à sala) para usar o chat.", "info");
+    showToast(t("mp.needRealtimeChat"), "info");
     return;
   }
 
@@ -963,7 +963,7 @@ async function sendMpChat() {
     });
     const j = await r.json().catch(() => ({}));
     if (!r.ok || !j.ok) {
-      showToast(j.error || "Não foi possível enviar a mensagem.", "error");
+      showToast(apiErr(j.error, "mp.errChat"), "error");
       return;
     }
     input.value = "";
@@ -975,7 +975,7 @@ async function sendMpChat() {
       appendMpChatLine(j.entry);
     }
   } catch (_) {
-    showToast("Erro de rede ao enviar mensagem.", "error");
+    showToast(t("mp.netChat"), "error");
   }
 }
 
@@ -1116,7 +1116,7 @@ function connectMpRealtime(lobbyId, secret) {
         return;
       }
       if (msg.type === "handshake") {
-        showToast("Handshake com o oponente: canal em tempo real ativo.", "success");
+        showToast(t("mp.handshake"), "success");
         updateMpConnStats();
         return;
       }
@@ -1125,7 +1125,7 @@ function connectMpRealtime(lobbyId, secret) {
         if (st && msg.names) {
           st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId || "");
         }
-        showToast((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".", "info");
+        showToast(t("mp.seatTaken", { name: msg.name || t("mp.player"), seat: msg.seat === "w" ? t("mp.seatW") : t("mp.seatB") }), "info");
         return;
       }
       if (msg.type === "game_over") {
@@ -1138,12 +1138,12 @@ function connectMpRealtime(lobbyId, secret) {
       if (msg.type === "rematch" && msg.fen) {
         applyMpRematchBoard(msg.fen);
         if (!mpIsSpectator) {
-          showToast("Nova partida na mesma sala.", "success");
+          showToast(t("mp.rematchOk"), "success");
         }
         return;
       }
       if (msg.type === "error" && msg.message) {
-        showToast(msg.message, "error");
+        showToast(apiErr(msg.message), "error");
       }
     });
 
@@ -1178,7 +1178,7 @@ async function pollLobbyOnce() {
         updateStatus();
       }
       if (res.playersCount > 1 && mpLastPlayersPollCount === 1 && myMultiplayerColor === "w") {
-        showToast("Oponente ligado à sala — pode jogar.", "success");
+        showToast(t("mp.oppJoined"), "success");
       }
       mpLastPlayersPollCount = res.playersCount;
       if (Array.isArray(res.chat)) mergeMpChatFromPoll(res.chat);
@@ -1230,13 +1230,13 @@ async function claimLobbySeat(seat) {
   if (!id) return;
   const caps = await ensureLobbyCapabilities();
   if (caps.persistentLobbies === false) {
-    showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
+    showToast(t("mp.unsupported"), "error");
     return;
   }
   const pass = (document.getElementById("mpJoinPassword")?.value || "").trim();
   const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
   const spectatorToken = mpIsSpectator ? mpWsSecret : null;
-  showToast("A ocupar lugar…", "info");
+  showToast(t("mp.claiming"), "info");
   try {
     const r = await fetch("/api/lobby/claim-seat", {
       method: "POST",
@@ -1251,7 +1251,7 @@ async function claimLobbySeat(seat) {
     });
     const res = await r.json();
     if (!r.ok || !res.ok) {
-      showToast(res.error || "Não foi possível ocupar o lugar.", "error");
+      showToast(apiErr(res.error, "mp.errClaim"), "error");
       return;
     }
     resetMpMatchReporting();
@@ -1270,12 +1270,12 @@ async function claimLobbySeat(seat) {
     if (st && res.names) st.textContent = lobbyNamesLine(res.names, 2, id);
     applyBoardCamera();
     updateStatus();
-    showToast("Lugar ocupado — ligue o tempo real.", "success");
+    showToast(t("mp.claimed"), "success");
     if (res.color === "b") rememberMpGuestSecret(id, res.wsSecret);
     connectMpRealtime(id, res.wsSecret);
     document.getElementById("mpClaimRow").style.display = "none";
   } catch (e) {
-    showToast("Erro de rede.", "error");
+    showToast(t("mp.net"), "error");
   }
 }
 
@@ -1304,16 +1304,16 @@ async function createLobby() {
   const password = (passEl?.value || "").trim();
   const maxPlayers = maxEl ? parseInt(maxEl.value, 10) || 2 : 2;
   const maxSpectators = maxSpecEl ? parseInt(maxSpecEl.value, 10) || 8 : 8;
-  showToast("A ligar ao servidor…", "info");
+  showToast(t("mp.connecting"), "info");
   try {
     const caps = await ensureLobbyCapabilities();
     if (caps.persistentLobbies === false) {
-      showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
+      showToast(t("mp.unsupported"), "error");
       return;
     }
     if (currentLobbyId && isMpHostOfLobby(currentLobbyId)) {
       showToast(
-        "Já criou a sala «" + currentLobbyId + "». Partilhe o código ou aguarde o oponente.",
+        t("mp.alreadyCreated", { id: currentLobbyId }),
         "info"
       );
       return;
@@ -1325,14 +1325,14 @@ async function createLobby() {
     });
     const res = await r.json();
     if (!r.ok || !res.ok) {
-      showToast(res.error || "Não foi possível criar a sala.", "error");
+      showToast(apiErr(res.error, "mp.errCreate"), "error");
       return;
     }
     resetMpMatchReporting();
     rememberMpHostLobby(res.lobbyId);
     currentLobbyId = res.lobbyId;
     myMultiplayerColor = res.color;
-    showToast("Ligação estabelecida. Sala criada — partilhe o código ou o link.", "success");
+    showToast(t("mp.created"), "success");
 
     mpLastPlayersPollCount = 1;
     const st = document.getElementById("lobbyStatus");
@@ -1352,11 +1352,11 @@ async function createLobby() {
     }
     const inviteLink =
       window.location.origin + window.location.pathname + "?join=" + encodeURIComponent(res.lobbyId);
-    shareBtn.textContent = "Copiar Link de Convite";
+    shareBtn.textContent = t("mp.share");
     shareBtn.onclick = () => {
       navigator.clipboard.writeText(inviteLink);
-      shareBtn.textContent = "Copiado!";
-      setTimeout(() => shareBtn.textContent = "Copiar Link de Convite", 2000);
+      shareBtn.textContent = t("mp.copied");
+      setTimeout(() => shareBtn.textContent = t("mp.share"), 2000);
     };
 
     clearMpChatUi();
@@ -1366,7 +1366,7 @@ async function createLobby() {
     updateStatus();
     connectMpRealtime(res.lobbyId, res.wsSecret);
   } catch (e) {
-    showToast("Erro de rede ao criar a sala. Tente de novo.", "error");
+    showToast(t("mp.netCreate"), "error");
   } finally {
     mpLobbyActionBusy = false;
   }
@@ -1375,7 +1375,7 @@ async function createLobby() {
 async function joinLobby(id) {
   if (!id) return;
   if (isMpHostOfLobby(id)) {
-    showToast(MP_HOST_SKIP_JOIN_MSG, "info");
+    showToast(t("mp.hostSkipJoin"), "info");
     return;
   }
   if (
@@ -1384,18 +1384,18 @@ async function joinLobby(id) {
     (mpSocket.readyState === WebSocket.CONNECTING ||
       mpSocket.readyState === WebSocket.OPEN)
   ) {
-    showToast(MP_ALREADY_IN_LOBBY_MSG, "info");
+    showToast(t("mp.alreadyIn"), "info");
     return;
   }
   if (mpLobbyActionBusy) return;
   mpLobbyActionBusy = true;
   const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
   const joinPass = (document.getElementById("mpJoinPassword")?.value || "").trim();
-  showToast("A ligar à sala…", "info");
+  showToast(t("mp.connectingRoom"), "info");
   try {
     const caps = await ensureLobbyCapabilities();
     if (caps.persistentLobbies === false) {
-      showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
+      showToast(t("mp.unsupported"), "error");
       return;
     }
     const previousSecret = readMpGuestSecret(id);
@@ -1424,18 +1424,18 @@ async function joinLobby(id) {
       if (st) {
         st.textContent = lobbyNamesLine(res.names, 2, res.lobbyId);
       }
-      showToast("Ligado à sala com sucesso.", "success");
+      showToast(t("mp.joined"), "success");
       updateStatus();
       clearMpChatUi();
       if (res.color === "b") rememberMpGuestSecret(res.lobbyId, res.wsSecret);
       connectMpRealtime(res.lobbyId, res.wsSecret);
     } else {
-      showToast(res.error || "Não foi possível entrar na sala.", "error");
+      showToast(apiErr(res.error, "mp.errJoin"), "error");
       currentLobbyId = null;
       mpOpponentReady = false;
     }
   } catch (e) {
-    showToast("Erro de rede ao entrar na sala.", "error");
+    showToast(t("mp.netJoin"), "error");
     mpOpponentReady = false;
   } finally {
     mpLobbyActionBusy = false;
@@ -1445,15 +1445,15 @@ async function joinLobby(id) {
 async function spectateLobby() {
   const id = document.getElementById("lobbyIdInput")?.value.trim();
   if (!id) {
-    showToast("Indique o ID da sala.", "error");
+    showToast(t("mp.needId"), "error");
     return;
   }
   if (isMpHostOfLobby(id)) {
-    showToast(MP_HOST_SKIP_SPECTATE_MSG, "info");
+    showToast(t("mp.hostSkipSpec"), "info");
     return;
   }
   if (currentLobbyId === id && !mpIsSpectator) {
-    showToast("Já está a jogar nesta sala — não use «Assistir».", "info");
+    showToast(t("mp.alreadyPlaying"), "info");
     return;
   }
   if (
@@ -1463,18 +1463,18 @@ async function spectateLobby() {
     (mpSocket.readyState === WebSocket.CONNECTING ||
       mpSocket.readyState === WebSocket.OPEN)
   ) {
-    showToast("Já está a assistir a esta sala.", "info");
+    showToast(t("mp.alreadyWatching"), "info");
     return;
   }
   if (mpLobbyActionBusy) return;
   mpLobbyActionBusy = true;
   const pass = (document.getElementById("mpJoinPassword")?.value || "").trim();
   const playerName = (document.getElementById("mpPlayerName")?.value || "").trim();
-  showToast("A entrar como espectador…", "info");
+  showToast(t("mp.enteringSpec"), "info");
   try {
     const caps = await ensureLobbyCapabilities();
     if (caps.persistentLobbies === false) {
-      showToast(MP_LOBBY_UNSUPPORTED_MSG, "error");
+      showToast(t("mp.unsupported"), "error");
       return;
     }
     const r = await fetch("/api/lobby/spectate", {
@@ -1484,22 +1484,22 @@ async function spectateLobby() {
     });
     const res = await r.json();
     if (!r.ok || !res.ok) {
-      showToast(res.error || "Não foi possível assistir.", "error");
+      showToast(apiErr(res.error, "mp.errSpectate"), "error");
       return;
     }
     resetMpMatchReporting();
     currentLobbyId = id;
     mpLastPlayersPollCount = 2;
     const st = document.getElementById("lobbyStatus");
-    if (st) st.textContent = "Espectador — sala " + id + " (vista de cima)";
+    if (st) st.textContent = t("mp.specRoom", { id: id });
     syncPiecesFromGame();
     applyBoardCamera();
     updateStatus();
     clearMpChatUi();
     connectMpRealtime(id, res.wsSecret);
-    showToast("A assistir em tempo real.", "success");
+    showToast(t("mp.watching"), "success");
   } catch (e) {
-    showToast("Erro de rede.", "error");
+    showToast(t("mp.net"), "error");
   } finally {
     mpLobbyActionBusy = false;
   }
@@ -2205,8 +2205,8 @@ window.addEventListener("DOMContentLoaded", () => {
         if (idInput) idInput.value = code;
         if (isMpHostOfLobby(code)) {
           const st = document.getElementById("lobbyStatus");
-          if (st) st.textContent = "Anfitrião — aguarde oponente (link com ?join= ou ?lobby=).";
-          showToast(MP_HOST_SKIP_JOIN_MSG, "info");
+          if (st) st.textContent = t("mp.hostWait");
+          showToast(t("mp.hostSkipJoin"), "info");
         } else {
           setTimeout(() => {
             void joinLobby(code);
@@ -2239,8 +2239,7 @@ window.addEventListener("DOMContentLoaded", () => {
         if (caps.persistentLobbies === false) {
           const st = document.getElementById("lobbyStatus");
           if (st) {
-            st.textContent =
-              "Lobby online indisponível neste alojamento. Para multijogador, use um servidor Node dedicado (ex.: Railway, Fly.io) com `npm run server`.";
+            st.textContent = t("mp.unavailableHost");
           }
         }
       });
@@ -2265,7 +2264,8 @@ window.addEventListener("DOMContentLoaded", () => {
     const p = document.getElementById("partidaPanel");
     p.classList.toggle("panel--collapsed");
     const isCol = p.classList.contains("panel--collapsed");
-    e.target.textContent = isCol ? "Mostrar" : "Ocultar";
+    e.target.textContent = isCol ? t("chess3d.show") : t("chess3d.hide");
+    e.target.setAttribute("title", isCol ? t("chess3d.show") : t("chess3d.hideTitle"));
   });
 
   // Hotkey Esc = cancela seleção
@@ -2289,4 +2289,22 @@ window.addEventListener("DOMContentLoaded", () => {
     startClock();
     if (getMode() === "engine") maybeEngineReply();
   }
+
+  window.addEventListener("sator:langchange", () => {
+    updateStatus();
+    updateClockDisplays();
+    updateMpConnStats();
+    renderMoveHistory3d();
+    refreshBookLine3d();
+    updateGameOverOverlay();
+    if (mpServerEndShown) openMpServerEndOverlay(lastMpEnd.reasonLabel, lastMpEnd.winner);
+    const shareBtn = document.getElementById("btnShareLink");
+    if (shareBtn) shareBtn.textContent = t("mp.share");
+    const toggle = document.getElementById("btnPanelToggle");
+    const panel = document.getElementById("partidaPanel");
+    if (toggle && panel) {
+      const isCol = panel.classList.contains("panel--collapsed");
+      toggle.textContent = isCol ? t("chess3d.show") : t("chess3d.hide");
+    }
+  });
 });

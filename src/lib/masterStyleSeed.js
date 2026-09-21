@@ -18,6 +18,7 @@ const MASTER_PROFILES = {
   kasparov: {
     id: "kasparov",
     displayName: "Garry Kasparov",
+    styleLabel: "pressão dinâmica",
     nationality: "Rússia",
     age: 63,
     ranking: "Elo FIDE 2812 (inativo); pico 2851; n.º 1 mundial (1984–2005)",
@@ -61,6 +62,7 @@ const MASTER_PROFILES = {
   carlsen: {
     id: "carlsen",
     displayName: "Magnus Carlsen",
+    styleLabel: "técnica pragmática",
     nationality: "Noruega",
     age: 35,
     ranking: "Elo FIDE 2823; 1.º do mundo (set. 2026); pico 2882",
@@ -105,6 +107,7 @@ const MASTER_PROFILES = {
   polgar: {
     id: "polgar",
     displayName: "Judit Polgár",
+    styleLabel: "ataque tático",
     nationality: "Hungria",
     age: 50,
     ranking: "Elo FIDE 2675 (inativo); pico 2735; 8.ª do mundo (2004)",
@@ -149,6 +152,7 @@ const MASTER_PROFILES = {
   belenkaya: {
     id: "belenkaya",
     displayName: "Dina Belenkaya",
+    styleLabel: "ataque prático",
     nationality: "França",
     age: 32,
     ranking: "Elo FIDE 2237; pico 2364 (fev. 2019)",
@@ -308,12 +312,24 @@ function saveReplay({ id, chess, result, meta }) {
 /**
  * Aplica TD(0) lance a lance, como /api/move-learn.
  */
-function feedGameToValueNet(chess) {
+function feedGameToValueNet(chess, startFen) {
   const g = new Chess();
+  if (startFen) {
+    try {
+      const ok = g.load(startFen);
+      if (ok === false) return;
+    } catch {
+      return;
+    }
+  }
   const sans = chess.history();
   for (const san of sans) {
     const fenBefore = g.fen();
-    g.move(san);
+    try {
+      g.move(san);
+    } catch {
+      break;
+    }
     const fenAfter = g.fen();
 
     const before = new Chess();
@@ -339,29 +355,142 @@ function feedGameToValueNet(chess) {
 
 /**
  * Gera partidas por mestre, grava replays e opcionalmente alimenta a rede neural.
+ * O volume por estilo segue o log de pensamento do motor (mestres mais usados recebem mais seeds).
  * @param {object} opts
  * @param {string[]} [opts.styles]
  * @param {number} [opts.gamesPerMaster]
  * @param {number} [opts.maxPlies]
  * @param {boolean} [opts.saveReplays]
  * @param {boolean} [opts.feedNN]
+ * @param {boolean} [opts.reinforceThoughtLog]
  */
+function styleGameCounts(gamesPerMaster) {
+  let freq = {};
+  try {
+    freq = require("../db/masterThoughtStore").masterFrequencies();
+  } catch {
+    freq = {};
+  }
+  const keys = Object.keys(MASTER_PROFILES);
+  const total = keys.reduce((s, k) => s + (freq[k] || 0), 0);
+  const out = {};
+  for (const k of keys) {
+    if (total < 6) out[k] = gamesPerMaster;
+    else {
+      const share = (freq[k] || 0) / total;
+      out[k] = Math.max(1, Math.round(gamesPerMaster * (0.55 + share * 1.2)));
+    }
+  }
+  return { counts: out, freq, total };
+}
+
+function playFromFen({ profileKey, fen, firstSan, extraPlies = 24 }) {
+  const profile = MASTER_PROFILES[profileKey];
+  if (!profile) return null;
+  const chess = new Chess();
+  try {
+    const ok = chess.load(fen);
+    if (ok === false) return null;
+  } catch {
+    return null;
+  }
+  const startFen = chess.fen();
+  if (firstSan) {
+    try {
+      chess.move(firstSan);
+    } catch {
+      /* posição já pode incluir o lance */
+    }
+  }
+  let n = 0;
+  while (!chess.isGameOver() && n < extraPlies) {
+    const mv = chooseMove(chess, profile);
+    if (!mv) break;
+    chess.move(mv);
+    n += 1;
+  }
+  let result = "draw";
+  if (chess.isCheckmate()) result = chess.turn() === "w" ? "black" : "white";
+  else if (chess.isDraw()) result = "draw";
+  else result = "unknown";
+  return { chess, result, profile, startFen };
+}
+
+function runThoughtLogReinforce(opts = {}) {
+  const extraPlies = opts.extraPlies ?? 20;
+  const limit = opts.limit ?? 16;
+  const feedNN = opts.feedNN !== false;
+  const saveReplays = opts.saveReplays === true;
+  let rows = [];
+  try {
+    rows = require("../db/masterThoughtStore").readRecent(limit);
+  } catch {
+    rows = [];
+  }
+  const summary = { used: 0, tdSteps: 0, skipped: 0, byStyle: {} };
+  for (const row of rows) {
+    if (!row.masterId || !MASTER_PROFILES[row.masterId] || !row.fen) {
+      summary.skipped += 1;
+      continue;
+    }
+    const played = playFromFen({
+      profileKey: row.masterId,
+      fen: row.fen,
+      firstSan: row.san,
+      extraPlies
+    });
+    if (!played) {
+      summary.skipped += 1;
+      continue;
+    }
+    summary.used += 1;
+    summary.byStyle[row.masterId] = (summary.byStyle[row.masterId] || 0) + 1;
+    if (saveReplays) {
+      const id = `${played.profile.id}_thought_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      saveReplay({
+        id,
+        chess: played.chess,
+        result: played.result,
+        meta: {
+          source: "master_thought_reinforce",
+          masterId: played.profile.id,
+          displayName: played.profile.displayName,
+          fromThought: {
+            san: row.san,
+            why: row.why,
+            phase: row.phase,
+            moveName: row.moveName
+          }
+        }
+      });
+    }
+    if (feedNN) {
+      const plies = played.chess.history().length;
+      feedGameToValueNet(played.chess, played.startFen);
+      summary.tdSteps += plies;
+    }
+  }
+  return summary;
+}
+
 function runMasterSeedBurst(opts = {}) {
   const styles = opts.styles || Object.keys(MASTER_PROFILES);
   const gamesPerMaster = opts.gamesPerMaster ?? 1;
   const maxPlies = opts.maxPlies ?? 48;
   const saveReplays = opts.saveReplays !== false;
   const feedNN = opts.feedNN !== false;
+  const weighted = styleGameCounts(gamesPerMaster);
 
   ensureReplayDir();
-  const summary = { byStyle: {}, tdSteps: 0, replays: 0 };
+  const summary = { byStyle: {}, tdSteps: 0, replays: 0, thoughtWeights: weighted };
 
   for (const key of styles) {
     const profile = MASTER_PROFILES[key];
     if (!profile) continue;
     summary.byStyle[key] = { white: 0, black: 0, draw: 0, unknown: 0, replays: 0 };
+    const nGames = weighted.counts[key] ?? gamesPerMaster;
 
-    for (let i = 0; i < gamesPerMaster; i++) {
+    for (let i = 0; i < nGames; i++) {
       const { chess, result, profile: prof } = playSeed({ profileKey: key, maxPlies });
       const id = `${prof.id}_seed_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -402,6 +531,19 @@ function runMasterSeedBurst(opts = {}) {
     }
   }
 
+  if (opts.reinforceThoughtLog !== false) {
+    try {
+      summary.thoughtReinforce = runThoughtLogReinforce({
+        extraPlies: Math.min(20, maxPlies),
+        limit: 12,
+        feedNN,
+        saveReplays: false
+      });
+    } catch (e) {
+      summary.thoughtReinforce = { error: e.message };
+    }
+  }
+
   return summary;
 }
 
@@ -418,9 +560,12 @@ module.exports = {
   scoreMove,
   chooseMove,
   playSeed,
+  playFromFen,
   saveReplay,
   feedGameToValueNet,
   runMasterSeedBurst,
+  runThoughtLogReinforce,
+  styleGameCounts,
   parseStylesArg,
   ensureReplayDir
 };

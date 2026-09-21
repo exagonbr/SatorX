@@ -133,14 +133,31 @@ function findBestMove(chess, depth = 7, timeMs = 3000, options = {}) {
   const start = Date.now();
   let best = null, bestScore = -Infinity, bestDepth = 1;
   const book = options.book && typeof options.book === "object" ? options.book : {};
+  const {
+    selectMasterForPosition,
+    masterOrderingBonus,
+    blendRootMoves,
+    buildThought
+  } = require("./lib/masterStrategy");
+
+  const lastMove = options.lastMove || chess.history({ verbose: true }).slice(-1)[0] || null;
+  const historySans = options.historySans || chess.history();
+  const strategy = selectMasterForPosition(chess, { lastMove, historySans });
+  const profile = strategy.profile;
 
   for (let d=1; d<=depth; d++) {
     if (Date.now() - start > timeMs) break;
 
-    let localBest=null, localScore=-Infinity;
     let alpha = -Infinity;
+    const rootRows = [];
     let moves = chess.moves({ verbose: true })
-      .map((m) => ({ m, s: moveScore(m, d) + Math.round((book[m.san] || 0) * 2200) }))
+      .map((m) => ({
+        m,
+        s:
+          moveScore(m, d) +
+          Math.round((book[m.san] || 0) * 2200) +
+          masterOrderingBonus(chess, m, profile)
+      }))
       .sort((a, b) => b.s - a.s)
       .map((x) => x.m);
 
@@ -150,18 +167,19 @@ function findBestMove(chess, depth = 7, timeMs = 3000, options = {}) {
       chess.move(mv);
       const score = -negamax(chess, d-1, -Infinity, -alpha, 0);
       chess.undo();
-
-      if (score > localScore) { 
-        localScore = score; 
-        localBest = mv; 
-      }
-      if (score > alpha) {
-        alpha = score;
-      }
+      rootRows.push({ mv, score });
+      if (score > alpha) alpha = score;
     }
 
-    if (localBest) { best = localBest; bestScore = localScore; bestDepth = d; }
+    const ranked = blendRootMoves(chess, rootRows, profile, 55);
+    if (ranked[0]) {
+      best = ranked[0].mv;
+      bestScore = ranked[0].score;
+      bestDepth = d;
+    }
   }
+
+  const thought = buildThought(chess, best, strategy, lastMove);
 
   return {
     fen: chess.fen(),
@@ -169,7 +187,8 @@ function findBestMove(chess, depth = 7, timeMs = 3000, options = {}) {
     timeMs,
     turn: chess.turn(),
     bestMove: best ? { from: best.from, to: best.to, san: best.san, piece: best.piece, captured: best.captured || null, promotion: best.promotion || null, flags: best.flags } : null,
-    score: bestScore
+    score: bestScore,
+    masterStrategy: thought
   };
 }
 

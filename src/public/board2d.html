@@ -5,12 +5,13 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
-  <meta name="description" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
+  <script src="/js/i18n.js"></script>
+  <meta name="description" data-i18n-content="meta.2d.desc" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Sator"/>
-  <title>Sator Engine — Tabuleiro 2D e aprendizado profundo</title>
+  <title data-i18n="meta.2d.title">Sator Engine — Tabuleiro 2D e aprendizado profundo</title>
   <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -89,6 +90,7 @@
       flex-wrap: wrap;
       margin-bottom: 6px;
       padding-bottom: 16px;
+      padding-right: 108px;
       border-bottom: 1px solid var(--border);
     }
     .page-title {
@@ -146,10 +148,10 @@
     }
     .play-row {
       display: grid;
-      grid-template-columns: minmax(0, 460px) minmax(180px, 240px);
+      grid-template-columns: minmax(0, 460px) minmax(180px, 220px) minmax(200px, 280px);
       grid-template-areas:
-        "board history"
-        "tools history";
+        "board history thought"
+        "tools history thought";
       gap: 14px 18px;
       flex: 1 1 640px;
       min-width: 0;
@@ -337,9 +339,93 @@
     table.history-table td.num { color: var(--muted); width: 2.2em; }
     table.history-table td.san { color: var(--text); }
     table.history-table tr.is-last td {
-      background: rgba(212, 175, 55, 0.1);
       color: var(--gold-bright);
     }
+
+    .master-banner {
+      margin: 10px 0 0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-strong);
+      background: linear-gradient(180deg, rgba(212,175,55,0.14), rgba(0,0,0,0.35));
+    }
+    .master-banner[hidden] { display: none; }
+    .master-banner__kicker {
+      display: block;
+      font-size: 0.64rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .master-banner__line {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.92rem;
+      color: var(--gold-bright);
+      font-weight: 600;
+      line-height: 1.35;
+    }
+
+    .thought-panel {
+      grid-area: thought;
+      width: auto;
+      min-width: 0;
+      min-height: 0;
+      align-self: stretch;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px 14px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      max-height: min(72vh, 720px);
+    }
+    .thought-panel h2 {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--gold);
+      margin: 0 0 10px;
+      font-weight: 600;
+    }
+    .thought-scroll {
+      overflow: auto;
+      flex: 1;
+      min-height: 180px;
+      border: 1px solid rgba(212, 175, 55, 0.08);
+      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.28);
+      padding: 8px;
+    }
+    .thought-card {
+      border: 1px solid rgba(212, 175, 55, 0.12);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-bottom: 8px;
+      background: rgba(12, 16, 24, 0.7);
+    }
+    .thought-card.is-last {
+      border-color: rgba(212, 175, 55, 0.4);
+    }
+    .thought-card__san {
+      font-family: "IBM Plex Mono", ui-monospace, monospace;
+      color: var(--gold-bright);
+      font-size: 0.82rem;
+    }
+    .thought-card__name {
+      font-size: 0.8rem;
+      color: var(--text);
+      margin: 4px 0 6px;
+    }
+    .thought-card p {
+      margin: 0 0 4px;
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+    .thought-card strong { color: var(--gold); font-weight: 600; }
     .move-legend-2d {
       list-style: none;
       padding: 0;
@@ -626,6 +712,12 @@
 
     @media (max-width: 1100px) {
       .panel { max-width: none; }
+      .play-row {
+        grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
+        grid-template-areas:
+          "board history"
+          "tools thought";
+      }
     }
 
     @media (max-width: 860px) {
@@ -634,6 +726,7 @@
         grid-template-areas:
           "board"
           "history"
+          "thought"
           "tools";
         flex: 1 1 100%;
       }
@@ -643,6 +736,9 @@
       }
       .history-panel {
         max-height: 240px;
+      }
+      .thought-panel {
+        max-height: 280px;
       }
       .panel {
         flex: 1 1 100%;
@@ -682,9 +778,10 @@
         grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
         grid-template-areas:
           "board history"
-          "tools tools";
+          "tools thought";
       }
       .history-panel { max-height: min(70vh, 420px); }
+      .thought-panel { max-height: min(40vh, 260px); }
     }
   </style>
 </head>
@@ -692,13 +789,13 @@
   <div class="page-wrap">
     <div class="page-header">
       <h1 class="page-title">Sator <span>Engine</span></h1>
-      <span class="badge">Aprendizado profundo</span>
-      <a class="nav-link" href="/">← Menu</a>
+      <span class="badge" data-i18n="board2d.badge">Aprendizado profundo</span>
+      <a class="nav-link" href="/" data-i18n="common.menu">← Menu</a>
       <span class="live-switch">
-        <button type="button" id="btnSwitch3d">Continuar em 3D</button>
+        <button type="button" id="btnSwitch3d" data-i18n="board2d.continue3d">Continuar em 3D</button>
       </span>
     </div>
-    <p class="lead">
+    <p class="lead" data-i18n="board2d.lead">
       Vista 2D com setas de lance, histórico na lateral e relógio. Auto-clique troca o tempo ao jogar;
       desligue para mover e só depois pausar / passar o relógio.
     </p>
@@ -708,8 +805,8 @@
       <div class="board-stack">
         <div class="clock-face" id="clockTop">
           <div class="clock-face__meta">
-            <span class="clock-face__label" id="clockTopLabel">Pretas</span>
-            <span class="clock-face__side" id="clockTopSide">Oponente</span>
+            <span class="clock-face__label" id="clockTopLabel" data-i18n="common.black">Pretas</span>
+            <span class="clock-face__side" id="clockTopSide" data-i18n="common.opponent">Oponente</span>
           </div>
           <span class="clock-face__time" id="clockTopTime">00:00</span>
         </div>
@@ -719,106 +816,119 @@
         </div>
         <div class="clock-face is-bottom" id="clockBottom">
           <div class="clock-face__meta">
-            <span class="clock-face__label" id="clockBottomLabel">Brancas</span>
-            <span class="clock-face__side" id="clockBottomSide">Você</span>
+            <span class="clock-face__label" id="clockBottomLabel" data-i18n="common.white">Brancas</span>
+            <span class="clock-face__side" id="clockBottomSide" data-i18n="common.you">Você</span>
           </div>
           <span class="clock-face__time" id="clockBottomTime">00:00</span>
         </div>
         <div class="clock-controls">
           <label class="clock-auto">
             <input type="checkbox" id="clockAutoClick" checked />
-            Auto-clique
+            <span data-i18n="board2d.autoClick">Auto-clique</span>
           </label>
-          <button type="button" class="btn" id="btnClockPause">Pausar</button>
-          <button type="button" class="btn btn-clock-press" id="btnClockPress" hidden>Passar relógio</button>
-          <p class="clock-hint" id="clockHint">O relógio começa no primeiro lance. Auto-clique troca o lado automaticamente.</p>
+          <button type="button" class="btn" id="btnClockPause" data-i18n="board2d.pause">Pausar</button>
+          <button type="button" class="btn btn-clock-press" id="btnClockPress" hidden data-i18n="board2d.pressClock">Passar relógio</button>
+          <p class="clock-hint" id="clockHint" data-i18n="board2d.clockHint">O relógio começa no primeiro lance. Auto-clique troca o lado automaticamente.</p>
+        </div>
+        <div class="master-banner" id="masterBanner" hidden>
+          <span class="master-banner__line">
+            <span data-i18n="board2d.masterBanner">Motor usando estratégia do Mestre</span>:
+            “<span id="masterStyleLabel">—</span>” (<span id="masterName">—</span>)
+          </span>
         </div>
       </div>
 
-      <aside class="history-panel" aria-label="Histórico de jogadas">
-        <h2>Histórico de jogadas</h2>
+      <aside class="history-panel" aria-label="Histórico de jogadas" data-i18n-aria="board2d.history">
+        <h2 data-i18n="board2d.history">Histórico de jogadas</h2>
         <div class="history-scroll" id="moveHistory">
-          <p class="history-empty">Nenhum lance ainda.</p>
+          <p class="history-empty" data-i18n="board2d.noMoves">Nenhum lance ainda.</p>
         </div>
-        <ul class="move-legend-2d" aria-label="Legenda das setas">
-          <li><span class="dot" style="background:#d4af37"></span> Último lance</li>
-          <li><span class="dot" style="background:#2eb861"></span> Lance simples</li>
-          <li><span class="dot" style="background:#e5382e"></span> Captura</li>
-          <li><span class="dot" style="background:#3866f2"></span> Roque</li>
-          <li><span class="dot" style="background:#9447e0"></span> En passant</li>
-          <li><span class="dot" style="background:#26c6d8"></span> Avanço duplo</li>
-          <li><span class="dot" style="background:#ebad1f"></span> Promoção</li>
-          <li><span class="dot" style="background:#f2c82e"></span> Selecionada</li>
+        <ul class="move-legend-2d" aria-label="Legenda das setas" data-i18n-aria="board2d.legendAria">
+          <li><span class="dot" style="background:#d4af37"></span> <span data-i18n="board2d.lastMove">Último lance</span></li>
+          <li><span class="dot" style="background:#2eb861"></span> <span data-i18n="board2d.quiet">Lance simples</span></li>
+          <li><span class="dot" style="background:#e5382e"></span> <span data-i18n="board2d.capture">Captura</span></li>
+          <li><span class="dot" style="background:#3866f2"></span> <span data-i18n="board2d.castle">Roque</span></li>
+          <li><span class="dot" style="background:#9447e0"></span> <span data-i18n="board2d.ep">En passant</span></li>
+          <li><span class="dot" style="background:#26c6d8"></span> <span data-i18n="board2d.double">Avanço duplo</span></li>
+          <li><span class="dot" style="background:#ebad1f"></span> <span data-i18n="board2d.promo">Promoção</span></li>
+          <li><span class="dot" style="background:#f2c82e"></span> <span data-i18n="board2d.selected">Selecionada</span></li>
         </ul>
+      </aside>
+
+      <aside class="thought-panel" aria-label="Log de pensamento do motor" data-i18n-aria="board2d.thoughtAria">
+        <h2 data-i18n="board2d.thoughtTitle">Pensamento do motor</h2>
+        <div class="thought-scroll" id="thoughtLog">
+          <p class="history-empty" data-i18n="board2d.engineNoMoves">O motor ainda não jogou nesta partida.</p>
+        </div>
       </aside>
 
       <div class="board-tools">
         <div class="toolbar">
-          <button type="button" class="btn" id="btnNew">Novo jogo</button>
-          <button type="button" class="btn" id="btnUndo">Desfazer</button>
-          <button type="button" class="btn" id="btnAnalyze">Analisar</button>
-          <button type="button" class="btn" id="btnSave">Salvar replay</button>
-          <button type="button" class="btn" id="btnList">Listar replays</button>
+          <button type="button" class="btn" id="btnNew" data-i18n="board2d.new">Novo jogo</button>
+          <button type="button" class="btn" id="btnUndo" data-i18n="board2d.undo">Desfazer</button>
+          <button type="button" class="btn" id="btnAnalyze" data-i18n="board2d.analyze">Analisar</button>
+          <button type="button" class="btn" id="btnSave" data-i18n="board2d.save">Salvar replay</button>
+          <button type="button" class="btn" id="btnList" data-i18n="board2d.list">Listar replays</button>
         </div>
         <div class="controls">
           <label>
-            Modo
+            <span data-i18n="board2d.mode">Modo</span>
             <select id="mode">
-              <option value="engine">Contra o motor (minimax)</option>
-              <option value="human">Humano vs humano</option>
-              <option value="multiplayer">Multiplayer Online</option>
+              <option value="engine" data-i18n="board2d.modeEngine">Contra o motor (minimax)</option>
+              <option value="human" data-i18n="board2d.modeHuman">Humano vs humano</option>
+              <option value="multiplayer" data-i18n="board2d.modeMp">Multiplayer Online</option>
             </select>
           </label>
           <label id="wrapColor">
-            Sua cor (vs motor)
+            <span data-i18n="board2d.yourColor">Sua cor (vs motor)</span>
             <select id="playerColor">
-              <option value="w">Brancas (começam)</option>
-              <option value="b">Pretas (motor abre)</option>
+              <option value="w" data-i18n="board2d.whiteStart">Brancas (começam)</option>
+              <option value="b" data-i18n="board2d.blackEngine">Pretas (motor abre)</option>
             </select>
           </label>
           <div id="multiplayerSetup" style="display:none; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-top: 10px;">
-            <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);">Lobby — mesma API que a vista 3D (senha, WebSocket, espectadores)</p>
-            <label style="display:block;margin-top:8px;font-size:0.82rem;color:var(--muted);">Seu nome
-              <input type="text" id="mpPlayerName" placeholder="Ex.: Ana" maxlength="48" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
+            <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);" data-i18n="board2d.lobbyTitle">Lobby — mesma API que a vista 3D (senha, WebSocket, espectadores)</p>
+            <label style="display:block;margin-top:8px;font-size:0.82rem;color:var(--muted);"><span data-i18n="board2d.yourName">Seu nome</span>
+              <input type="text" id="mpPlayerName" placeholder="Ex.: Ana" data-i18n-placeholder="ph.name" maxlength="48" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
             </label>
-            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);">Oponente esperado (opcional)
-              <input type="text" id="mpOpponentName" placeholder="Até o oponente entrar" maxlength="48" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
+            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);"><span data-i18n="board2d.oppName">Oponente esperado (opcional)</span>
+              <input type="text" id="mpOpponentName" placeholder="Até o oponente entrar" data-i18n-placeholder="ph.oppUntil" maxlength="48" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
             </label>
-            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);">Senha da sala (criar, opcional)
+            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);"><span data-i18n="board2d.roomPass">Senha da sala (criar, opcional)</span>
               <input type="password" id="mpRoomPassword" maxlength="64" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
             </label>
-            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);">Máx. espectadores
+            <label style="display:block;margin-top:6px;font-size:0.82rem;color:var(--muted);"><span data-i18n="board2d.maxSpec">Máx. espectadores</span>
               <input type="number" id="mpMaxSpectators" value="8" min="1" max="32" style="width:100%;box-sizing:border-box;margin-top:4px;padding:8px;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,0.35);color:var(--text);"/>
             </label>
             <div style="display:flex; gap: 8px; margin-top: 10px; flex-wrap:wrap;">
-              <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
+              <button type="button" class="btn" id="btnCreateLobby" data-i18n="board2d.create">Criar Sala</button>
             </div>
             <div class="mp-join-row">
-              <input type="text" id="lobbyIdInput" placeholder="ID da Sala" />
-              <input type="password" id="mpJoinPassword" placeholder="Senha" maxlength="64"/>
-              <button type="button" class="btn" id="btnJoinLobby">Entrar (jogador)</button>
-              <button type="button" class="btn" id="btnSpectateLobby">Assistir (cima)</button>
+              <input type="text" id="lobbyIdInput" placeholder="ID da Sala" data-i18n-placeholder="ph.lobbyId" />
+              <input type="password" id="mpJoinPassword" placeholder="Senha" data-i18n-placeholder="ph.password" maxlength="64"/>
+              <button type="button" class="btn" id="btnJoinLobby" data-i18n="board2d.join">Entrar (jogador)</button>
+              <button type="button" class="btn" id="btnSpectateLobby" data-i18n="board2d.spectate">Assistir (cima)</button>
             </div>
             <div id="mpClaimRow" style="display:none;margin-top:8px;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button type="button" class="btn" id="btnClaimW">Ocupar brancas</button>
-              <button type="button" class="btn" id="btnClaimB">Ocupar pretas</button>
+              <button type="button" class="btn" id="btnClaimW" data-i18n="board2d.claimW">Ocupar brancas</button>
+              <button type="button" class="btn" id="btnClaimB" data-i18n="board2d.claimB">Ocupar pretas</button>
             </div>
             <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
-            <p id="mpConnStats" style="font-size:0.72rem;color:var(--muted);margin:6px 0 0;">Canal: — · Vista: plana de cima para espectadores</p>
+            <p id="mpConnStats" style="font-size:0.72rem;color:var(--muted);margin:6px 0 0;" data-i18n="board2d.connIdle">Canal: — · Vista plana de cima como espectador</p>
           </div>
           <label class="row-inline" style="margin-top:10px;align-items:center;gap:8px;">
             <input type="checkbox" id="trainOnline" checked />
-            Aprendizado TD a cada lance (rede de valor)
+            <span data-i18n="board2d.trainTd">Aprendizado TD a cada lance (rede de valor)</span>
           </label>
           <details class="engine-tune">
-            <summary>Profundidade e tempo do motor</summary>
-            <p class="engine-tune__help">
+            <summary data-i18n="board2d.engineTune">Profundidade e tempo do motor</summary>
+            <p class="engine-tune__help" data-i18n-html="board2d.engineHelp">
               <strong>Profundidade</strong>: quantas meia-jogadas (plies) o motor analisa à frente.
               <strong>Tempo (ms)</strong>: limite máximo de reflexão por lance.
             </p>
             <div class="row-inline">
-              <label>Profundidade <input id="depth" type="number" value="7" min="1" max="10"/></label>
-              <label>Tempo motor (ms) <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+              <label><span data-i18n="board2d.depth">Profundidade</span> <input id="depth" type="number" value="7" min="1" max="10"/></label>
+              <label><span data-i18n="board2d.timeMs">Tempo motor (ms)</span> <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
             </div>
           </details>
         </div>
@@ -826,57 +936,57 @@
       </div>
 
       <div class="panel">
-        <h2>Estado da partida</h2>
+        <h2 data-i18n="board2d.state">Estado da partida</h2>
         <div class="status-line" id="status"></div>
         <p id="trainMetrics" class="muted" style="font-size:0.85rem;margin-top:6px;"></p>
         <p id="ratingPredictiveLine" class="muted" style="font-size:0.85rem;margin-top:4px;"></p>
 
-        <h3>Último lance do motor</h3>
+        <h3 data-i18n="board2d.lastEngine">Último lance do motor</h3>
         <pre id="engineMove">-</pre>
 
-        <h3>Relatório (Tabula + métricas)</h3>
+        <h3 data-i18n="board2d.report">Relatório (Tabula + métricas)</h3>
         <pre id="report">{}</pre>
 
-        <h3>Livro e busca (SatorX + Lichess)</h3>
-        <p id="bookLine" class="clock-hint">Livro da posição: —</p>
+        <h3 data-i18n="board2d.book">Livro e busca (SatorX + Lichess)</h3>
+        <p id="bookLine" class="clock-hint" data-i18n="board2d.bookLine">Livro da posição: —</p>
         <div class="clock-controls" style="margin-top:8px;">
-          <input type="search" id="gameSearchQ" placeholder="Buscar partidas (e4, kasparov, draw…)" style="flex:1;min-width:140px;padding:8px;border-radius:7px;border:1px solid var(--border);background:rgba(0,0,0,0.4);color:var(--text);"/>
-          <button type="button" class="btn" id="btnGameSearch">Buscar</button>
+          <input type="search" id="gameSearchQ" placeholder="Buscar partidas (e4, kasparov, draw…)" data-i18n-placeholder="board2d.searchPh" style="flex:1;min-width:140px;padding:8px;border-radius:7px;border:1px solid var(--border);background:rgba(0,0,0,0.4);color:var(--text);"/>
+          <button type="button" class="btn" id="btnGameSearch" data-i18n="board2d.search">Buscar</button>
         </div>
         <pre id="gameSearchOut">[]</pre>
 
-        <h3>Replays</h3>
+        <h3 data-i18n="board2d.replays">Replays</h3>
         <pre id="replays">[]</pre>
 
-        <h3>FEN</h3>
+        <h3 data-i18n="board2d.fen">FEN</h3>
         <pre id="fen"></pre>
 
-        <h2 style="margin-top:20px;">Do tabuleiro ao aprendizado profundo</h2>
+        <h2 style="margin-top:20px;" data-i18n="board2d.dlTitle">Do tabuleiro ao aprendizado profundo</h2>
         <div class="dl-card">
-          <p style="margin:0 0 10px; font-size:0.88rem;">
+          <p style="margin:0 0 10px; font-size:0.88rem;" data-i18n-html="board2d.dl1">
             Em motores como o AlphaZero, a <strong>rede neural</strong> não “vê” madeira: recebe tensores derivados da posição
             (vários planos 8×8: peças, repetições etc.). Aqui você vê o mesmo estado em notação e uma grade pedagógica.
           </p>
           <ul class="dl-steps">
-            <li><strong>Estado s</strong>: posição legal (FEN ou "planos" abaixo) — entrada da rede.</li>
-            <li><strong>Política π(a|s)</strong>: probabilidades sobre lances legais — “para onde jogar”.</li>
-            <li><strong>Valor V(s)</strong>: expectativa de resultado a partir de s — “quão boa é a posição”.</li>
-            <li><strong>Buffer de replay</strong>: pares (estado, ação, resultado) das suas partidas — conjunto para treino.</li>
+            <li><strong data-i18n="board2d.dlS">Estado s</strong><span data-i18n="board2d.dlSdesc">: posição legal (FEN ou "planos" abaixo) — entrada da rede.</span></li>
+            <li><strong data-i18n="board2d.dlP">Política π(a|s)</strong><span data-i18n="board2d.dlPdesc">: probabilidades sobre lances legais — “para onde jogar”.</span></li>
+            <li><strong data-i18n="board2d.dlV">Valor V(s)</strong><span data-i18n="board2d.dlVdesc">: expectativa de resultado a partir de s — “quão boa é a posição”.</span></li>
+            <li><strong data-i18n="board2d.dlB">Buffer de replay</strong><span data-i18n="board2d.dlBdesc">: pares (estado, ação, resultado) das suas partidas — conjunto para treino.</span></li>
           </ul>
         </div>
         <div class="dl-card">
-          <p style="margin:0 0 8px; font-size:0.85rem; color:var(--muted);">
+          <p style="margin:0 0 8px; font-size:0.85rem; color:var(--muted);" data-i18n="board2d.dlTrain">
             Cada lance (com a opção acima) atualiza a rede TD; ao fim da partida o replay e as posições do buffer
             são gravados na base SQLite e o servidor agenda treino dos pesos heurísticos em segundo plano.
           </p>
-          <p style="margin:0; font-size:0.85rem;">
+          <p style="margin:0; font-size:0.85rem;" data-i18n-html="board2d.dlCli">
             <code class="cli">npm run build-buffer</code> reconstrói o buffer na BD e exporta <code class="cli">data/replay_buffer.jsonl</code>.
             <code class="cli">npm run train-buffer</code> treina a partir da BD; use <code class="cli">npm run train-buffer-file</code> só com o jsonl.
           </p>
         </div>
         <details class="dl-acc" open>
-          <summary>Grade 8×8 (codificação simples para estudo)</summary>
-          <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;">
+          <summary data-i18n="board2d.gridSummary">Grade 8×8 (codificação simples para estudo)</summary>
+          <p style="font-size:0.8rem; color:var(--muted); margin:8px 0;" data-i18n="board2d.gridHelp">
             Letras = tipo de peça (maiúscula = branca). Em redes reais usam-se múltiplos canais binários por tipo e cor.
           </p>
           <div class="tensor-wrap" id="tensorWrap"></div>
@@ -889,7 +999,13 @@
   <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
-    import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=2";
+    import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=3";
+    function t(key, vars) {
+      return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+    }
+    function apiErr(msg, fallback) {
+      return window.SatorI18n ? window.SatorI18n.apiError(msg, fallback) : (msg || fallback || "");
+    }
     const game = new Chess();
     let board = null;
     let busy = false;
@@ -922,6 +1038,7 @@
     };
     let selectedSq = null;
     let lastMoveArrow = null;
+    let thoughtLogEntries = [];
     let ignoreNextClick = false;
     function swallowTrailingClick() {
       ignoreNextClick = true;
@@ -934,9 +1051,6 @@
     let awaitingClockPress = false;
     let clockSide = "w";
     let liveApi = null;
-
-    var MP_LOBBY_UNSUPPORTED_MSG =
-      "O lobby online não está disponível: no Vercel configure PostgreSQL (DATABASE_URL ou POSTGRES_URL nas variáveis de ambiente de produção + migrações aplicadas no deploy).";
 
     function defaultMpCapsWhenUnknown() {
       const h = typeof location !== "undefined" ? location.hostname : "";
@@ -982,14 +1096,7 @@
     }
 
     var LS_MP_HOST_LOBBY = "sator_mp_host_lobby";
-    var MP_HOST_SKIP_JOIN_MSG =
-      "É o anfitrião desta sala — já está nas brancas à espera. Envie o link de convite ao oponente; não use «Entrar na sala».";
-    var MP_HOST_SKIP_SPECTATE_MSG =
-      "É o anfitrião desta sala — não pode assistir à própria partida. Aguarde o oponente ou partilhe o link.";
-    var MP_ALREADY_IN_LOBBY_MSG = "Já está ligado a esta sala.";
     var mpLobbyActionBusy = false;
-    var MP_LOBBY_URL_HINT_MSG =
-      "ID da sala preenchido. Oponente: «Entrar na sala». Se já houver dois jogadores, use «Assistir» ou «Reclamar lugar» (após desconexão).";
     function rememberMpHostLobby(lobbyId) {
       try {
         if (lobbyId) localStorage.setItem(LS_MP_HOST_LOBBY, lobbyId);
@@ -1024,12 +1131,11 @@
 
     function lobbyNamesLine(names, playersCount, lobbyId) {
       const n = names || {};
-      const w = n.white || "Brancas";
+      const w = n.white || t("mp.white");
       const b = n.black || n.opponentExpected || null;
-      const base = "Sala " + lobbyId + " — ";
-      if (playersCount > 1 && n.black) return base + w + " vs " + b;
-      if (b) return base + w + " vs " + b + " (a aguardar)";
-      return base + w + " (a aguardar oponente)";
+      if (playersCount > 1 && n.black) return t("mp.roomVs", { id: lobbyId, w: w, b: n.black });
+      if (b) return t("mp.roomWaitShort", { id: lobbyId, w: w, b: b });
+      return t("mp.roomWait", { id: lobbyId, w: w });
     }
 
     function setMpBoardOrientation() {
@@ -1044,14 +1150,15 @@
       const el = document.getElementById("mpConnStats");
       if (!el) return;
       if (!currentLobbyId || getMode() !== "multiplayer") {
-        el.textContent = "Canal: — · Vista plana de cima como espectador";
+        el.textContent = t("mp.conn2dIdle");
         return;
       }
       const wsOk = mpSocket && mpSocket.readyState === WebSocket.OPEN;
-      el.textContent =
-        "Canal: " + (wsOk ? "tempo real (WS)" : "HTTP (reserva)") +
-        " · Ping: " + (mpLastRttMs != null ? Math.round(mpLastRttMs) + " ms" : "—") +
-        (mpIsSpectator ? " · Espectador (visão de cima)" : "");
+      el.textContent = t("mp.conn2dLine", {
+        ch: wsOk ? t("mp.ws") : t("mp.http"),
+        ping: mpLastRttMs != null ? Math.round(mpLastRttMs) + " ms" : "—",
+        spec: mpIsSpectator ? t("mp.specTag") : ""
+      });
     }
 
     function disconnectMpRealtime() {
@@ -1161,7 +1268,7 @@
           if (msg.type === "game_over") {
             mpResultPosted = true;
             mpServerEndShown = true;
-            setStatus(msg.reasonLabel || "Partida terminada.");
+            setStatus(msg.reasonLabel ? apiErr(msg.reasonLabel) : t("mp.ended"));
             return;
           }
           if (msg.type === "seat_claimed") {
@@ -1169,7 +1276,7 @@
             if (st && msg.names && currentLobbyId) {
               st.textContent = lobbyNamesLine(msg.names, 2, currentLobbyId);
             }
-            setStatus((msg.name || "Jogador") + " ocupou as " + (msg.seat === "w" ? "brancas" : "pretas") + ".");
+            setStatus(t("mp.seatTaken", { name: msg.name || t("mp.player"), seat: msg.seat === "w" ? t("mp.seatW") : t("mp.seatB") }));
             return;
           }
           if (msg.type === "rematch" && msg.fen) {
@@ -1272,7 +1379,7 @@
       if (!id) return;
       const caps = await ensureLobbyCapabilities();
       if (caps.persistentLobbies === false) {
-        alert(MP_LOBBY_UNSUPPORTED_MSG);
+        alert(t("mp.unsupported"));
         return;
       }
       const spectatorToken = mpIsSpectator ? mpWsSecret : null;
@@ -1292,7 +1399,7 @@
         });
         const res = await r.json();
         if (!r.ok || !res.ok) {
-          alert(res.error || "Não foi possível ocupar o lugar.");
+          alert(apiErr(res.error, "mp.errClaim"));
           return;
         }
         mpResultPosted = false;
@@ -1310,7 +1417,7 @@
         connectMpRealtime(id, res.wsSecret);
         document.getElementById("mpClaimRow").style.display = "none";
       } catch (e) {
-        alert("Erro de rede");
+        alert(t("mp.net"));
       }
     }
 
@@ -1318,15 +1425,15 @@
       const idEl = document.getElementById("lobbyIdInput");
       const id = idEl && idEl.value.trim();
       if (!id) {
-        alert("Indique o ID da sala.");
+        alert(t("mp.needId"));
         return;
       }
       if (isMpHostOfLobby(id)) {
-        alert(MP_HOST_SKIP_SPECTATE_MSG);
+        alert(t("mp.hostSkipSpec"));
         return;
       }
       if (currentLobbyId === id && !mpIsSpectator) {
-        alert("Já está a jogar nesta sala — não use «Assistir».");
+        alert(t("mp.alreadyPlaying"));
         return;
       }
       if (
@@ -1336,7 +1443,7 @@
         (mpSocket.readyState === WebSocket.CONNECTING ||
           mpSocket.readyState === WebSocket.OPEN)
       ) {
-        alert("Já está a assistir a esta sala.");
+        alert(t("mp.alreadyWatching"));
         return;
       }
       if (mpLobbyActionBusy) return;
@@ -1346,7 +1453,7 @@
       try {
         const caps = await ensureLobbyCapabilities();
         if (caps.persistentLobbies === false) {
-          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          alert(t("mp.unsupported"));
           return;
         }
         const r = await fetch("/api/lobby/spectate", {
@@ -1356,21 +1463,21 @@
         });
         const res = await r.json();
         if (!r.ok || !res.ok) {
-          alert(res.error || "Não foi possível assistir.");
+          alert(apiErr(res.error, "mp.errSpectate"));
           return;
         }
         mpResultPosted = false;
         mpServerEndShown = false;
         currentLobbyId = id;
         mpLastPlayersPollCount = 2;
-        document.getElementById("lobbyStatus").textContent = "Espectador — sala " + id + " (vista de cima)";
+        document.getElementById("lobbyStatus").textContent = t("mp.specRoom", { id: id });
         game.load(game.fen());
         board.position(game.fen());
         setMpBoardOrientation();
         updateStatus();
         connectMpRealtime(id, res.wsSecret);
       } catch (e) {
-        alert("Erro de rede");
+        alert(t("mp.net"));
       } finally {
         mpLobbyActionBusy = false;
       }
@@ -1391,12 +1498,12 @@
     }
 
     function clockSideLabel(color) {
-      if (getMode() === "human") return color === "w" ? "Brancas" : "Pretas";
-      if (getMode() === "multiplayer") return color === "w" ? "Brancas" : "Pretas";
+      if (getMode() === "human") return color === "w" ? t("common.white") : t("common.black");
+      if (getMode() === "multiplayer") return color === "w" ? t("common.white") : t("common.black");
       if (getMode() === "engine") {
-        return color === getPlayerColor() ? "Você" : "Motor Sator";
+        return color === getPlayerColor() ? t("common.you") : t("common.engine");
       }
-      return color === "w" ? "Brancas" : "Pretas";
+      return color === "w" ? t("common.white") : t("common.black");
     }
 
     function updateClockUi() {
@@ -1419,20 +1526,20 @@
         const labelEl = document.getElementById(s.labelId);
         const sideEl = document.getElementById(s.sideId);
         if (timeEl) timeEl.textContent = fmtClock(s.color === "w" ? clockWhiteSecs : clockBlackSecs);
-        if (labelEl) labelEl.textContent = s.color === "w" ? "Brancas" : "Pretas";
+        if (labelEl) labelEl.textContent = s.color === "w" ? t("common.white") : t("common.black");
         if (sideEl) sideEl.textContent = clockSideLabel(s.color);
       }
       const pauseBtn = document.getElementById("btnClockPause");
-      if (pauseBtn) pauseBtn.textContent = clockPaused ? "Continuar" : "Pausar";
+      if (pauseBtn) pauseBtn.textContent = clockPaused ? t("board2d.resume") : t("board2d.pause");
       const pressBtn = document.getElementById("btnClockPress");
       if (pressBtn) pressBtn.hidden = isAutoClick() || !awaitingClockPress || game.isGameOver();
       const hint = document.getElementById("clockHint");
       if (hint) {
-        if (game.isGameOver()) hint.textContent = "Partida encerrada — relógio parado.";
-        else if (clockPaused) hint.textContent = "Relógio pausado. Continue ou faça o lance e use Pausar / Passar relógio.";
-        else if (awaitingClockPress) hint.textContent = "Lance feito — aperte Pausar ou Passar relógio para entregar o tempo ao oponente.";
-        else if (isAutoClick()) hint.textContent = "Auto-clique ligado: o relógio troca de lado sozinho após cada lance.";
-        else hint.textContent = "Auto-clique desligado: jogue e depois passe o relógio (ou pause).";
+        if (game.isGameOver()) hint.textContent = t("status.gameOverClock");
+        else if (clockPaused) hint.textContent = t("status.clockPaused");
+        else if (awaitingClockPress) hint.textContent = t("status.clockAwait");
+        else if (isAutoClick()) hint.textContent = t("status.autoOn");
+        else hint.textContent = t("status.autoOff");
       }
     }
 
@@ -1649,7 +1756,7 @@
       if (!wrap) return;
       const verbose = game.history({ verbose: true });
       if (!verbose.length) {
-        wrap.innerHTML = '<p class="history-empty">Nenhum lance ainda.</p>';
+        wrap.innerHTML = '<p class="history-empty">' + t("board2d.noMoves") + "</p>";
         return;
       }
       const rows = [];
@@ -1667,7 +1774,7 @@
         );
       }
       wrap.innerHTML =
-        `<table class="history-table"><thead><tr><th>#</th><th>Brancas</th><th>Pretas</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+        `<table class="history-table"><thead><tr><th>#</th><th>${t("common.white")}</th><th>${t("common.black")}</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
       wrap.scrollTop = wrap.scrollHeight;
     }
 
@@ -1768,6 +1875,168 @@
 
     function setStatus(msg) { document.getElementById("status").textContent = msg; }
 
+    function escapeThoughtHtml(s) {
+      return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+        return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c];
+      });
+    }
+
+    function restoreThoughtEntries(entries) {
+      thoughtLogEntries = Array.isArray(entries) ? entries.slice() : [];
+      const last = thoughtLogEntries[thoughtLogEntries.length - 1];
+      const banner = document.getElementById("masterBanner");
+      const styleEl = document.getElementById("masterStyleLabel");
+      const nameEl = document.getElementById("masterName");
+      if (last) {
+        if (styleEl) styleEl.textContent = last.styleLabel || "—";
+        if (nameEl) nameEl.textContent = last.displayName || "—";
+        if (banner) banner.hidden = false;
+      } else {
+        if (styleEl) styleEl.textContent = "—";
+        if (nameEl) nameEl.textContent = "—";
+        if (banner) banner.hidden = true;
+      }
+      renderThoughtLog();
+    }
+
+    function resetThoughtUi() {
+      restoreThoughtEntries([]);
+    }
+
+    function thoughtFromLogRow(row, ply) {
+      return {
+        ply: ply,
+        san: row.san || "",
+        moveName: row.moveName || "",
+        from: row.from || "",
+        to: row.to || "",
+        piece: row.piece || "",
+        pieceName: row.pieceName || "",
+        tags: row.tags || [],
+        displayName: row.displayName || "",
+        styleLabel: row.styleLabel || "",
+        why: row.why || "",
+        phase: row.phase || "",
+        thoughtText: row.thoughtText || "",
+        lastOpponentMove: row.lastOpponentMove || null
+      };
+    }
+
+    async function hydrateThoughtFromServer() {
+      if (thoughtLogEntries.length) return;
+      const engineColor = getPlayerColor() === "w" ? "b" : "w";
+      const verbose = game.history({ verbose: true });
+      const engineMoves = [];
+      for (let i = 0; i < verbose.length; i++) {
+        if (verbose[i].color === engineColor) engineMoves.push({ mv: verbose[i], ply: i + 1 });
+      }
+      if (!engineMoves.length) return;
+      try {
+        const data = await fetch("/api/master-thought-log?limit=80").then(function (r) { return r.json(); });
+        const list = (data && data.list) || [];
+        const matched = [];
+        let cursor = 0;
+        for (let e = 0; e < engineMoves.length; e++) {
+          const item = engineMoves[e];
+          let found = null;
+          for (let i = cursor; i < list.length; i++) {
+            const row = list[i];
+            if (row.san === item.mv.san && (!row.from || row.from === item.mv.from) && (!row.to || row.to === item.mv.to)) {
+              found = row;
+              cursor = i + 1;
+              break;
+            }
+          }
+          if (found) {
+            const prev = item.ply >= 2 ? verbose[item.ply - 2] : null;
+            const entry = thoughtFromLogRow(found, item.ply);
+            if (!entry.lastOpponentMove && prev) {
+              entry.lastOpponentMove = { san: prev.san, from: prev.from, to: prev.to };
+            }
+            if (!entry.pieceName && entry.piece) {
+              const names = { p: "Peão", n: "Cavalo", b: "Bispo", r: "Torre", q: "Dama", k: "Rei" };
+              entry.pieceName = names[entry.piece] || entry.piece;
+            }
+            matched.push(entry);
+          }
+        }
+        if (matched.length) restoreThoughtEntries(matched);
+      } catch {
+        /* log local indisponível */
+      }
+    }
+
+    function renderThoughtLog() {
+      const wrap = document.getElementById("thoughtLog");
+      if (!wrap) return;
+      if (!thoughtLogEntries.length) {
+        wrap.innerHTML = '<p class="history-empty">' + t("board2d.engineNoMoves") + "</p>";
+        return;
+      }
+      const cards = thoughtLogEntries.map(function (e, idx) {
+        const last = idx === thoughtLogEntries.length - 1;
+        const tags = (e.tags || []).map(escapeThoughtHtml).join(", ");
+        const lastOpp = e.lastOpponentMove
+          ? (e.lastOpponentMove.san || "") +
+            (e.lastOpponentMove.from ? " (" + e.lastOpponentMove.from + "→" + e.lastOpponentMove.to + ")" : "")
+          : t("thought.noPrev");
+        return (
+          '<article class="thought-card' + (last ? " is-last" : "") + '">' +
+            '<div class="thought-card__san">#' + escapeThoughtHtml(e.ply) + " · " + escapeThoughtHtml(e.san) + "</div>" +
+            '<div class="thought-card__name">' + escapeThoughtHtml(e.moveName) + "</div>" +
+            "<p><strong>" + t("thought.master") + "</strong> " + escapeThoughtHtml(e.displayName) +
+              " — “" + escapeThoughtHtml(e.styleLabel) + "”</p>" +
+            "<p><strong>" + t("thought.why") + "</strong> " + escapeThoughtHtml(e.why) + "</p>" +
+            "<p><strong>" + t("thought.phase") + "</strong> " + escapeThoughtHtml(e.phase) +
+              " · <strong>" + t("thought.squares") + "</strong> " + escapeThoughtHtml(e.from) + " → " + escapeThoughtHtml(e.to) +
+              " · <strong>" + t("thought.piece") + "</strong> " + escapeThoughtHtml(e.pieceName || e.piece) + "</p>" +
+            (tags ? "<p><strong>" + t("thought.type") + "</strong> " + tags + "</p>" : "") +
+            "<p><strong>" + t("thought.oppMove") + "</strong> " + escapeThoughtHtml(lastOpp) + "</p>" +
+            "<p>" + escapeThoughtHtml(e.thoughtText) + "</p>" +
+          "</article>"
+        );
+      }).join("");
+      wrap.innerHTML = cards;
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function applyMasterThought(ms, ply) {
+      if (!ms) return;
+      const banner = document.getElementById("masterBanner");
+      const styleEl = document.getElementById("masterStyleLabel");
+      const nameEl = document.getElementById("masterName");
+      if (styleEl) styleEl.textContent = ms.styleLabel || "—";
+      if (nameEl) nameEl.textContent = ms.displayName || "—";
+      if (banner) banner.hidden = false;
+      const mv = ms.move || {};
+      thoughtLogEntries.push({
+        ply: ply,
+        san: mv.san || "",
+        moveName: mv.name || "",
+        from: mv.from || "",
+        to: mv.to || "",
+        piece: mv.piece || "",
+        pieceName: mv.pieceName || "",
+        tags: mv.tags || [],
+        displayName: ms.displayName || "",
+        styleLabel: ms.styleLabel || "",
+        why: ms.why || "",
+        phase: ms.phase || "",
+        thoughtText: ms.thoughtText || "",
+        lastOpponentMove: ms.lastOpponentMove || null
+      });
+      renderThoughtLog();
+      const engineEl = document.getElementById("engineMove");
+      if (engineEl) {
+        engineEl.textContent =
+          (ms.displayName || "Mestre") + " · " + (mv.san || "") + "\n" +
+          (mv.name || "") + "\n" +
+          "Casas: " + (mv.from || "—") + " → " + (mv.to || "—") + "\n" +
+          (ms.thoughtText || "");
+      }
+      if (liveApi && typeof liveApi.publish === "function") liveApi.publish();
+    }
+
     function postMpFinishIfNeeded() {
       if (getMode() !== "multiplayer" || !currentLobbyId || !game.isGameOver() || mpResultPosted) return;
       mpResultPosted = true;
@@ -1837,8 +2106,7 @@
           if (caps.persistentLobbies === false) {
             const st = document.getElementById("lobbyStatus");
             if (st) {
-              st.textContent =
-                "Lobby online indisponível neste alojamento. Para multijogador, use um servidor Node dedicado (ex.: Railway, Fly.io) com `npm run server`.";
+              st.textContent = t("mp.unavailableHost");
             }
           }
         });
@@ -1887,7 +2155,7 @@
       bookRefreshTimer = setTimeout(async function () {
         const data = await fetchPositionBook(game.fen());
         if (!data || !data.ok) {
-          el.textContent = "Livro da posição: indisponível.";
+          el.textContent = t("book.unavailable");
           return;
         }
         const localMoves = (data.local && data.local.moves) || [];
@@ -1895,11 +2163,11 @@
           return m.san + " (" + m.plays + ")";
         });
         const remote = data.lichess && data.lichess.moves && data.lichess.moves[0]
-          ? " · Lichess: " + data.lichess.moves[0].san
+          ? t("book.lichess", { san: data.lichess.moves[0].san })
           : "";
         el.textContent = top.length
-          ? "Livro SatorX: " + top.join(" · ") + remote
-          : "Livro da posição: sem amostras locais" + remote;
+          ? t("book.sator", { list: top.join(" · "), remote: remote })
+          : t("book.empty", { remote: remote });
       }, 180);
     }
 
@@ -1933,6 +2201,11 @@
         else resumeClock();
       }
       if (board) board.position(game.fen());
+      if (Array.isArray(state.thoughtLog) && state.thoughtLog.length) {
+        restoreThoughtEntries(state.thoughtLog);
+      } else {
+        void hydrateThoughtFromServer();
+      }
       updateStatus();
       updateClockUi();
     }
@@ -1954,12 +2227,10 @@
           .then(function (r) { return r.json(); })
           .then(function (pred) {
             if (pred.ok && pred.ratingPredictive != null) {
-              line.textContent =
-                "Rating (Clássico) preditivo ~" +
-                Math.round(pred.ratingPredictive) +
-                " (face ao motor ~" +
-                pred.referenceOpponentElo +
-                ")";
+              line.textContent = t("mp.rating", {
+                rating: Math.round(pred.ratingPredictive),
+                elo: pred.referenceOpponentElo
+              });
             }
           })
           .catch(function () {});
@@ -1978,7 +2249,7 @@
         !mpOpponentReady &&
         !game.isGameOver()
       ) {
-        s = "A aguardar oponente — o jogo só começa quando o convidado entrar na sala.";
+        s = t("status.waitOpp");
         setStatus(s);
         setFen();
         renderTensorGrid();
@@ -1990,21 +2261,21 @@
         return;
       }
       if (game.isCheckmate()) {
-        s = "Xeque-mate — " + (game.turn() === "w" ? "vitória das pretas." : "vitória das brancas.");
+        s = game.turn() === "w" ? t("status.mateBlack") : t("status.mateWhite");
       } else if (game.isStalemate()) {
-        s = "Empate por afogamento.";
+        s = t("status.stalemate");
       } else if (game.isInsufficientMaterial()) {
-        s = "Empate — material insuficiente.";
+        s = t("status.insufficient");
       } else if (game.isThreefoldRepetition()) {
-        s = "Empate — tripla repetição.";
+        s = t("status.repetition");
       } else if (game.isDrawByFiftyMoves()) {
-        s = "Empate — regra dos 50 lances.";
+        s = t("status.fifty");
       } else if (game.isDraw()) {
-        s = "Empate.";
+        s = t("status.draw");
       } else {
-        s = game.turn() === "w" ? "Vez das brancas." : "Vez das pretas.";
-        if (game.inCheck()) s = "Xeque! " + s;
-        if (getMode() === "engine") s += isPlayerTurn() ? " — sua vez." : " — motor a pensar…";
+        s = game.turn() === "w" ? t("status.turnWhite") : t("status.turnBlack");
+        if (game.inCheck()) s = t("status.check") + s;
+        if (getMode() === "engine") s += isPlayerTurn() ? t("status.yourTurn") : t("status.thinking");
       }
       setStatus(s);
       setFen();
@@ -2059,11 +2330,30 @@
       const depth = parseInt(document.getElementById("depth").value, 10);
       const timeMs = parseInt(document.getElementById("timeMs").value, 10);
       const fenBefore = game.fen();
+      const hist = game.history();
+      const verbose = game.history({ verbose: true });
+      const lastMove = verbose.length ? verbose[verbose.length - 1] : null;
       try {
         const res = await fetch("/api/bestmove", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ fen: game.fen(), depth, timeMs })
+          body: JSON.stringify({
+            fen: game.fen(),
+            depth,
+            timeMs,
+            history: hist,
+            lastMove: lastMove
+              ? {
+                  san: lastMove.san,
+                  from: lastMove.from,
+                  to: lastMove.to,
+                  piece: lastMove.piece,
+                  captured: lastMove.captured || null,
+                  flags: lastMove.flags,
+                  promotion: lastMove.promotion || null
+                }
+              : null
+          })
         }).then(r => r.json());
         if (res.bestMove && res.bestMove.san) {
           const mv = game.move(res.bestMove.san);
@@ -2072,6 +2362,11 @@
           board.position(game.fen());
           if (mv) onClockAfterMove(mv.color);
           await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
+          if (res.masterStrategy) {
+            applyMasterThought(res.masterStrategy, game.history().length);
+          } else {
+            document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
+          }
           if (liveApi && mv) {
             void liveApi.logMove({
               ply: game.history().length,
@@ -2081,7 +2376,6 @@
               source: "engine"
             });
           }
-          document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
           if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
         }
         if (game.isGameOver()) {
@@ -2169,12 +2463,12 @@
       try {
         const caps = await ensureLobbyCapabilities();
         if (caps.persistentLobbies === false) {
-          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          alert(t("mp.unsupported"));
           return;
         }
         if (currentLobbyId && isMpHostOfLobby(currentLobbyId)) {
           alert(
-            "Já criou a sala «" + currentLobbyId + "». Partilhe o código ou aguarde o oponente."
+            t("mp.alreadyCreated", { id: currentLobbyId })
           );
           return;
         }
@@ -2185,7 +2479,7 @@
         });
         const res = await r.json();
         if (!r.ok || !res.ok) {
-          alert(res.error || "Não foi possível criar a sala.");
+          alert(apiErr(res.error, "mp.errCreate"));
           return;
         }
         mpResultPosted = false;
@@ -2210,12 +2504,12 @@
         }
         const inviteLink =
           window.location.origin + window.location.pathname + "?join=" + encodeURIComponent(res.lobbyId);
-        shareBtn.textContent = "Copiar Link de Convite";
+        shareBtn.textContent = t("mp.share");
         shareBtn.onclick = function () {
           navigator.clipboard.writeText(inviteLink);
-          shareBtn.textContent = "Copiado!";
+          shareBtn.textContent = t("mp.copied");
           setTimeout(function () {
-            shareBtn.textContent = "Copiar Link de Convite";
+            shareBtn.textContent = t("mp.share");
           }, 2000);
         };
 
@@ -2225,7 +2519,7 @@
         updateStatus();
         connectMpRealtime(res.lobbyId, res.wsSecret);
       } catch (e) {
-        alert("Erro ao criar sala");
+        alert(t("mp.errCreateAlert"));
       } finally {
         mpLobbyActionBusy = false;
       }
@@ -2234,7 +2528,7 @@
     async function joinLobby(id) {
       if (!id) return;
       if (isMpHostOfLobby(id)) {
-        alert(MP_HOST_SKIP_JOIN_MSG);
+        alert(t("mp.hostSkipJoin"));
         return;
       }
       if (
@@ -2243,7 +2537,7 @@
         (mpSocket.readyState === WebSocket.CONNECTING ||
           mpSocket.readyState === WebSocket.OPEN)
       ) {
-        alert(MP_ALREADY_IN_LOBBY_MSG);
+        alert(t("mp.alreadyIn"));
         return;
       }
       if (mpLobbyActionBusy) return;
@@ -2259,7 +2553,7 @@
       try {
         const caps = await ensureLobbyCapabilities();
         if (caps.persistentLobbies === false) {
-          alert(MP_LOBBY_UNSUPPORTED_MSG);
+          alert(t("mp.unsupported"));
           return;
         }
         var previousSecret = readMpGuestSecret(id);
@@ -2306,14 +2600,14 @@
           if (res.color === "b") rememberMpGuestSecret(res.lobbyId, res.wsSecret);
           connectMpRealtime(res.lobbyId, res.wsSecret);
         } else {
-          alert(res.error || "Não foi possível entrar na sala.");
+          alert(apiErr(res.error, "mp.errJoin"));
           currentLobbyId = null;
           mpOpponentReady = false;
           document.getElementById("lobbyStatus").textContent = "";
         }
       } catch (e) {
         mpOpponentReady = false;
-        alert("Erro ao entrar na sala");
+        alert(t("mp.errJoinAlert"));
       } finally {
         mpLobbyActionBusy = false;
       }
@@ -2324,6 +2618,7 @@
       board.start();
       selectedSq = null;
       lastMoveArrow = null;
+      resetThoughtUi();
       resetClock();
       syncModeUI();
       updateStatus();
@@ -2349,7 +2644,22 @@
     document.getElementById("btnUndo").onclick = () => {
       if (busy) return;
       if (getMode() === "multiplayer") return;
-      if (getMode() === "engine") { game.undo(); game.undo(); }
+      if (getMode() === "engine") {
+        game.undo();
+        game.undo();
+        if (thoughtLogEntries.length) thoughtLogEntries.pop();
+        renderThoughtLog();
+        if (!thoughtLogEntries.length) {
+          const banner = document.getElementById("masterBanner");
+          if (banner) banner.hidden = true;
+        } else {
+          const last = thoughtLogEntries[thoughtLogEntries.length - 1];
+          const styleEl = document.getElementById("masterStyleLabel");
+          const nameEl = document.getElementById("masterName");
+          if (styleEl) styleEl.textContent = last.styleLabel || "—";
+          if (nameEl) nameEl.textContent = last.displayName || "—";
+        }
+      }
       else game.undo();
       selectedSq = null;
       awaitingClockPress = false;
@@ -2453,6 +2763,7 @@
           depth: parseInt(document.getElementById("depth").value, 10) || 7,
           timeMs: parseInt(document.getElementById("timeMs").value, 10) || 2500,
           trainOnline: trainOnlineEnabled(),
+          thoughtLog: thoughtLogEntries,
           clocks: {
             white: clockWhiteSecs,
             black: clockBlackSecs,
@@ -2469,6 +2780,7 @@
         if (board) board.position(game.fen());
         updateStatus();
         updateClockUi();
+        void hydrateThoughtFromServer();
       });
     }
     var urlJoin = urlParams.get("join");
@@ -2487,15 +2799,14 @@
         if (code) {
           document.getElementById("lobbyIdInput").value = code;
           if (isMpHostOfLobby(code)) {
-            document.getElementById("lobbyStatus").textContent =
-              "Anfitrião — aguarde o oponente (link com ?join=…).";
-            alert(MP_HOST_SKIP_JOIN_MSG);
+            document.getElementById("lobbyStatus").textContent = t("mp.hostWait2d");
+            alert(t("mp.hostSkipJoin"));
           } else if (codeFromJoin) {
             setTimeout(function () {
               document.getElementById("btnJoinLobby").click();
             }, 500);
           } else {
-            alert(MP_LOBBY_URL_HINT_MSG);
+            alert(t("mp.urlHint"));
           }
         }
       }
@@ -2503,6 +2814,17 @@
       syncModeUI();
     }
     void ensureLobbyCapabilities();
+    window.addEventListener("sator:langchange", function () {
+      updateStatus();
+      updateClockUi();
+      renderMoveHistory();
+      renderThoughtLog();
+      refreshBookLine();
+      updateMpConnStats();
+      scheduleRatingPredictiveRefresh();
+      const shareBtn = document.getElementById("btnShareLink");
+      if (shareBtn) shareBtn.textContent = t("mp.share");
+    });
   </script>
   <script src="/js/pwa-register.js" defer></script>
 </body>

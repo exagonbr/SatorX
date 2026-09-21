@@ -4,7 +4,8 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#04060a"/>
-  <title>Ranking — salas online | SatorX</title>
+  <script src="/js/i18n.js"></script>
+  <title data-i18n="meta.ranking.title">Ranking — salas online | SatorX</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -36,6 +37,7 @@
       margin: 0 auto 24px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 18px;
+      padding-right: 108px;
     }
     h1 {
       font-size: 1.35rem;
@@ -122,15 +124,15 @@
 </head>
 <body>
   <header>
-    <h1>Ranking — salas online</h1>
-    <p class="sub">
+    <h1 data-i18n="ranking.title">Ranking — salas online</h1>
+    <p class="sub" data-i18n-html="ranking.sub">
       Histórico das partidas multijogador: ID da sala, jogadores, vencedor, pontuação (1 / 0 / 0,5),
       duração e motivo. Vitória por ausência: após <strong>2 minutos</strong> sem ligação em tempo real (WebSocket),
       a vitória é atribuída a quem permaneceu ligado.
     </p>
     <div class="toolbar">
-      <a class="btn" href="/">← Menu inicial</a>
-      <button type="button" class="btn" id="btnRefresh">Atualizar</button>
+      <a class="btn" href="/" data-i18n="common.menuHome">← Menu inicial</a>
+      <button type="button" class="btn" id="btnRefresh" data-i18n="common.refresh">Atualizar</button>
       <span class="hint" id="loadState"></span>
     </div>
   </header>
@@ -139,23 +141,27 @@
     <table id="tbl">
       <thead>
         <tr>
-          <th>Data / hora</th>
-          <th>ID sala</th>
-          <th>Brancas</th>
-          <th>Pretas</th>
-          <th>Vencedor</th>
-          <th>Pontos (B / P)</th>
-          <th>Tempo</th>
-          <th>Motivo</th>
+          <th data-i18n="ranking.when">Data / hora</th>
+          <th data-i18n="ranking.room">ID sala</th>
+          <th data-i18n="ranking.white">Brancas</th>
+          <th data-i18n="ranking.black">Pretas</th>
+          <th data-i18n="ranking.winner">Vencedor</th>
+          <th data-i18n="ranking.score">Pontos (B / P)</th>
+          <th data-i18n="ranking.time">Tempo</th>
+          <th data-i18n="ranking.reason">Motivo</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
     </table>
-    <p class="empty" id="empty" hidden>Nenhuma partida registada ainda. Jogue online na vista 3D e os resultados aparecem aqui.</p>
+    <p class="empty" id="empty" hidden data-i18n="ranking.empty">Nenhuma partida registada ainda. Jogue online na vista 3D e os resultados aparecem aqui.</p>
     <p class="err" id="err" hidden></p>
   </div>
 
   <script>
+    function t(key, vars) {
+      return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+    }
+
     function fmtDuration(sec) {
       const s = Math.max(0, Math.floor(Number(sec) || 0));
       const m = Math.floor(s / 60);
@@ -164,9 +170,9 @@
     }
 
     function winnerLabel(w) {
-      if (w === "w") return "Brancas";
-      if (w === "b") return "Pretas";
-      return "Empate";
+      if (w === "w") return t("common.white");
+      if (w === "b") return t("common.black");
+      return t("common.draw");
     }
 
     function winnerClass(w) {
@@ -179,7 +185,8 @@
       if (!iso) return "—";
       try {
         const d = new Date(iso);
-        return d.toLocaleString("pt-PT", {
+        const loc = window.SatorI18n ? window.SatorI18n.locale() : "pt-BR";
+        return d.toLocaleString(loc, {
           day: "2-digit",
           month: "2-digit",
           year: "numeric",
@@ -197,12 +204,12 @@
       const errEl = document.getElementById("err");
       const loadState = document.getElementById("loadState");
       errEl.hidden = true;
-      loadState.textContent = "A carregar…";
+      loadState.textContent = t("ranking.loading");
       try {
         const r = await fetch("/api/lobby/ranking?limit=80");
         const data = await r.json();
         if (!r.ok || !data.ok) {
-          throw new Error(data.error || "Resposta inválida");
+          throw new Error(data.error || t("ranking.bad"));
         }
         const rows = data.entries || [];
         tbody.textContent = "";
@@ -232,16 +239,21 @@
                 (e.scoreBlack != null ? String(e.scoreBlack) : "—")
             );
             addCell(fmtDuration(e.durationSec));
-            addCell(e.reasonLabel || e.reasonCode || "—");
+            addCell(
+              window.SatorI18n
+                ? window.SatorI18n.reason(e.reasonCode, e.winner, e.reasonLabel)
+                : (e.reasonLabel || e.reasonCode || "—")
+            );
             tbody.appendChild(tr);
           }
         }
-        loadState.textContent = rows.length + " registo" + (rows.length === 1 ? "" : "s");
+        loadState.textContent =
+          rows.length === 1
+            ? t("ranking.records", { n: rows.length })
+            : t("ranking.recordsPlural", { n: rows.length });
       } catch (e) {
         loadState.textContent = "";
-        errEl.textContent =
-          "Não foi possível carregar o ranking. Confirme que o servidor está a correr (ex.: npm run server). " +
-          (e.message || "");
+        errEl.textContent = t("ranking.err", { msg: e.message || "" });
         errEl.hidden = false;
         document.getElementById("tbl").hidden = true;
         empty.hidden = true;
@@ -249,6 +261,7 @@
     }
 
     document.getElementById("btnRefresh").addEventListener("click", loadRanking);
+    window.addEventListener("sator:langchange", loadRanking);
     loadRanking();
   </script>
 </body>

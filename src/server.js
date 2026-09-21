@@ -46,6 +46,7 @@ const { tdStep, getStatus, forward } = require("./eval/valueNet");
 const { classicalRatingPredictive, DEFAULT_REFERENCE_ELO } = require("./utils/nnRatingPredict");
 const { evaluateHeuristicOnly } = require("./eval/weights");
 const { runMasterSeedBurst } = require("./lib/masterStyleSeed");
+const masterThoughtStore = require("./db/masterThoughtStore");
 const replayStore = require("./db/replayStore");
 const { schedulePostGameTrain } = require("./db/postGameTrainScheduler");
 const { getPostgresConnectionString } = require("./db/aiLearningStore");
@@ -105,18 +106,73 @@ if (!process.env.VERCEL) {
 app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
 app.post("/api/bestmove", async (req, res) => {
-  const { fen, depth = 7, timeMs = 2500 } = req.body || {};
+  const { fen, depth = 7, timeMs = 2500, history, lastMove } = req.body || {};
   const chess = new Chess();
-  if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
+  const historySans = Array.isArray(history) ? history : [];
+  if (historySans.length) {
+    let ok = true;
+    for (const san of historySans) {
+      try {
+        chess.move(san, { sloppy: true });
+      } catch {
+        ok = false;
+        break;
+      }
+    }
+    if (!ok || (fen && normFenCore(chess.fen()) !== normFenCore(fen))) {
+      if (!safeLoad(chess, fen)) return res.status(400).json({ error: "FEN inválido" });
+    }
+  } else if (!safeLoad(chess, fen)) {
+    return res.status(400).json({ error: "FEN inválido" });
+  }
   let book = {};
   try {
-    const local = await openingStats.localBook(fen);
+    const local = await openingStats.localBook(fen || chess.fen());
     book = local.scores || {};
   } catch {
     book = {};
   }
-  const result = findBestMove(chess, depth, timeMs, { book });
+  const result = findBestMove(chess, depth, timeMs, {
+    book,
+    lastMove: lastMove || null,
+    historySans: historySans.length ? historySans : chess.history()
+  });
+  if (result.bestMove && result.masterStrategy) {
+    try {
+      masterThoughtStore.appendThought({
+        fen: chess.fen(),
+        san: result.bestMove.san,
+        from: result.bestMove.from,
+        to: result.bestMove.to,
+        piece: result.bestMove.piece,
+        moveName: result.masterStrategy.move && result.masterStrategy.move.name,
+        tags: result.masterStrategy.move && result.masterStrategy.move.tags,
+        masterId: result.masterStrategy.masterId,
+        displayName: result.masterStrategy.displayName,
+        styleLabel: result.masterStrategy.styleLabel,
+        why: result.masterStrategy.why,
+        phase: result.masterStrategy.phase,
+        score: result.score,
+        depth: result.depth,
+        thoughtText: result.masterStrategy.thoughtText,
+        lastOpponentMove: result.masterStrategy.lastOpponentMove || null
+      });
+    } catch (e) {
+      console.warn("[bestmove] thought log:", e.message);
+    }
+  }
   return res.json(result);
+});
+
+app.get("/api/master-thought-log", (req, res) => {
+  const limit = Math.min(80, Math.max(1, parseInt(req.query.limit || "24", 10)));
+  const list = masterThoughtStore.readRecent(limit);
+  return res.json({
+    ok: true,
+    count: list.length,
+    list,
+    frequencies: masterThoughtStore.masterFrequencies()
+  });
 });
 
 // ---------- Replay API (Prisma / SQLite: game_replays + replay_buffer_rows) ----------

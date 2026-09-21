@@ -61,12 +61,52 @@
         url('/img/panel1_fundo.webp') no-repeat center center;
       background-size: cover;
     }
-    .bg-chess {
-      display: none;
+
+    /* Olhos suaves fundidos ao tabuleiro */
+    .bg-eyes {
+      position: fixed; inset: 0; z-index: 11;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .bg-eyes picture {
+      position: absolute;
+      left: 50%;
+      top: 24%;
+      transform: translate(-50%, -50%);
+      width: min(122vw, 1480px);
+      line-height: 0;
+    }
+    .bg-eyes img {
+      width: 100%;
+      height: auto;
+      display: block;
+      opacity: 0.4;
+      mix-blend-mode: screen;
+      filter: saturate(1.04) brightness(1.08) contrast(1.1);
+      -webkit-mask-image:
+        radial-gradient(ellipse 68% 78% at 50% 42%, #000 16%, rgba(0,0,0,0.5) 52%, transparent 78%),
+        linear-gradient(to bottom, #000 0%, #000 58%, transparent 86%);
+      mask-image:
+        radial-gradient(ellipse 68% 78% at 50% 42%, #000 16%, rgba(0,0,0,0.5) 52%, transparent 78%),
+        linear-gradient(to bottom, #000 0%, #000 58%, transparent 86%);
+      -webkit-mask-composite: source-in;
+      mask-composite: intersect;
+      animation: eyesGlow 12s ease-in-out infinite;
+    }
+    @keyframes eyesGlow {
+      0%, 100% { opacity: 0.32; filter: saturate(0.98) brightness(1.0)  contrast(1.08); }
+      50%      { opacity: 0.46; filter: saturate(1.08) brightness(1.14) contrast(1.12); }
+    }
+    @media (max-width: 640px) {
+      .bg-eyes picture { width: 165vw; top: 18%; }
+      .bg-eyes img { opacity: 0.36; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .bg-eyes img { animation: none; opacity: 0.38; }
     }
 
     /* Canvas de constelação */
-    #constellation { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+    #constellation { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 
     /* Layout central */
     .screen {
@@ -339,7 +379,12 @@
 </head>
 <body>
   <div class="bg-layer"></div>
-  <div class="bg-chess"></div>
+  <div class="bg-eyes" aria-hidden="true">
+    <picture>
+      <source type="image/webp" srcset="/img/login-eyes.webp"/>
+      <img src="/img/login-eyes.jpg" alt="" width="1024" height="342" decoding="async" draggable="false"/>
+    </picture>
+  </div>
   <canvas id="constellation"></canvas>
 
   <main class="screen">
@@ -483,55 +528,6 @@
       </div>
 
       <button class="modal-close" data-close="overlayIA" data-i18n="common.close">Fechar</button>
-        <ul class="masters-list">
-          <li>
-            <strong>Garry Kasparov</strong>
-            <p class="master-meta">(Rússia, 63 anos, Elo FIDE 2812 inativo — pico 2851, n.º 1 mundial)</p>
-            <p class="master-bio">Garry Kimovich Kasparov nasceu em Baku a 13 de abril de 1963. Campeão Mundial de 1985 a 2000, foi o n.º 1 do ranking durante 255 meses e retirou-se da competição regular em 2005 ainda no topo. O seu Elo de pico (2851, em 1999) foi recorde mundial até 2013.</p>
-            <ul>
-              <li>Ataque dinâmico e luta pela iniciativa em todas as fases</li>
-              <li>Preparação profunda de aberturas e variantes agressivas</li>
-              <li>Cálculo tático, sacrifícios posicionais e pressão psicológica</li>
-              <li>Repertório: Ruy López, Siciliana Najdorf, Escocesa, Gambito da Dama, Inglesa, Índia do Rei (Sämisch) e Grünfeld</li>
-            </ul>
-          </li>
-          <li>
-            <strong>Magnus Carlsen</strong>
-            <p class="master-meta">(Noruega, 35 anos, Elo FIDE 2823 — 1.º do mundo, pico 2882)</p>
-            <p class="master-bio">Sven Magnus Øen Carlsen nasceu em Tønsberg a 30 de novembro de 1990. Cinco vezes campeão mundial clássico (2013–2023), lidera o ranking FIDE desde 2011 e detém o recorde de Elo da história (2882). Também acumula títulos mundiais de rápido, blitz e Freestyle.</p>
-            <ul>
-              <li>Estilo universal e pragmático: posições jogáveis, pouco teóricas</li>
-              <li>Técnica de finais e conversão paciente de vantagens mínimas</li>
-              <li>Versatilidade de aberturas para evitar preparação estreita</li>
-              <li>Repertório: Ruy López (Berlim), Catalã, Siciliana Dragão, Inglesa simétrica, Sistema London, Italiana e Caro-Kann</li>
-            </ul>
-          </li>
-          <li>
-            <strong>Judit Polgár</strong>
-            <p class="master-meta">(Hungria, 50 anos, Elo FIDE 2675 inativo — pico 2735, 8.ª do mundo)</p>
-            <p class="master-bio">Judit Polgár nasceu em Budapeste a 23 de julho de 1976. É a única mulher a entrar no top 10 mundial e a ultrapassar 2700 Elo. Tornou-se Grande Mestre aos 15 anos, recusou o circuito feminino e enfrentou a elite masculina até se retirar da competição em 2014.</p>
-            <ul>
-              <li>Xadrez de ataque e tática: complicações e posições desequilibradas</li>
-              <li>1.e4 agressivo com brancas; defesas dinâmicas com pretas</li>
-              <li>Luta constante — evita simplificações que cedem a iniciativa</li>
-              <li>Repertório: Siciliana, Italiana, Índia do Rei, Francesa, Gambito do Rei, Ruy López e Ataque Austríaco (Pirc)</li>
-            </ul>
-          </li>
-          <li>
-            <strong>Dina Belenkaya</strong>
-            <p class="master-meta">(França, 32 anos, Elo FIDE 2237 — pico 2364)</p>
-            <p class="master-bio">Dina Vadimovna Belenkaya nasceu em São Petersburgo a 22 de dezembro de 1993. Quatro vezes campeã feminina de São Petersburgo e participante da Copa do Mundo Feminina de 2021. Representou a Rússia até 2022, Israel entre 2022 e 2026, e a França desde 2026. Também é comentarista e criadora de conteúdo de xadrez.</p>
-            <ul>
-              <li>Ataque prático: complicar a posição e forçar erros sob pressão</li>
-              <li>1.e4 agressivo — Italiana, Escocesa e gambitos de iniciativa</li>
-              <li>Defesas dinâmicas com pretas e ritmo de blitz no relógio</li>
-              <li>Repertório: Italiana, Escocesa, Gambito Evans, Siciliana Dragão, Francesa Winawer, Índia do Rei e Escandinava</li>
-            </ul>
-          </li>
-        </ul>
-      </div>
-
-      <button class="modal-close" data-close="overlayIA">Fechar</button>
     </div>
   </div>
 
@@ -690,6 +686,11 @@
       var titleEl = document.getElementById("rulesDemoTitle");
       if (!svg || !titleEl) return;
 
+      function i18nT(key) {
+        return window.SatorI18n ? window.SatorI18n.t(key) : key;
+      }
+      function hoverHint() { return i18nT("rules.hover"); }
+
       var animId = null;
       var lockedRule = null;
       var leaveTimer = null;
@@ -796,7 +797,7 @@
         root.appendChild(fxG);
 
         if (id === "king") {
-          titleEl.textContent = "Rei — até 8 casas vizinhas";
+          titleEl.textContent = i18nT("rules.demo.king");
           addPiece(piecesG, 4, 4, "\u2654", true);
           var dirs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
           runLoop(function (t) {
@@ -813,7 +814,7 @@
         }
 
         if (id === "queen") {
-          titleEl.textContent = "Dama — linhas e diagonais";
+          titleEl.textContent = i18nT("rules.demo.queen");
           addPiece(piecesG, 3, 4, "\u2655", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
@@ -831,7 +832,7 @@
         }
 
         if (id === "rook") {
-          titleEl.textContent = "Torre — fileiras e colunas";
+          titleEl.textContent = i18nT("rules.demo.rook");
           addPiece(piecesG, 3, 4, "\u2656", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
@@ -844,7 +845,7 @@
         }
 
         if (id === "bishop") {
-          titleEl.textContent = "Bispo — só diagonais";
+          titleEl.textContent = i18nT("rules.demo.bishop");
           addPiece(piecesG, 5, 1, "\u2657", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
@@ -859,7 +860,7 @@
         }
 
         if (id === "knight") {
-          titleEl.textContent = "Cavalo — salto em L";
+          titleEl.textContent = i18nT("rules.demo.knight");
           addPiece(piecesG, 5, 2, "\u265F", true);
           addPiece(piecesG, 6, 2, "\u265F", true);
           var ghx = xy(6, 1).x, ghy = xy(6, 1).y + 4;
@@ -884,7 +885,7 @@
         }
 
         if (id === "pawn") {
-          titleEl.textContent = "Peão — avanço e captura";
+          titleEl.textContent = i18nT("rules.demo.pawn");
           var wp = addPiece(piecesG, 4, 2, "\u2659", true);
           addPiece(piecesG, 3, 4, "\u265F", false);
           runLoop(function (t) {
@@ -915,7 +916,7 @@
         }
 
         if (id === "castling") {
-          titleEl.textContent = "Roque — rei e torre juntos";
+          titleEl.textContent = i18nT("rules.demo.castling");
           var kT = addPiece(piecesG, 4, 1, "\u2654", true);
           var rT = addPiece(piecesG, 7, 1, "\u2656", true);
           runLoop(function (t) {
@@ -931,7 +932,7 @@
         }
 
         if (id === "enpassant") {
-          titleEl.textContent = "En passant — captura lateral";
+          titleEl.textContent = i18nT("rules.demo.enpassant");
           var wp = addPiece(piecesG, 3, 5, "\u2659", true);
           var cap = addPiece(piecesG, 4, 5, "\u265F", false);
           runLoop(function (t) {
@@ -955,7 +956,7 @@
         }
 
         if (id === "promotion") {
-          titleEl.textContent = "Promoção — peão vira dama";
+          titleEl.textContent = i18nT("rules.demo.promotion");
           var pwn = addPiece(piecesG, 4, 7, "\u2659", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
@@ -979,7 +980,7 @@
         }
 
         if (id === "checkmate") {
-          titleEl.textContent = "Xeque-mate — rei sem escape";
+          titleEl.textContent = i18nT("rules.demo.checkmate");
           addPiece(piecesG, 7, 8, "\u265A", false);
           addPiece(piecesG, 6, 8, "\u2655", true);
           addPiece(piecesG, 6, 7, "\u2654", true);
@@ -992,7 +993,7 @@
           return;
         }
 
-        titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+        titleEl.textContent = hoverHint();
       }
 
       function setActiveTrigger(id) {
@@ -1007,7 +1008,7 @@
           leaveTimer = null;
           if (!lockedRule) {
             clearSvg();
-            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            titleEl.textContent = hoverHint();
             setActiveTrigger(null);
           }
         }, 220);
@@ -1018,7 +1019,7 @@
           if (lockedRule === rule) {
             lockedRule = null;
             clearSvg();
-            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            titleEl.textContent = hoverHint();
             setActiveTrigger(null);
             return;
           }
@@ -1053,12 +1054,16 @@
           if (!ovRules.classList.contains("open")) {
             lockedRule = null;
             clearSvg();
-            titleEl.textContent = "Passe o mouse ou toque/clique num termo";
+            titleEl.textContent = hoverHint();
             setActiveTrigger(null);
           }
         });
         mo.observe(ovRules, { attributes: true, attributeFilter: ["class"] });
       }
+      window.addEventListener("sator:langchange", function () {
+        if (lockedRule) showRule(lockedRule);
+        else titleEl.textContent = hoverHint();
+      });
     })();
 
     document.getElementById("btnRules").onclick   = function() { openModal("overlayRules"); };
@@ -1072,11 +1077,11 @@
             document.getElementById("iaStatusLoading").style.display = "none";
             document.getElementById("iaStatusData").style.display = "block";
             document.getElementById("iaUpdates").textContent = data.updates || 0;
-            document.getElementById("iaTdError").textContent = data.lastTdError != null ? Number(data.lastTdError).toFixed(4) : "N/D";
+            document.getElementById("iaTdError").textContent = data.lastTdError != null ? Number(data.lastTdError).toFixed(4) : (window.SatorI18n ? window.SatorI18n.t("common.nd") : "N/D");
           }
         })
         .catch(function(err) {
-          document.getElementById("iaStatusLoading").textContent = "Erro ao carregar os dados da IA.";
+          document.getElementById("iaStatusLoading").textContent = window.SatorI18n ? window.SatorI18n.t("ia.loadError") : "Erro ao carregar os dados da IA.";
           console.error(err);
         });
     };

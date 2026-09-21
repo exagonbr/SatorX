@@ -6,12 +6,13 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
-  <meta name="description" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
+  <script src="/js/i18n.js"></script>
+  <meta name="description" data-i18n-content="meta.3d.desc" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="apple-mobile-web-app-title" content="Sator"/>
-  <title>Sator Engine — Vista 3D</title>
+  <title data-i18n="meta.3d.title">Sator Engine — Vista 3D</title>
   <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
@@ -743,13 +744,13 @@
   </script>
 </head>
 <body>
-  <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="Carregando o tabuleiro 3D">
+  <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="Carregando o tabuleiro 3D" data-i18n-aria="chess3d.loadingAria">
     <div class="chess3d-loading__bg" aria-hidden="true"></div>
     <div class="chess3d-loading__pieces" id="chess3d-loading-pieces" aria-hidden="true"></div>
     <div class="chess3d-loading__center">
       <div class="chess3d-loading__bar" aria-hidden="true"><span></span></div>
-      <p class="chess3d-loading__hint">Preparando biblioteca, tabuleiro e peças…</p>
-      <p class="chess3d-loading__gesture">No celular: um dedo para jogar · dois dedos para girar e dar zoom</p>
+      <p class="chess3d-loading__hint" data-i18n="chess3d.loadingHint">Preparando biblioteca, tabuleiro e peças…</p>
+      <p class="chess3d-loading__gesture" data-i18n="chess3d.loadingGesture">No celular: um dedo para jogar · dois dedos para girar e dar zoom</p>
     </div>
   </div>
   <script>
@@ -780,127 +781,127 @@
   <div class="hud">
     <div class="panel" id="partidaPanel">
       <div class="panel__head">
-        <h2>Partida</h2>
-        <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Ocultar painel">Ocultar</button>
+        <h2 data-i18n="chess3d.game">Partida</h2>
+        <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Ocultar painel" data-i18n="chess3d.hide" data-i18n-title="chess3d.hideTitle">Ocultar</button>
       </div>
-      <div class="status" id="status">Carregando…</div>
+      <div class="status" id="status" data-i18n="common.loading">Carregando…</div>
       <div id="panelRest" class="panel__rest">
-        <p class="hint">
+        <p class="hint" data-i18n-html="chess3d.hint">
           Lance: clique na peça, depois na casa de destino (sem arrastar). <kbd>Esc</kbd> cancela a seleção. Toca-mover: após escolher a peça, não pode trocar por outra sua.
         </p>
-        <div class="hist-3d" id="moveHistory3d" aria-label="Histórico de jogadas">Nenhum lance ainda.</div>
-        <p class="hint" id="bookLine3d">Livro da posição: —</p>
+        <div class="hist-3d" id="moveHistory3d" aria-label="Histórico de jogadas" data-i18n="board2d.noMoves" data-i18n-aria="chess3d.historyAria">Nenhum lance ainda.</div>
+        <p class="hint" id="bookLine3d" data-i18n="chess3d.bookLine">Livro da posição: —</p>
         <div class="row">
-          <button type="button" class="btn" id="btnNew">Novo jogo</button>
-          <button type="button" class="btn" id="btnUndo">Desfazer</button>
+          <button type="button" class="btn" id="btnNew" data-i18n="chess3d.new">Novo jogo</button>
+          <button type="button" class="btn" id="btnUndo" data-i18n="chess3d.undo">Desfazer</button>
         </div>
         <div class="row">
-          <button type="button" class="btn" id="btnSwitch2d">Continuar em 2D</button>
+          <button type="button" class="btn" id="btnSwitch2d" data-i18n="chess3d.continue2d">Continuar em 2D</button>
         </div>
         <div class="row">
-          <label>Modo
+          <label><span data-i18n="chess3d.mode">Modo</span>
             <select id="mode">
-              <option value="engine">Vs motor</option>
-              <option value="human">Humano vs humano</option>
-              <option value="multiplayer">Multiplayer Online</option>
+              <option value="engine" data-i18n="chess3d.modeEngine">Vs motor</option>
+              <option value="human" data-i18n="chess3d.modeHuman">Humano vs humano</option>
+              <option value="multiplayer" data-i18n="chess3d.modeMp">Multiplayer Online</option>
             </select>
           </label>
         </div>
         <div class="row" id="wrapColor">
-          <label>Sua cor
+          <label><span data-i18n="chess3d.yourColor">Sua cor</span>
             <select id="playerColor">
-              <option value="w">Brancas</option>
-              <option value="b">Pretas</option>
+              <option value="w" data-i18n="common.white">Brancas</option>
+              <option value="b" data-i18n="common.black">Pretas</option>
             </select>
           </label>
         </div>
         <div id="multiplayerSetup" style="display:none; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-bottom: 10px;">
-          <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);">Lobby Multiplayer</p>
-          <label class="row" style="margin-top:8px; flex-direction:column; align-items:stretch; gap:4px;">Seu nome
-            <input type="text" id="mpPlayerName" placeholder="Ex.: Ana" maxlength="48" autocomplete="nickname" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          <p style="margin-top:0; font-size: 0.85rem; color: var(--gold);" data-i18n="chess3d.lobby">Lobby Multiplayer</p>
+          <label class="row" style="margin-top:8px; flex-direction:column; align-items:stretch; gap:4px;"><span data-i18n="chess3d.yourName">Seu nome</span>
+            <input type="text" id="mpPlayerName" placeholder="Ex.: Ana" data-i18n-placeholder="ph.name" maxlength="48" autocomplete="nickname" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
           </label>
-          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Nome do adversário
-            <input type="text" id="mpOpponentName" placeholder="Opcional (exibido até o oponente entrar)" maxlength="48" autocomplete="off" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;"><span data-i18n="chess3d.oppName">Nome do adversário</span>
+            <input type="text" id="mpOpponentName" placeholder="Opcional (exibido até o oponente entrar)" data-i18n-placeholder="ph.oppOptional" maxlength="48" autocomplete="off" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
           </label>
-          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Senha da sala (opcional)
-            <input type="password" id="mpRoomPassword" placeholder="O convidado precisará desta senha" maxlength="64" autocomplete="new-password" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;"><span data-i18n="chess3d.roomPass">Senha da sala (opcional)</span>
+            <input type="password" id="mpRoomPassword" placeholder="O convidado precisará desta senha" data-i18n-placeholder="ph.guestPass" maxlength="64" autocomplete="new-password" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
           </label>
-          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Jogadores na partida
-            <select id="mpMaxPlayers" title="Xadrez: dois jogadores no tabuleiro" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
-              <option value="2" selected>2 (xadrez)</option>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;"><span data-i18n="chess3d.players">Jogadores na partida</span>
+            <select id="mpMaxPlayers" title="Xadrez: dois jogadores no tabuleiro" data-i18n-title="chess3d.playersTitle" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;">
+              <option value="2" selected data-i18n="chess3d.players2">2 (xadrez)</option>
             </select>
           </label>
-          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;">Máx. espectadores
-            <input type="number" id="mpMaxSpectators" value="8" min="1" max="32" title="Quem assiste sem jogar; pode ocupar lugar se um jogador cair" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
+          <label class="row" style="margin-top:6px; flex-direction:column; align-items:stretch; gap:4px;"><span data-i18n="chess3d.maxSpec">Máx. espectadores</span>
+            <input type="number" id="mpMaxSpectators" value="8" min="1" max="32" title="Quem assiste sem jogar; pode ocupar lugar se um jogador cair" data-i18n-title="chess3d.maxSpecTitle" style="width:100%; box-sizing:border-box; padding: 8px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 6px; font-family: inherit; font-size: 0.85rem;"/>
           </label>
           <div style="display:flex; gap: 8px; margin-top: 10px; margin-bottom: 8px;">
-            <button type="button" class="btn" id="btnCreateLobby">Criar Sala</button>
+            <button type="button" class="btn" id="btnCreateLobby" data-i18n="chess3d.create">Criar Sala</button>
           </div>
           <div style="display:flex; gap: 8px; flex-wrap: wrap; align-items: center;">
-            <input type="text" id="lobbyIdInput" placeholder="ID da Sala" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
-            <input type="password" id="mpJoinPassword" placeholder="Senha (se houver)" maxlength="64" autocomplete="current-password" style="flex:1; min-width:120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
-            <button type="button" class="btn" id="btnJoinLobby">Entrar</button>
-            <button type="button" class="btn" id="btnSpectateLobby" title="Vista de cima; entre como jogador se um lugar ficar livre">Assistir</button>
+            <input type="text" id="lobbyIdInput" placeholder="ID da Sala" data-i18n-placeholder="ph.lobbyId" style="width: 120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
+            <input type="password" id="mpJoinPassword" placeholder="Senha (se houver)" data-i18n-placeholder="ph.joinPass" maxlength="64" autocomplete="current-password" style="flex:1; min-width:120px; padding: 6px; background: rgba(0,0,0,0.4); border: 1px solid var(--border); color: white; border-radius: 4px;" />
+            <button type="button" class="btn" id="btnJoinLobby" data-i18n="chess3d.join">Entrar</button>
+            <button type="button" class="btn" id="btnSpectateLobby" title="Vista de cima; entre como jogador se um lugar ficar livre" data-i18n="chess3d.spectate" data-i18n-title="chess3d.spectateTitle">Assistir</button>
           </div>
           <div id="mpClaimRow" style="display:none; margin-top:8px; gap:8px; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn" id="btnClaimW">Ocupar brancas</button>
-            <button type="button" class="btn" id="btnClaimB">Ocupar pretas</button>
+            <button type="button" class="btn" id="btnClaimW" data-i18n="chess3d.claimW">Ocupar brancas</button>
+            <button type="button" class="btn" id="btnClaimB" data-i18n="chess3d.claimB">Ocupar pretas</button>
           </div>
           <p id="lobbyStatus" style="font-size: 0.8rem; margin: 8px 0 0; color: var(--accent);"></p>
-          <p id="mpConnStats" class="mp-conn-stats" aria-live="polite">Canal: — · Ping: —</p>
+          <p id="mpConnStats" class="mp-conn-stats" aria-live="polite" data-i18n="chess3d.connIdle">Canal: — · Ping: —</p>
           <div class="mp-chat-wrap">
-            <div id="mpChatLog" class="mp-chat-log" aria-label="Mensagens do lobby"></div>
+            <div id="mpChatLog" class="mp-chat-log" aria-label="Mensagens do lobby" data-i18n-aria="chess3d.chatAria"></div>
             <div class="mp-chat-row">
-              <input type="text" id="mpChatInput" maxlength="280" placeholder="Mensagem ao oponente…" autocomplete="off"/>
-              <button type="button" class="btn" id="btnMpChatSend">Enviar</button>
+              <input type="text" id="mpChatInput" maxlength="280" placeholder="Mensagem ao oponente…" data-i18n-placeholder="chess3d.chatPh" autocomplete="off"/>
+              <button type="button" class="btn" id="btnMpChatSend" data-i18n="chess3d.send">Enviar</button>
             </div>
           </div>
         </div>
         <div class="row">
-          <label>Câmera
-            <select id="cameraView" title="Visão do tabuleiro 3D">
-              <option value="player">Jogador (padrão)</option>
-              <option value="top">De cima</option>
-              <option value="quarter">3/4 (clássica)</option>
-              <option value="fixed_white">Brancas sempre embaixo</option>
+          <label><span data-i18n="chess3d.camera">Câmera</span>
+            <select id="cameraView" title="Visão do tabuleiro 3D" data-i18n-title="chess3d.camTitle">
+              <option value="player" data-i18n="chess3d.camPlayer">Jogador (padrão)</option>
+              <option value="top" data-i18n="chess3d.camTop">De cima</option>
+              <option value="quarter" data-i18n="chess3d.camQuarter">3/4 (clássica)</option>
+              <option value="fixed_white" data-i18n="chess3d.camFixed">Brancas sempre embaixo</option>
             </select>
           </label>
         </div>
         <details class="engine-tune">
-          <summary>Profundidade e tempo do motor</summary>
-          <p class="engine-tune__help">
+          <summary data-i18n="chess3d.engineTune">Profundidade e tempo do motor</summary>
+          <p class="engine-tune__help" data-i18n-html="chess3d.engineHelp">
             <strong>Prof.</strong> é a profundidade da busca: quantas <em>meia-jogadas</em> (plies) o motor tenta olhar à frente.
             <strong>ms</strong> é o teto de tempo por lance em milissegundos.
           </p>
           <div class="row" style="margin-top:0">
-            <label>Prof. <input id="depth" type="number" value="7" min="1" max="10"/></label>
-            <label>ms <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
+            <label><span data-i18n="chess3d.depth">Prof.</span> <input id="depth" type="number" value="7" min="1" max="10"/></label>
+            <label><span data-i18n="chess3d.ms">ms</span> <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
           </div>
         </details>
         <div class="row">
-          <label class="toggle"><input type="checkbox" id="trainOnline" checked/> Treino TD online</label>
+          <label class="toggle"><input type="checkbox" id="trainOnline" checked/> <span data-i18n="chess3d.trainTd">Treino TD online</span></label>
         </div>
-        <div class="metrics" id="metrics">Rede: —</div>
-        <p class="metrics-hint" style="margin:6px 0 0;font-size:0.78rem;opacity:0.72;line-height:1.35;">
+        <div class="metrics" id="metrics" data-i18n="chess3d.net">Rede: —</div>
+        <p class="metrics-hint" style="margin:6px 0 0;font-size:0.78rem;opacity:0.72;line-height:1.35;" data-i18n="chess3d.metricsHint">
           O rating preditivo é uma estimativa a partir da rede de valor (não é Elo oficial).
         </p>
-        <h2 class="legend-title">Mapa de lances</h2>
-        <ul class="move-legend" aria-label="Legenda das cores de lance">
-          <li><span class="dot" style="background:#f2c82e"></span> Peça selecionada</li>
-          <li><span class="dot" style="background:#2eb861"></span> Lance simples</li>
-          <li><span class="dot" style="background:#e5382e"></span> Captura</li>
-          <li><span class="dot" style="background:#3866f2"></span> Roque</li>
-          <li><span class="dot" style="background:#9447e0"></span> En passant</li>
-          <li><span class="dot" style="background:#26c6d8"></span> Avanço duplo</li>
-          <li><span class="dot" style="background:#ebad1f"></span> Promoção</li>
-          <li><span class="dot" style="background:#eb6b1a"></span> Captura+promoção</li>
-          <li><span class="dot" style="background:#ff6a00"></span> Rei em xeque</li>
-          <li><span class="dot" style="background:#c40820"></span> Xeque-mate</li>
+        <h2 class="legend-title" data-i18n="chess3d.legend">Mapa de lances</h2>
+        <ul class="move-legend" aria-label="Legenda das cores de lance" data-i18n-aria="chess3d.legendAria">
+          <li><span class="dot" style="background:#f2c82e"></span> <span data-i18n="chess3d.sel">Peça selecionada</span></li>
+          <li><span class="dot" style="background:#2eb861"></span> <span data-i18n="chess3d.quiet">Lance simples</span></li>
+          <li><span class="dot" style="background:#e5382e"></span> <span data-i18n="chess3d.capture">Captura</span></li>
+          <li><span class="dot" style="background:#3866f2"></span> <span data-i18n="chess3d.castle">Roque</span></li>
+          <li><span class="dot" style="background:#9447e0"></span> <span data-i18n="chess3d.ep">En passant</span></li>
+          <li><span class="dot" style="background:#26c6d8"></span> <span data-i18n="chess3d.double">Avanço duplo</span></li>
+          <li><span class="dot" style="background:#ebad1f"></span> <span data-i18n="chess3d.promo">Promoção</span></li>
+          <li><span class="dot" style="background:#eb6b1a"></span> <span data-i18n="chess3d.capPromo">Captura+promoção</span></li>
+          <li><span class="dot" style="background:#ff6a00"></span> <span data-i18n="chess3d.check">Rei em xeque</span></li>
+          <li><span class="dot" style="background:#c40820"></span> <span data-i18n="chess3d.mate">Xeque-mate</span></li>
         </ul>
         <div class="row" style="margin-top:14px; border-top:1px solid rgba(212,175,55,0.1); padding-top:12px;">
-          <a class="link" href="/">← Menu</a>
+          <a class="link" href="/" data-i18n="common.menu">← Menu</a>
           <span style="color:rgba(212,175,55,0.2)">·</span>
-          <button type="button" class="link" id="btnSwitch2dFooter" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;">Tabuleiro 2D</button>
+          <button type="button" class="link" id="btnSwitch2dFooter" style="background:none;border:none;padding:0;font:inherit;color:inherit;cursor:pointer;" data-i18n="chess3d.board2d">Tabuleiro 2D</button>
         </div>
       </div>
     </div>
@@ -909,12 +910,12 @@
   <!-- Overlay: Promoção de peão -->
   <div id="promoOverlay" aria-hidden="true">
     <div class="promo-card">
-      <p>Promoção de peão</p>
+      <p data-i18n="chess3d.promoTitle">Promoção de peão</p>
       <div class="promo-btns">
-        <button type="button" data-p="q" title="Dama">♕</button>
-        <button type="button" data-p="r" title="Torre">♜</button>
-        <button type="button" data-p="b" title="Bispo">♝</button>
-        <button type="button" data-p="n" title="Cavalo">♞</button>
+        <button type="button" data-p="q" title="Dama" data-i18n-title="rules.queen">♕</button>
+        <button type="button" data-p="r" title="Torre" data-i18n-title="rules.rook">♜</button>
+        <button type="button" data-p="b" title="Bispo" data-i18n-title="rules.bishop">♝</button>
+        <button type="button" data-p="n" title="Cavalo" data-i18n-title="rules.knight">♞</button>
       </div>
     </div>
   </div>
@@ -922,9 +923,9 @@
   <!-- Overlay: Fim de jogo -->
   <div id="gameOverOverlay" aria-hidden="true">
     <div class="go-card">
-      <h3 id="goTitle">Fim de partida</h3>
+      <h3 id="goTitle" data-i18n="go.gameOver">Fim de partida</h3>
       <p id="goDetail"></p>
-      <button type="button" class="btn" id="btnGoNew">Nova partida</button>
+      <button type="button" class="btn" id="btnGoNew" data-i18n="chess3d.goNew">Nova partida</button>
     </div>
   </div>
 

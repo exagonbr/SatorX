@@ -133,24 +133,50 @@ function injectStyles() {
   document.head.appendChild(s);
 }
 
+function t(key, vars) {
+  return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+}
+
+function fillChooser(el) {
+  const title = el.querySelector("#viewChooserTitle");
+  const p = el.querySelector(".view-chooser-card p");
+  const b2 = el.querySelector('[data-view="2d"]');
+  const b3 = el.querySelector('[data-view="3d"]');
+  const bc = el.querySelector('[data-view="cancel"]');
+  if (title) title.textContent = t("chooser.title");
+  if (p) p.textContent = t("chooser.body");
+  if (b2) b2.textContent = t("chooser.2d");
+  if (b3) b3.textContent = t("chooser.3d");
+  if (bc) bc.textContent = t("common.cancel");
+}
+
+window.addEventListener("sator:langchange", function () {
+  const el = document.getElementById("viewChooserOverlay");
+  if (el) fillChooser(el);
+});
+
 function ensureOverlay() {
   injectStyles();
   let el = document.getElementById("viewChooserOverlay");
-  if (el) return el;
+  if (el) {
+    fillChooser(el);
+    return el;
+  }
   el = document.createElement("div");
   el.id = "viewChooserOverlay";
   el.className = "view-chooser-overlay";
   el.innerHTML = `
     <div class="view-chooser-card" role="dialog" aria-labelledby="viewChooserTitle">
-      <h2 id="viewChooserTitle">Nova partida</h2>
-      <p>Escolha a vista. A partida fica sincronizada: pode continuar no 2D ou no 3D no ponto exacto, com o mesmo histórico e relógio.</p>
+      <h2 id="viewChooserTitle"></h2>
+      <p></p>
       <div class="view-chooser-actions">
-        <button type="button" data-view="2d">Tabuleiro 2D</button>
-        <button type="button" data-view="3d">Tabuleiro 3D</button>
-        <button type="button" class="ghost" data-view="cancel">Cancelar</button>
+        <button type="button" data-view="2d"></button>
+        <button type="button" data-view="3d"></button>
+        <button type="button" class="ghost" data-view="cancel"></button>
       </div>
     </div>`;
   document.body.appendChild(el);
+  fillChooser(el);
   return el;
 }
 
@@ -212,6 +238,7 @@ export function bindLiveGame(adapter) {
       clocks: meta.clocks || null,
       trainOnline: meta.trainOnline !== false,
       lastMove: verbose.length ? { from: verbose[verbose.length - 1].from, to: verbose[verbose.length - 1].to } : null,
+      thoughtLog: Array.isArray(meta.thoughtLog) ? meta.thoughtLog : (prev.thoughtLog || []),
       updatedAt: Date.now(),
       origin: originId,
       view: adapter.view
