@@ -5,7 +5,7 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#04060a"/>
-  <script src="/js/i18n.js"></script>
+  <script src="/js/i18n.js?v=2"></script>
   <meta name="description" data-i18n-content="meta.home.desc" content="Motor de xadrez 8x8 Sator: heurísticas híbridas, rede de valor e vista 3D Three.js."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -410,9 +410,45 @@
 
     /* Modal regras: layout + demonstrações */
     .modal--rules {
-      width: min(640px, 94vw);
+      width: min(700px, 96vw);
       position: relative;
     }
+    /* Abas */
+    .rules-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+      flex-wrap: wrap;
+    }
+    .rules-tab {
+      background: none;
+      border: 1px solid transparent;
+      border-bottom: none;
+      padding: 6px 14px 8px;
+      font-family: "Cinzel", serif;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(232,224,208,0.55);
+      cursor: pointer;
+      border-radius: 4px 4px 0 0;
+      position: relative;
+      top: 1px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .rules-tab:hover { color: var(--gold); }
+    .rules-tab--active {
+      color: var(--gold-bright);
+      background: rgba(201,168,76,0.08);
+      border-color: var(--border);
+      border-bottom-color: #0a0e16;
+    }
+    /* Painéis */
+    .rules-panel { display: none; }
+    .rules-panel--active { display: block; }
     .rules-layout {
       display: flex;
       flex-wrap: wrap;
@@ -420,6 +456,41 @@
       align-items: flex-start;
     }
     .rules-text { flex: 1 1 260px; min-width: 0; }
+    /* Seções dentro dos painéis */
+    .rules-section {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(201,168,76,0.1);
+    }
+    .rules-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .rules-section h3 {
+      font-family: "Cinzel", serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin: 0 0 7px;
+    }
+    .rules-section p { font-size: 0.82rem; line-height: 1.55; margin: 0 0 5px; color: var(--text); }
+    .rules-section .rules-note {
+      font-size: 0.74rem;
+      color: rgba(232,224,208,0.6);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+    /* Bloco de condições */
+    .rules-conditions {
+      background: rgba(201,168,76,0.06);
+      border-left: 2px solid rgba(201,168,76,0.4);
+      border-radius: 0 3px 3px 0;
+      padding: 6px 10px;
+      margin-top: 6px;
+      font-size: 0.76rem;
+      color: rgba(232,224,208,0.75);
+      line-height: 1.5;
+    }
+    .rules-conditions strong { color: var(--gold); }
     .rules-demo {
       flex: 0 0 auto;
       width: min(220px, 100%);
@@ -480,6 +551,7 @@
     }
     @media (max-width: 560px) {
       .rules-demo { width: 100%; margin-left: 0; order: -1; }
+      .rules-tab { font-size: 0.58rem; padding: 5px 9px 7px; }
     }
   </style>
 </head>
@@ -606,8 +678,22 @@
   <div class="overlay" id="overlayRules" role="dialog" aria-modal="true" aria-labelledby="rulesHeading">
     <div class="modal modal--rules">
       <h2 id="rulesHeading" data-i18n="rules.title">Regras do Xadrez</h2>
+
+      <nav class="rules-tabs" role="tablist">
+        <button type="button" role="tab" class="rules-tab rules-tab--active" data-tab="moves" data-i18n="rules.tab.moves">Movimentos</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="special" data-i18n="rules.tab.special">Lances Esp.</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="attack" data-i18n="rules.tab.attack">&#9876; Ataque</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="defense" data-i18n="rules.tab.defense">&#128737; Defesa</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="openings" data-i18n="rules.tab.openings">♟ Aberturas</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="tactics2" data-i18n="rules.tab.tactics2">⚡ Táticas+</button>
+        <button type="button" role="tab" class="rules-tab" data-tab="errors" data-i18n="rules.tab.errors">🔍 Erros</button>
+      </nav>
+
       <div class="rules-layout">
         <div class="rules-text">
+
+          <!-- ABA: Movimentos -->
+          <div class="rules-panel rules-panel--active" id="rulesTab-moves" role="tabpanel">
           <p><span data-i18n="rules.introBefore">O xadrez é jogado em um tabuleiro 8×8 por dois jogadores. O objetivo é dar </span><button type="button" class="rule-trigger" data-rule="checkmate" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.checkmate">xeque-mate</strong></button><span data-i18n="rules.introAfter"> ao rei adversário.</span></p>
           <ul>
             <li><button type="button" class="rule-trigger" data-rule="king" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.king">Rei</strong></button><span data-i18n="rules.kingDesc">: move-se uma casa em qualquer direção.</span></li>
@@ -618,7 +704,175 @@
             <li><button type="button" class="rule-trigger" data-rule="pawn" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.pawn">Peão</strong></button><span data-i18n="rules.pawnDesc">: avança uma casa (ou duas no primeiro lance), captura na diagonal.</span></li>
           </ul>
           <p><span data-i18n="rules.specialBefore">Lances especiais: </span><button type="button" class="rule-trigger" data-rule="castling" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.castling">roque</strong></button><span data-i18n="rules.specialMid1">, </span><button type="button" class="rule-trigger" data-rule="enpassant" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.enpassant">en passant</strong></button><span data-i18n="rules.specialMid2"> (captura em passagem) e </span><button type="button" class="rule-trigger" data-rule="promotion" aria-describedby="rulesDemoTitle"><strong data-i18n="rules.promotion">promoção</strong></button><span data-i18n="rules.specialAfter"> (peão na última fileira).</span></p>
-        </div>
+          </div><!-- /rulesTab-moves -->
+
+          <!-- ABA: Lances Especiais -->
+          <div class="rules-panel" id="rulesTab-special" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.s.castlingTitle">&#127984; Roque</h3>
+              <p data-i18n="rules.s.castlingDesc">O único lance em que duas peças se movem ao mesmo tempo: rei e torre. Protege o rei e ativa a torre.</p>
+              <p><button type="button" class="rule-trigger" data-rule="castling-k" aria-describedby="rulesDemoTitle" data-i18n="rules.s.castlingK">Roque pequeno</button><span data-i18n="rules.s.castlingKDesc">: rei vai para g1, torre salta de h1 para f1.</span></p>
+              <p><button type="button" class="rule-trigger" data-rule="castling-q" aria-describedby="rulesDemoTitle" data-i18n="rules.s.castlingQ">Roque grande</button><span data-i18n="rules.s.castlingQDesc">: rei vai para c1, torre salta de a1 para d1.</span></p>
+              <div class="rules-conditions"><strong data-i18n="rules.s.castlingCond">Condições: </strong><span data-i18n="rules.s.castlingCondList">rei e torre não se moveram; casas entre eles livres; rei não está em xeque, não passa por casa atacada e não termina em xeque.</span></div>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.s.enpassantTitle">&#128123; En Passant</h3>
+              <p data-i18n="rules.s.enpassantDesc">Quando um peão adversário avança 2 casas e fica ao lado do seu peão, você o captura movendo-se diagonalmente para a casa que ele "passou".</p>
+              <button type="button" class="rule-trigger" data-rule="enpassant" aria-describedby="rulesDemoTitle" data-i18n="rules.s.enpassantAnim">Ver animação</button>
+              <div class="rules-conditions"><strong data-i18n="rules.s.enpassantCond">Atenção: </strong><span data-i18n="rules.s.enpassantCondList">só pode ser feito imediatamente no lance seguinte ao avanço duplo — se jogar outra peça, perde o direito.</span></div>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.s.promotionTitle">&#128081; Promoção</h3>
+              <p data-i18n="rules.s.promotionDesc">Ao chegar na última fileira, o peão deve ser promovido: escolha Dama, Torre, Bispo ou Cavalo.</p>
+              <button type="button" class="rule-trigger" data-rule="promotion" aria-describedby="rulesDemoTitle" data-i18n="rules.s.promotionAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.s.promotionNote">Promover a Cavalo pode criar garfos surpreendentes — chama-se "sub-promoção".</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.s.captureTitle">&#128165; Captura</h3>
+              <p data-i18n="rules.s.captureDesc">Mover-se para a casa de uma peça adversária remove-a do jogo. Qualquer peça pode ser capturada exceto o rei — se o rei não escapar é xeque-mate.</p>
+              <button type="button" class="rule-trigger" data-rule="capture" aria-describedby="rulesDemoTitle" data-i18n="rules.s.captureAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.s.captureNote">Capturar não é obrigatório — só o xeque exige resposta imediata.</p>
+            </div>
+          </div><!-- /rulesTab-special -->
+
+          <!-- ABA: Ataque -->
+          <div class="rules-panel" id="rulesTab-attack" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.a.forkTitle">&#127860; Garfo (Fork)</h3>
+              <p data-i18n="rules.a.forkDesc">Uma peça ataca duas ou mais peças ao mesmo tempo. O cavalo é o mestre do garfo — seu movimento irregular impede o adversário de bloquear ambos os ataques.</p>
+              <button type="button" class="rule-trigger" data-rule="fork" aria-describedby="rulesDemoTitle" data-i18n="rules.a.forkAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.a.forkNote">Garfo + rei = garfo real: o rei deve mover, a outra peça é perdida.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.a.pinTitle">&#128204; Cravada (Pin)</h3>
+              <p data-i18n="rules.a.pinDesc">Peça de longo alcance ataca em linha onde há uma peça adversária na frente de uma mais valiosa. Mover a peça da frente expõe a valiosa atrás.</p>
+              <button type="button" class="rule-trigger" data-rule="pin" aria-describedby="rulesDemoTitle" data-i18n="rules.a.pinAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.a.pinNote">Cravada absoluta: a peça está diante do rei e não pode se mover legalmente.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.a.skewerTitle">&#128259; Espeto (Skewer)</h3>
+              <p data-i18n="rules.a.skewerDesc">A peça mais valiosa é atacada diretamente e ao escapar expõe a menos valiosa atrás. Forçar o rei a recuar para capturar a torre é um espeto clássico.</p>
+              <button type="button" class="rule-trigger" data-rule="skewer" aria-describedby="rulesDemoTitle" data-i18n="rules.a.skewerAnim">Ver animação</button>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.a.discoveredTitle">&#128161; Ataque Descoberto</h3>
+              <p data-i18n="rules.a.discoveredDesc">Ao mover uma peça, revela-se o ataque de outra peça atrás. A peça que move pode ameaçar outra coisa ao mesmo tempo — dois ataques impossíveis de defender.</p>
+              <button type="button" class="rule-trigger" data-rule="discovered" aria-describedby="rulesDemoTitle" data-i18n="rules.a.discoveredAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.a.discoveredNote">Se o ataque descoberto é ao rei, chama-se xeque descoberto — um dos mais perigosos no xadrez.</p>
+            </div>
+          </div><!-- /rulesTab-attack -->
+
+          <!-- ABA: Defesa -->
+          <div class="rules-panel" id="rulesTab-defense" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.d.blockTitle">&#129521; Bloqueio (Interposição)</h3>
+              <p data-i18n="rules.d.blockDesc">Ao receber xeque de uma peça de longa distância, interponha uma peça própria no caminho. Só funciona se há pelo menos uma casa entre o atacante e o rei.</p>
+              <button type="button" class="rule-trigger" data-rule="block" aria-describedby="rulesDemoTitle" data-i18n="rules.d.blockAnim">Ver animação</button>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.d.escapeTitle">&#127939; Fuga do Rei</h3>
+              <p data-i18n="rules.d.escapeDesc">Mova o rei para uma casa não atacada. É a resposta mais direta ao xeque. Verifique se a nova casa não é controlada por outra peça adversária.</p>
+              <button type="button" class="rule-trigger" data-rule="escape" aria-describedby="rulesDemoTitle" data-i18n="rules.d.escapeAnim">Ver animação</button>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.d.exchangeTitle">&#9876; Capturar o Atacante</h3>
+              <p data-i18n="rules.d.exchangeDesc">Capture a peça que está dando xeque. Elimina a ameaça imediatamente. Analise se a troca é favorável e se não cria novas fraquezas.</p>
+              <button type="button" class="rule-trigger" data-rule="exchange" aria-describedby="rulesDemoTitle" data-i18n="rules.d.exchangeAnim">Ver animação</button>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.d.safetyTitle">&#127984; Segurança do Rei</h3>
+              <p data-i18n="rules.d.safetyDesc">Realize o roque cedo para proteger o rei atrás de uma muralha de peões. Evite manter o rei no centro durante a abertura.</p>
+              <button type="button" class="rule-trigger" data-rule="king-safety" aria-describedby="rulesDemoTitle" data-i18n="rules.d.safetyAnim">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.d.safetyNote">Regra de ouro: realize o roque antes do lance 10 sempre que possível.</p>
+            </div>
+          </div><!-- /rulesTab-defense -->
+
+          <!-- ABA: Aberturas -->
+          <div class="rules-panel" id="rulesTab-openings" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.o.italianTitle">? Italiana (1.e4 e5 2.Cf3 Cc6 3.Bc4)</h3>
+              <p data-i18n="rules.o.italianDesc">Uma das aberturas mais antigas e populares. Brancas ocupam o centro com e4, desenvolvem o cavalo para f3 atacando e5, e o bispo para c4 mirando o ponto f7 — o ponto mais fraco do adversário no início.</p>
+              <button type="button" class="rule-trigger" data-rule="opening-italian" aria-describedby="rulesDemoTitle" data-i18n="rules.o.animBtn">Ver sequência</button>
+              <p class="rules-note" data-i18n="rules.o.italianNote">Ideia-chave: controle do centro, desenvolvimento rápido dos cavalos e bispos, preparar o roque antes do lance 8.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.o.sicilianTitle">? Siciliana (1.e4 c5)</h3>
+              <p data-i18n="rules.o.sicilianDesc">A defesa mais popular contra 1.e4. Pretas não imitam brancas: jogam c5 criando um desequilíbrio imediato — as pretas terão vantagem no flanco da dama enquanto brancas atacam no flanco do rei.</p>
+              <button type="button" class="rule-trigger" data-rule="opening-sicilian" aria-describedby="rulesDemoTitle" data-i18n="rules.o.animBtn">Ver sequência</button>
+              <p class="rules-note" data-i18n="rules.o.sicilianNote">Usada por Kasparov e Fischer em muitas partidas decisivas. Produz jogo desequilibrado e criativo.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.o.gambitoTitle">? Gambito da Dama (1.d4 d5 2.c4)</h3>
+              <p data-i18n="rules.o.gambitoDesc">Brancas oferecem o peão c em troca de controle do centro. Se pretas aceitam (cxd4), brancas recapturando ganham vantagem de espaço. Se recusam (e6 ou c6), a posição fica sólida e posicional.</p>
+              <button type="button" class="rule-trigger" data-rule="opening-gambito" aria-describedby="rulesDemoTitle" data-i18n="rules.o.animBtn">Ver sequência</button>
+              <p class="rules-note" data-i18n="rules.o.gambitoNote">Repertório de Kasparov, Carlsen e Fischer. O gambito aceito é tecnicamente arriscado para as pretas.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.o.ruyTitle">? Ruy López (1.e4 e5 2.Cf3 Cc6 3.Bb5)</h3>
+              <p data-i18n="rules.o.ruyDesc">Uma das aberturas mais estudadas. O bispo em b5 pressiona o cavalo que defende e5, indiretamente atacando o peão central. A luta pelo centro continua por muitos lances.</p>
+              <button type="button" class="rule-trigger" data-rule="opening-ruy" aria-describedby="rulesDemoTitle" data-i18n="rules.o.animBtn">Ver sequência</button>
+              <p class="rules-note" data-i18n="rules.o.ruyNote">Preferida por Kasparov com brancas e Carlsen com pretas (variante Berlim). Extremamente profunda e equilibrada.</p>
+            </div>
+          </div><!-- /rulesTab-openings -->
+
+          <!-- ABA: Táticas+ -->
+          <div class="rules-panel" id="rulesTab-tactics2" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.t.doubleCheckTitle">? Xeque Duplo</h3>
+              <p data-i18n="rules.t.doubleCheckDesc">Duas peças dão xeque ao rei simultaneamente após um ataque descoberto. O rei <strong>não pode</strong> responder capturando ou bloqueando — só a fuga é possível. Uma das ameaças mais devastadoras do xadrez.</p>
+              <button type="button" class="rule-trigger" data-rule="double-check" aria-describedby="rulesDemoTitle" data-i18n="rules.t.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.t.doubleCheckNote">No xeque duplo é impossível bloquear os dois ataques ao mesmo tempo — o rei sempre deve mover.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.t.zugzwangTitle">? Zugzwang</h3>
+              <p data-i18n="rules.t.zugzwangDesc">Posição em que qualquer lance piora a própria posição. Quem tiver que mover está em desvantagem — se pudesse "passar", estaria bem. Comum em finais de rei e peão.</p>
+              <button type="button" class="rule-trigger" data-rule="zugzwang" aria-describedby="rulesDemoTitle" data-i18n="rules.t.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.t.zugzwangNote">Palavra alemã: "obrigação de mover". Dominar o zugzwang é essencial para vencer finais de peão.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.t.deflectionTitle">🔄 Deflexão</h3>
+              <p data-i18n="rules.t.deflectionDesc">Forçar uma peça defensora a abandonar seu posto. Sacrifica-se material para desviar o guardião de uma casa ou linha crítica, permitindo uma ameaça decisiva.</p>
+              <button type="button" class="rule-trigger" data-rule="deflection" aria-describedby="rulesDemoTitle" data-i18n="rules.t.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.t.deflectionNote">Clássico: torre sacrificada afasta a torre defensora, liberando a dama para o mate.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.t.overloadTitle">?? Sobrecarga</h3>
+              <p data-i18n="rules.t.overloadDesc">Uma peça não consegue defender dois alvos simultaneamente. Ataca-se ambos ao mesmo tempo; ao defender um, o outro é perdido. Identificar peças sobrecarregadas é uma habilidade tática fundamental.</p>
+              <button type="button" class="rule-trigger" data-rule="overload" aria-describedby="rulesDemoTitle" data-i18n="rules.t.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.t.overloadNote">Procure peças adversárias que defendam dois ou mais alvos — são candidatas a sobrecarga.</p>
+            </div>
+          </div><!-- /rulesTab-tactics2 -->
+
+          <!-- ABA: Análise de Erros -->
+          <div class="rules-panel" id="rulesTab-errors" role="tabpanel">
+            <div class="rules-section">
+              <h3 data-i18n="rules.e.scholarsTitle">? Xeque-mate do Pastor</h3>
+              <p data-i18n="rules.e.scholarsDesc">Armadilha mais famosa para iniciantes. Brancas saem com a dama e o bispo cedo ameaçando f7 — ponto fraco do rei inimigo. Se as pretas não reconhecerem a ameaça, perdem em 4 lances.</p>
+              <button type="button" class="rule-trigger" data-rule="scholars-mate" aria-describedby="rulesDemoTitle" data-i18n="rules.e.animBtn">Ver sequência</button>
+              <div class="rules-conditions"><strong data-i18n="rules.e.scholarsCond">Defesa: </strong><span data-i18n="rules.e.scholarsCondList">Cf6 ataca a dama em h5 ou g6 empurra-a de volta. Nunca negligencie ataques à dama adversária.</span></div>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.e.hangingTitle">💣 Peças Penduradas</h3>
+              <p data-i18n="rules.e.hangingDesc">Peça sem defesa é uma peça perdida. Antes de qualquer lance, verifique se alguma peça sua está desprotegida ("pendurada") e se alguma peça adversária pode capturá-la gratuitamente.</p>
+              <button type="button" class="rule-trigger" data-rule="hanging" aria-describedby="rulesDemoTitle" data-i18n="rules.e.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.e.hangingNote">Regra de ouro: após jogar, sempre pergunte — "minha última jogada deixou alguma peça sem defesa?"</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.e.slowDevTitle">? Desenvolvimento Tardio</h3>
+              <p data-i18n="rules.e.slowDevDesc">Não desenvolver as peças rapidamente deixa o rei no centro vulnerável. Enquanto um lado ainda tem bispos e cavalos na fila inicial, o outro já ataca com todas as forças mobilizadas.</p>
+              <button type="button" class="rule-trigger" data-rule="slow-dev" aria-describedby="rulesDemoTitle" data-i18n="rules.e.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.e.slowDevNote">Princípio de abertura: desenvolva cavalos e bispos antes de mover a dama ou as torres.</p>
+            </div>
+            <div class="rules-section">
+              <h3 data-i18n="rules.e.kingWeakTitle">?? Fraqueza no Roque (Sacrifício Grego)</h3>
+              <p data-i18n="rules.e.kingWeakDesc">Mover peões na frente do rei roque-ado cria fraquezas exploráveis. O "Sacrifício Grego" (Bxh7+!) é um padrão clássico: bispo sacrificado em h7 expõe o rei e leva ao mate com dama e cavalo.</p>
+              <button type="button" class="rule-trigger" data-rule="king-weakness" aria-describedby="rulesDemoTitle" data-i18n="rules.e.animBtn">Ver animação</button>
+              <p class="rules-note" data-i18n="rules.e.kingWeakNote">Nunca mova h2-h3 ou g2-g3 sem necessidade absoluta na fase de meio-jogo.</p>
+            </div>
+          </div><!-- /rulesTab-errors -->
+
+        </div><!-- /rules-text -->
+
         <aside class="rules-demo" aria-live="polite">
           <p class="rules-demo__title" id="rulesDemoTitle" data-i18n="rules.hover">Passe o mouse ou toque/clique num termo</p>
           <svg id="rulesBoardSvg" viewBox="0 0 320 320" role="img" aria-hidden="true"></svg>
@@ -863,6 +1117,26 @@
     function openModal(id)  { var el = document.getElementById(id); if (el) el.classList.add("open"); }
     function closeModal(id) { var el = document.getElementById(id); if (el) el.classList.remove("open"); }
 
+    /* ── Abas do modal Regras ── */
+    (function rulesTabs() {
+      var tabs = document.querySelectorAll("#overlayRules .rules-tab");
+      var panels = document.querySelectorAll("#overlayRules .rules-panel");
+      tabs.forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          var target = btn.getAttribute("data-tab");
+          tabs.forEach(function (b) {
+            b.classList.toggle("rules-tab--active", b === btn);
+            b.setAttribute("aria-selected", b === btn ? "true" : "false");
+          });
+          panels.forEach(function (p) {
+            p.classList.toggle("rules-panel--active", p.id === "rulesTab-" + target);
+          });
+          /* limpa a demo ao trocar de aba */
+          if (window._rulesClearSvg) window._rulesClearSvg();
+        });
+      });
+    })();
+
     /* Demonstrações animadas — modal Regras */
     (function rulesChessDemo() {
       var SVG_NS = "http://www.w3.org/2000/svg";
@@ -975,6 +1249,72 @@
         animId = requestAnimationFrame(frame);
       }
 
+      /* ── Reprodutor de sequência de abertura ── */
+      function openingPlayer(pG, fG, titleStr, initPos, seqMoves) {
+        titleEl.textContent = titleStr;
+        var STEP = 2.0, ANIM = 0.55, PAUSE = 2.5;
+        var TOTAL = seqMoves.length * STEP + PAUSE;
+
+        function getState(n) {
+          var st = [];
+          for (var i = 0; i < initPos.length; i++) {
+            st.push([initPos[i][0], initPos[i][1], initPos[i][2], initPos[i][3]]);
+          }
+          for (var i = 0; i < n && i < seqMoves.length; i++) {
+            var m = seqMoves[i];
+            for (var j = st.length - 1; j >= 0; j--) {
+              if (st[j][0] === m[2] && st[j][1] === m[3] && st[j][3] !== m[5]) { st.splice(j, 1); break; }
+            }
+            for (var j = 0; j < st.length; j++) {
+              if (st[j][0] === m[0] && st[j][1] === m[1] && st[j][3] === m[5]) {
+                st[j][0] = m[2]; st[j][1] = m[3];
+                if (m[6]) st[j][2] = m[6]; /* promoção: troca símbolo */
+                break;
+              }
+            }
+          }
+          return st;
+        }
+
+        runLoop(function(t) {
+          while (pG.firstChild) pG.removeChild(pG.firstChild);
+          for (var i = fG.childNodes.length - 1; i >= 0; i--) fG.removeChild(fG.childNodes[i]);
+          var tMod = t % TOTAL;
+          if (tMod >= seqMoves.length * STEP) {
+            var fs = getState(seqMoves.length);
+            for (var i = 0; i < fs.length; i++) addPiece(pG, fs[i][0], fs[i][1], fs[i][2], fs[i][3]);
+            var lm = seqMoves[seqMoves.length - 1];
+            highlightSq(fG, lm[2], lm[3], 0.32 + 0.12 * Math.sin(t * 2));
+            return true;
+          }
+          var si = Math.min(Math.floor(tMod / STEP), seqMoves.length - 1);
+          var st2 = tMod - si * STEP;
+          var anim = st2 < ANIM;
+          var m = seqMoves[si];
+          var state = anim ? getState(si) : getState(si + 1);
+          for (var i = 0; i < state.length; i++) {
+            var skip = anim && state[i][0] === m[0] && state[i][1] === m[1] && state[i][3] === m[5];
+            if (!skip) addPiece(pG, state[i][0], state[i][1], state[i][2], state[i][3]);
+          }
+          if (anim) {
+            var u = st2 / ANIM;
+            var gx = xy(m[0],m[1]).x + (xy(m[2],m[3]).x - xy(m[0],m[1]).x) * u;
+            var gy = xy(m[0],m[1]).y + 4 + (xy(m[2],m[3]).y + 4 - (xy(m[0],m[1]).y + 4)) * u;
+            var mp = el("text", { x: String(gx), y: String(gy), "text-anchor": "middle",
+              fill: m[5] ? "#f2ebe0" : "#8a8580",
+              "font-size": "28", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif" });
+            mp.textContent = m[4];
+            fG.appendChild(mp);
+            arrowLine(fG, m[0], m[1], m[2], m[3], t * 2);
+            highlightSq(fG, m[0], m[1], 0.15);
+            highlightSq(fG, m[2], m[3], 0.38 * u);
+          } else {
+            highlightSq(fG, m[2], m[3], 0.3 + 0.12 * Math.sin(t * 3));
+          }
+          return true;
+        });
+      }
+
       function showRule(id) {
         clearSvg();
         var root = el("g");
@@ -1007,13 +1347,27 @@
           addPiece(piecesG, 3, 4, "\u2655", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
-            var c = t % 4;
+            var c = t % 6;
             if (c < 2) {
-              for (var r = 5; r <= 8; r++) highlightSq(fxG, 3, r, 0.25 + 0.35 * Math.sin(t * 6));
+              /* vertical: cima e baixo */
+              for (var r = 1; r <= 8; r++) if (r !== 4) highlightSq(fxG, 3, r, 0.22 + 0.28 * Math.sin(t * 5 + r * 0.2));
               arrowLine(fxG, 3, 4, 3, 8, t * 3);
+              arrowLine(fxG, 3, 4, 3, 1, t * 3 + 1.5);
+            } else if (c < 4) {
+              /* horizontal: direita e esquerda */
+              for (var f = 0; f < 8; f++) if (f !== 3) highlightSq(fxG, f, 4, 0.22 + 0.28 * Math.sin(t * 5 + f * 0.2));
+              arrowLine(fxG, 3, 4, 7, 4, t * 3);
+              arrowLine(fxG, 3, 4, 0, 4, t * 3 + 1.5);
             } else {
-              for (var k = 0; k <= 3; k++) highlightSq(fxG, 3 - k, 4 + k, 0.25 + 0.35 * Math.sin(t * 6));
-              arrowLine(fxG, 3, 4, 0, 7, t * 3);
+              /* diagonais: todas as 4 */
+              for (var k = 1; k <= 7; k++) {
+                if (3 + k <= 7 && 4 + k <= 8) highlightSq(fxG, 3 + k, 4 + k, 0.22 + 0.22 * Math.sin(t * 5 + k * 0.4));
+                if (3 - k >= 0 && 4 - k >= 1) highlightSq(fxG, 3 - k, 4 - k, 0.22 + 0.22 * Math.sin(t * 5 + k * 0.4));
+                if (3 - k >= 0 && 4 + k <= 8) highlightSq(fxG, 3 - k, 4 + k, 0.22 + 0.22 * Math.sin(t * 5 + k * 0.4));
+                if (3 + k <= 7 && 4 - k >= 1) highlightSq(fxG, 3 + k, 4 - k, 0.22 + 0.22 * Math.sin(t * 5 + k * 0.4));
+              }
+              arrowLine(fxG, 3, 4, 7, 8, t * 3);
+              arrowLine(fxG, 3, 4, 0, 7, t * 3 + 1.5);
             }
             return true;
           });
@@ -1025,9 +1379,18 @@
           addPiece(piecesG, 3, 4, "\u2656", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
-            for (var r = 1; r <= 8; r++) if (r !== 4) highlightSq(fxG, 3, r, 0.2 + 0.25 * Math.sin(t * 5 + r * 0.2));
-            arrowLine(fxG, 3, 4, 3, 8, t * 4);
-            arrowLine(fxG, 3, 4, 3, 1, t * 4 + 1);
+            var c = t % 4;
+            if (c < 2) {
+              /* vertical: cima e baixo */
+              for (var r = 1; r <= 8; r++) if (r !== 4) highlightSq(fxG, 3, r, 0.2 + 0.25 * Math.sin(t * 5 + r * 0.2));
+              arrowLine(fxG, 3, 4, 3, 8, t * 4);
+              arrowLine(fxG, 3, 4, 3, 1, t * 4 + 1);
+            } else {
+              /* horizontal: direita e esquerda */
+              for (var f = 0; f < 8; f++) if (f !== 3) highlightSq(fxG, f, 4, 0.2 + 0.25 * Math.sin(t * 5 + f * 0.2));
+              arrowLine(fxG, 3, 4, 7, 4, t * 4);
+              arrowLine(fxG, 3, 4, 0, 4, t * 4 + 1);
+            }
             return true;
           });
           return;
@@ -1035,14 +1398,28 @@
 
         if (id === "bishop") {
           titleEl.textContent = i18nT("rules.demo.bishop");
-          addPiece(piecesG, 5, 1, "\u2657", true);
+          /* bispo no centro para mostrar as 4 diagonais */
+          addPiece(piecesG, 3, 4, "\u2657", true);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
-            for (var k = 0; k <= 4; k++) {
-              var f = 5 - k, r = 1 + k;
-              if (f >= 0 && f <= 7 && r >= 1 && r <= 8) highlightSq(fxG, f, r, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.3));
+            var c = t % 4;
+            for (var k = 1; k <= 7; k++) {
+              /* diagonal cima-direita */
+              if (3 + k <= 7 && 4 + k <= 8) highlightSq(fxG, 3 + k, 4 + k, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.35));
+              /* diagonal baixo-esquerda */
+              if (3 - k >= 0 && 4 - k >= 1) highlightSq(fxG, 3 - k, 4 - k, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.35));
+              /* diagonal cima-esquerda */
+              if (3 - k >= 0 && 4 + k <= 8) highlightSq(fxG, 3 - k, 4 + k, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.35));
+              /* diagonal baixo-direita */
+              if (3 + k <= 7 && 4 - k >= 1) highlightSq(fxG, 3 + k, 4 - k, 0.22 + 0.28 * Math.sin(t * 5 + k * 0.35));
             }
-            arrowLine(fxG, 5, 1, 1, 5, t * 3);
+            if (c < 2) {
+              arrowLine(fxG, 3, 4, 7, 8, t * 3);
+              arrowLine(fxG, 3, 4, 0, 1, t * 3 + 1.5);
+            } else {
+              arrowLine(fxG, 3, 4, 0, 7, t * 3);
+              arrowLine(fxG, 3, 4, 6, 1, t * 3 + 1.5);
+            }
             return true;
           });
           return;
@@ -1050,24 +1427,52 @@
 
         if (id === "knight") {
           titleEl.textContent = i18nT("rules.demo.knight");
-          addPiece(piecesG, 5, 2, "\u265F", true);
-          addPiece(piecesG, 6, 2, "\u265F", true);
-          var ghx = xy(6, 1).x, ghy = xy(6, 1).y + 4;
-          var ghost = el("text", {
-            x: ghx, y: ghy, "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
-            opacity: "0.95", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif"
+          /* cavalo no centro; mostrar todos os 8 destinos em L */
+          addPiece(piecesG, 3, 4, "\u2658", true);
+          var knightMoves = [[1,3],[1,5],[2,2],[2,6],[4,2],[4,6],[5,3],[5,5]];
+          var ghostKnight = el("text", {
+            x: String(xy(3, 4).x), y: String(xy(3, 4).y + 4),
+            "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
+            opacity: "0", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif"
           });
-          ghost.textContent = "\u2658";
-          piecesG.appendChild(ghost);
+          ghostKnight.textContent = "\u2658";
+          piecesG.appendChild(ghostKnight);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
-            var u = (t * 0.55) % 1;
-            var x1 = xy(6, 1).x, y1 = xy(6, 1).y + 4;
-            var x2 = xy(5, 3).x, y2 = xy(5, 3).y + 4;
-            ghost.setAttribute("x", String(x1 + (x2 - x1) * u));
-            ghost.setAttribute("y", String(y1 + (y2 - y1) * u));
-            arrowLine(fxG, 6, 1, 5, 3, t * 2);
-            if (u > 0.82) highlightSq(fxG, 5, 3, 0.62);
+            /* destacar todos os destinos possíveis */
+            for (var j = 0; j < knightMoves.length; j++) {
+              highlightSq(fxG, knightMoves[j][0], knightMoves[j][1], 0.28 + 0.18 * Math.sin(t * 2.5 + j * 0.9));
+            }
+            /* ciclar entre os destinos */
+            var SEG = 1.6;
+            var tCyc = (t * 0.55) % (knightMoves.length * SEG);
+            var idx = Math.floor(tCyc / SEG) % knightMoves.length;
+            var u = (tCyc % SEG) / SEG; /* 0..1 dentro do segmento */
+            var tgt = knightMoves[idx];
+            var sx = xy(3, 4).x, sy = xy(3, 4).y + 4;
+            var tx = xy(tgt[0], tgt[1]).x, ty = xy(tgt[0], tgt[1]).y + 4;
+            if (u < 0.45) {
+              /* voar em arco até o destino */
+              var p = u / 0.45;
+              var arc = -Math.sin(p * Math.PI) * 22;
+              ghostKnight.setAttribute("x", String(sx + (tx - sx) * p));
+              ghostKnight.setAttribute("y", String(sy + (ty - sy) * p + arc));
+              ghostKnight.setAttribute("opacity", "0.9");
+              arrowLine(fxG, 3, 4, tgt[0], tgt[1], t * 2);
+            } else if (u < 0.75) {
+              /* pousado no destino */
+              ghostKnight.setAttribute("x", String(tx));
+              ghostKnight.setAttribute("y", String(ty));
+              ghostKnight.setAttribute("opacity", "0.9");
+              highlightSq(fxG, tgt[0], tgt[1], 0.68);
+              arrowLine(fxG, 3, 4, tgt[0], tgt[1], t * 2);
+            } else {
+              /* retornar à origem */
+              var p2 = (u - 0.75) / 0.25;
+              ghostKnight.setAttribute("x", String(tx + (sx - tx) * p2));
+              ghostKnight.setAttribute("y", String(ty + (sy - ty) * p2));
+              ghostKnight.setAttribute("opacity", String(0.9 * (1 - p2)));
+            }
             return true;
           });
           return;
@@ -1075,29 +1480,36 @@
 
         if (id === "pawn") {
           titleEl.textContent = i18nT("rules.demo.pawn");
+          /* peão branco em (4,2); inimigo em (3,3) — diagonal à frente (captura válida) */
           var wp = addPiece(piecesG, 4, 2, "\u2659", true);
-          addPiece(piecesG, 3, 4, "\u265F", false);
+          var enemy = addPiece(piecesG, 3, 3, "\u265F", false);
           runLoop(function (t) {
             for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
             var cycle = (t * 0.38) % 3;
             if (cycle < 1) {
+              /* Fase 1: avanço duplo do 1.º lance */
               var u0 = cycle;
-              var y0 = xy(4, 2).y + 4, y1 = xy(4, 4).y + 4;
               wp.setAttribute("x", String(xy(4, 2).x));
-              wp.setAttribute("y", String(y0 + (y1 - y0) * u0));
-              highlightSq(fxG, 4, 3, 0.4);
+              wp.setAttribute("y", String(xy(4, 2).y + 4 + (xy(4, 4).y + 4 - (xy(4, 2).y + 4)) * u0));
+              enemy.setAttribute("opacity", "1");
+              highlightSq(fxG, 4, 3, 0.35);
+              highlightSq(fxG, 4, 4, 0.22);
               arrowLine(fxG, 4, 2, 4, 4, t * 2);
             } else if (cycle < 2) {
-              wp.setAttribute("x", String(xy(4, 4).x));
-              wp.setAttribute("y", String(xy(4, 4).y + 4));
-              highlightSq(fxG, 3, 4, 0.5);
-              arrowLine(fxG, 4, 4, 3, 4, t * 2);
+              /* Fase 2: peão em posição inicial, mostra captura diagonal */
+              wp.setAttribute("x", String(xy(4, 2).x));
+              wp.setAttribute("y", String(xy(4, 2).y + 4));
+              enemy.setAttribute("opacity", "1");
+              highlightSq(fxG, 3, 3, 0.5 + 0.2 * Math.sin(t * 4));
+              arrowLine(fxG, 4, 2, 3, 3, t * 2); /* diagonal — correto */
             } else {
+              /* Fase 3: anima captura diagonal */
               var u2 = cycle - 2;
-              wp.setAttribute("x", String(xy(4, 4).x + (xy(3, 4).x - xy(4, 4).x) * u2));
-              wp.setAttribute("y", String(xy(4, 4).y + 4 + (xy(3, 4).y + 4 - (xy(4, 4).y + 4)) * u2));
-              if (u2 > 0.88) highlightSq(fxG, 3, 4, 0.7);
-              arrowLine(fxG, 4, 4, 3, 4, 0);
+              wp.setAttribute("x", String(xy(4, 2).x + (xy(3, 3).x - xy(4, 2).x) * u2));
+              wp.setAttribute("y", String(xy(4, 2).y + 4 + (xy(3, 3).y + 4 - (xy(4, 2).y + 4)) * u2));
+              enemy.setAttribute("opacity", String(1 - u2 * 0.92));
+              if (u2 > 0.85) highlightSq(fxG, 3, 3, 0.7);
+              arrowLine(fxG, 4, 2, 3, 3, t * 2);
             }
             return true;
           });
@@ -1182,6 +1594,757 @@
           return;
         }
 
+        /* ── Lances Especiais ── */
+
+        if (id === "castling-k") {
+          titleEl.textContent = i18nT("rules.demo.castling-k");
+          /* roque pequeno: rei e4→g1, torre h1→f1 */
+          var kK = addPiece(piecesG, 4, 1, "\u2654", true);
+          var rK = addPiece(piecesG, 7, 1, "\u2656", true);
+          /* peões defensores */
+          addPiece(piecesG, 5, 2, "\u2659", true);
+          addPiece(piecesG, 6, 2, "\u2659", true);
+          addPiece(piecesG, 7, 2, "\u2659", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var u = Math.max(0, Math.min(1, (Math.sin(t * 1.4) * 0.5 + 0.5)));
+            kK.setAttribute("x", String(xy(4,1).x + (xy(6,1).x - xy(4,1).x) * u));
+            rK.setAttribute("x", String(xy(7,1).x + (xy(5,1).x - xy(7,1).x) * u));
+            if (u > 0.2) { highlightSq(fxG, 6, 1, 0.3 * u); highlightSq(fxG, 5, 1, 0.25 * u); }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "castling-q") {
+          titleEl.textContent = i18nT("rules.demo.castling-q");
+          /* roque grande: rei e1→c1, torre a1→d1 */
+          var kQ = addPiece(piecesG, 4, 1, "\u2654", true);
+          var rQ = addPiece(piecesG, 0, 1, "\u2656", true);
+          addPiece(piecesG, 0, 2, "\u2659", true);
+          addPiece(piecesG, 1, 2, "\u2659", true);
+          addPiece(piecesG, 2, 2, "\u2659", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var u = Math.max(0, Math.min(1, (Math.sin(t * 1.4) * 0.5 + 0.5)));
+            kQ.setAttribute("x", String(xy(4,1).x + (xy(2,1).x - xy(4,1).x) * u));
+            rQ.setAttribute("x", String(xy(0,1).x + (xy(3,1).x - xy(0,1).x) * u));
+            if (u > 0.2) { highlightSq(fxG, 2, 1, 0.3 * u); highlightSq(fxG, 3, 1, 0.25 * u); }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "capture") {
+          titleEl.textContent = i18nT("rules.demo.capture");
+          var capAtt = addPiece(piecesG, 2, 4, "\u2655", true); /* dama branca */
+          var capTgt = addPiece(piecesG, 5, 7, "\u265C", false); /* torre preta */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.4) % 2.5;
+            if (c < 1) {
+              var u = c;
+              capAtt.setAttribute("x", String(xy(2,4).x + (xy(5,7).x - xy(2,4).x) * u));
+              capAtt.setAttribute("y", String(xy(2,4).y + 4 + (xy(5,7).y + 4 - (xy(2,4).y + 4)) * u));
+              capTgt.setAttribute("opacity", "1");
+              arrowLine(fxG, 2, 4, 5, 7, t * 2);
+            } else if (c < 1.4) {
+              capAtt.setAttribute("x", String(xy(5,7).x));
+              capAtt.setAttribute("y", String(xy(5,7).y + 4));
+              capTgt.setAttribute("opacity", String(Math.max(0, 1 - (c - 1) * 2.5)));
+              highlightSq(fxG, 5, 7, 0.55);
+            } else {
+              capAtt.setAttribute("x", String(xy(5,7).x));
+              capAtt.setAttribute("y", String(xy(5,7).y + 4));
+              capTgt.setAttribute("opacity", "0");
+              highlightSq(fxG, 5, 7, 0.35 + 0.2 * Math.sin(t * 4));
+            }
+            return true;
+          });
+          return;
+        }
+
+        /* ── Táticas de Ataque ── */
+
+        if (id === "fork") {
+          titleEl.textContent = i18nT("rules.demo.fork");
+          /* Cavalo branco em d4 (3,4) garfa rei em e6 (4,6) e torre em b5 (1,5) */
+          var forkKnight = addPiece(piecesG, 5, 3, "\u2658", true); /* posição inicial */
+          addPiece(piecesG, 4, 6, "\u265A", false); /* rei preto */
+          var forkRook = addPiece(piecesG, 1, 5, "\u265C", false); /* torre preta */
+          var ghostFork = el("text", {
+            x: String(xy(5,3).x), y: String(xy(5,3).y + 4),
+            "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
+            opacity: "0", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif"
+          });
+          ghostFork.textContent = "\u2658";
+          piecesG.appendChild(ghostFork);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.38) % 3;
+            if (c < 1) {
+              /* cavalo salta para (3,4) */
+              var u = c;
+              var arc = -Math.sin(u * Math.PI) * 24;
+              ghostFork.setAttribute("x", String(xy(5,3).x + (xy(3,4).x - xy(5,3).x) * u));
+              ghostFork.setAttribute("y", String(xy(5,3).y + 4 + (xy(3,4).y + 4 - (xy(5,3).y + 4)) * u + arc));
+              ghostFork.setAttribute("opacity", String(u * 0.9));
+              arrowLine(fxG, 5, 3, 3, 4, t * 2);
+            } else if (c < 2) {
+              /* cavalo em (3,4): garfa rei (4,6) e torre (1,5) */
+              ghostFork.setAttribute("x", String(xy(3,4).x));
+              ghostFork.setAttribute("y", String(xy(3,4).y + 4));
+              ghostFork.setAttribute("opacity", "0.9");
+              var pulse = 0.45 + 0.3 * Math.sin(t * 5);
+              highlightSq(fxG, 4, 6, pulse);
+              highlightSq(fxG, 1, 5, pulse);
+              arrowLine(fxG, 3, 4, 4, 6, t * 3);
+              arrowLine(fxG, 3, 4, 1, 5, t * 3 + 1);
+            } else {
+              /* retorno */
+              var u2 = c - 2;
+              ghostFork.setAttribute("x", String(xy(3,4).x + (xy(5,3).x - xy(3,4).x) * u2));
+              ghostFork.setAttribute("y", String(xy(3,4).y + 4 + (xy(5,3).y + 4 - (xy(3,4).y + 4)) * u2));
+              ghostFork.setAttribute("opacity", String(0.9 * (1 - u2)));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "pin") {
+          titleEl.textContent = i18nT("rules.demo.pin");
+          /* bispo branco em (0,1) crava cavalo preto em (2,3) ao rei preto em (4,5) */
+          addPiece(piecesG, 0, 1, "\u2657", true);   /* bispo branco */
+          var pinned = addPiece(piecesG, 2, 3, "\u265E", false); /* cavalo preto (cravado) */
+          addPiece(piecesG, 4, 5, "\u265A", false);  /* rei preto */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            /* linha de ataque do bispo */
+            for (var k = 1; k <= 4; k++) {
+              if (k !== 2) highlightSq(fxG, k - 1, k, 0.18 + 0.12 * Math.sin(t * 4 + k));
+            }
+            arrowLine(fxG, 0, 1, 4, 5, t * 2);
+            /* cavalo pulsa em vermelho */
+            var h = el("rect", {
+              x: sqTL(2,3).x + 1, y: sqTL(2,3).y + 1,
+              width: CELL - 2, height: CELL - 2,
+              fill: "rgba(220,60,60,0.35)", rx: "2"
+            });
+            fxG.appendChild(h);
+            /* mostrar que o cavalo está preso — tentativa de mover fica vermelha */
+            var blink = 0.5 + 0.5 * Math.sin(t * 3);
+            pinned.setAttribute("opacity", String(0.6 + 0.4 * blink));
+            return true;
+          });
+          return;
+        }
+
+        if (id === "skewer") {
+          titleEl.textContent = i18nT("rules.demo.skewer");
+          /* torre branca em (4,1) ataca rei preto em (4,6), atrás torre preta em (4,8) */
+          addPiece(piecesG, 4, 1, "\u2656", true);   /* torre branca (atacante) */
+          var sKing = addPiece(piecesG, 4, 6, "\u265A", false); /* rei preto */
+          var sRook = addPiece(piecesG, 4, 8, "\u265C", false); /* torre preta (atrás) */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.38) % 3;
+            if (c < 1) {
+              /* xeque à torre */
+              arrowLine(fxG, 4, 1, 4, 6, t * 2);
+              highlightSq(fxG, 4, 6, 0.42 + 0.28 * Math.sin(t * 5));
+              sKing.setAttribute("x", String(xy(4,6).x));
+              sRook.setAttribute("opacity", "1");
+            } else if (c < 2) {
+              /* rei escapa para (3,6) */
+              var u = c - 1;
+              sKing.setAttribute("x", String(xy(4,6).x + (xy(3,6).x - xy(4,6).x) * u));
+              sRook.setAttribute("opacity", "1");
+              /* revela ataque à torre preta */
+              arrowLine(fxG, 4, 1, 4, 8, t * 2);
+              highlightSq(fxG, 4, 8, 0.38 + 0.28 * Math.sin(t * 5));
+            } else {
+              /* torre branca captura a torre preta */
+              var u2 = c - 2;
+              sKing.setAttribute("x", String(xy(3,6).x));
+              var att = addPiece(fxG, 4, 1, "\u2656", true);
+              att.setAttribute("x", String(xy(4,1).x + (xy(4,8).x - xy(4,1).x) * u2));
+              att.setAttribute("y", String(xy(4,1).y + 4 + (xy(4,8).y + 4 - (xy(4,1).y + 4)) * u2));
+              sRook.setAttribute("opacity", String(1 - u2 * 0.9));
+              arrowLine(fxG, 4, 1, 4, 8, t * 2);
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "discovered") {
+          titleEl.textContent = i18nT("rules.demo.discovered");
+          /* bispo branco em (5,4) bloqueia torre branca em (5,1) e rainha preta em (5,8) */
+          /* ao mover o bispo, torre ataca a rainha */
+          var discBishop = addPiece(piecesG, 5, 4, "\u2657", true);
+          addPiece(piecesG, 5, 1, "\u2656", true);   /* torre branca */
+          var discQueen = addPiece(piecesG, 5, 8, "\u265B", false); /* dama preta */
+          addPiece(piecesG, 2, 7, "\u265A", false);  /* rei preto (ameaça do bispo) */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.4) % 3;
+            if (c < 1) {
+              /* posição inicial */
+              discBishop.setAttribute("x", String(xy(5,4).x));
+              discBishop.setAttribute("y", String(xy(5,4).y + 4));
+              discQueen.setAttribute("opacity", "1");
+            } else if (c < 2) {
+              /* bispo move para (2,7) ameaçando rei */
+              var u = c - 1;
+              discBishop.setAttribute("x", String(xy(5,4).x + (xy(2,7).x - xy(5,4).x) * u));
+              discBishop.setAttribute("y", String(xy(5,4).y + 4 + (xy(2,7).y + 4 - (xy(5,4).y + 4)) * u));
+              arrowLine(fxG, 5, 4, 2, 7, t * 2);
+              /* revela ataque da torre à dama */
+              if (u > 0.5) {
+                for (var r = 2; r < 8; r++) highlightSq(fxG, 5, r, 0.15 + 0.1 * Math.sin(t * 5 + r));
+                arrowLine(fxG, 5, 1, 5, 8, t * 2 + 1);
+                highlightSq(fxG, 5, 8, 0.4 + 0.25 * Math.sin(t * 5));
+              }
+              discQueen.setAttribute("opacity", "1");
+            } else {
+              /* dois ataques ativos */
+              discBishop.setAttribute("x", String(xy(2,7).x));
+              discBishop.setAttribute("y", String(xy(2,7).y + 4));
+              for (var r2 = 2; r2 < 8; r2++) highlightSq(fxG, 5, r2, 0.15);
+              arrowLine(fxG, 5, 1, 5, 8, t * 2);
+              arrowLine(fxG, 2, 7, 2, 7, t * 2 + 1); /* bispo ameaça rei */
+              highlightSq(fxG, 2, 7, 0.12 + 0.1 * Math.sin(t * 4));
+              highlightSq(fxG, 5, 8, 0.45 + 0.3 * Math.sin(t * 5));
+              discQueen.setAttribute("opacity", String(0.6 + 0.4 * Math.sin(t * 3)));
+            }
+            return true;
+          });
+          return;
+        }
+
+        /* ── Táticas de Defesa ── */
+
+        if (id === "block") {
+          titleEl.textContent = i18nT("rules.demo.block");
+          /* dama preta em (4,8) dá xeque ao rei branco em (4,1); torre branca em (1,4) interpõe */
+          addPiece(piecesG, 4, 8, "\u265B", false);  /* dama preta (atacante) */
+          var blkKing = addPiece(piecesG, 4, 1, "\u2654", true); /* rei branco */
+          var blkRook = addPiece(piecesG, 1, 4, "\u2656", true); /* torre branca (vai interpor) */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.38) % 3;
+            if (c < 1) {
+              /* xeque na coluna */
+              for (var r = 2; r <= 7; r++) highlightSq(fxG, 4, r, 0.15 + 0.1 * Math.sin(t * 5 + r));
+              arrowLine(fxG, 4, 8, 4, 1, t * 2);
+              highlightSq(fxG, 4, 1, 0.45 + 0.3 * Math.sin(t * 5));
+              blkRook.setAttribute("x", String(xy(1,4).x));
+              blkRook.setAttribute("y", String(xy(1,4).y + 4));
+            } else if (c < 2) {
+              /* torre desloca para (4,4) bloqueando */
+              var u = c - 1;
+              blkRook.setAttribute("x", String(xy(1,4).x + (xy(4,4).x - xy(1,4).x) * u));
+              blkRook.setAttribute("y", String(xy(1,4).y + 4));
+              arrowLine(fxG, 1, 4, 4, 4, t * 2);
+            } else {
+              /* bloqueio realizado */
+              blkRook.setAttribute("x", String(xy(4,4).x));
+              blkRook.setAttribute("y", String(xy(4,4).y + 4));
+              highlightSq(fxG, 4, 4, 0.55 + 0.2 * Math.sin(t * 4));
+              for (var r2 = 2; r2 <= 3; r2++) highlightSq(fxG, 4, r2, 0.12);
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "escape") {
+          titleEl.textContent = i18nT("rules.demo.escape");
+          /* dama branca em (5,6) dá xeque ao rei preto em (4,8); rei escapa para (3,7) */
+          addPiece(piecesG, 5, 6, "\u2655", true); /* dama branca */
+          var escKing = addPiece(piecesG, 4, 8, "\u265A", false); /* rei preto */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.38) % 3;
+            if (c < 1) {
+              /* xeque diagonal */
+              arrowLine(fxG, 5, 6, 4, 8, t * 2);
+              highlightSq(fxG, 4, 8, 0.45 + 0.3 * Math.sin(t * 5));
+              escKing.setAttribute("x", String(xy(4,8).x));
+              escKing.setAttribute("y", String(xy(4,8).y + 4));
+            } else if (c < 2) {
+              /* rei foge para (3,7) — fora da diagonal */
+              var u = c - 1;
+              escKing.setAttribute("x", String(xy(4,8).x + (xy(3,7).x - xy(4,8).x) * u));
+              escKing.setAttribute("y", String(xy(4,8).y + 4 + (xy(3,7).y + 4 - (xy(4,8).y + 4)) * u));
+              arrowLine(fxG, 4, 8, 3, 7, t * 2);
+            } else {
+              /* rei em segurança */
+              escKing.setAttribute("x", String(xy(3,7).x));
+              escKing.setAttribute("y", String(xy(3,7).y + 4));
+              highlightSq(fxG, 3, 7, 0.38 + 0.2 * Math.sin(t * 3));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "exchange") {
+          titleEl.textContent = i18nT("rules.demo.exchange");
+          /* dama preta em (4,4) ameaça rei branco em (4,1); torre branca em (4,7) captura a dama */
+          addPiece(piecesG, 4, 1, "\u2654", true);   /* rei branco */
+          var exQueen = addPiece(piecesG, 4, 4, "\u265B", false); /* dama preta */
+          var exRook = addPiece(piecesG, 7, 4, "\u2656", true);  /* torre branca */
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.4) % 3;
+            if (c < 1) {
+              /* ameaça da dama */
+              for (var r = 2; r <= 3; r++) highlightSq(fxG, 4, r, 0.18 + 0.12 * Math.sin(t * 5));
+              arrowLine(fxG, 4, 4, 4, 1, t * 2);
+              highlightSq(fxG, 4, 1, 0.35 + 0.25 * Math.sin(t * 5));
+              exRook.setAttribute("x", String(xy(7,4).x));
+              exQueen.setAttribute("opacity", "1");
+            } else if (c < 2) {
+              /* torre captura a dama */
+              var u = c - 1;
+              exRook.setAttribute("x", String(xy(7,4).x + (xy(4,4).x - xy(7,4).x) * u));
+              exRook.setAttribute("y", String(xy(7,4).y + 4));
+              exQueen.setAttribute("opacity", String(1 - u * 0.9));
+              arrowLine(fxG, 7, 4, 4, 4, t * 2);
+            } else {
+              /* ameaça eliminada */
+              exRook.setAttribute("x", String(xy(4,4).x));
+              exRook.setAttribute("y", String(xy(4,4).y + 4));
+              exQueen.setAttribute("opacity", "0");
+              highlightSq(fxG, 4, 4, 0.38 + 0.2 * Math.sin(t * 4));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "king-safety") {
+          titleEl.textContent = i18nT("rules.demo.king-safety");
+          /* mesmo que castling-k mas com peões de proteção após o roque */
+          var ksKing = addPiece(piecesG, 4, 1, "\u2654", true);
+          var ksRook = addPiece(piecesG, 7, 1, "\u2656", true);
+          addPiece(piecesG, 5, 2, "\u2659", true);
+          addPiece(piecesG, 6, 2, "\u2659", true);
+          addPiece(piecesG, 7, 2, "\u2659", true);
+          runLoop(function (t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var u = Math.max(0, Math.min(1, Math.sin(t * 1.2) * 0.5 + 0.5));
+            ksKing.setAttribute("x", String(xy(4,1).x + (xy(6,1).x - xy(4,1).x) * u));
+            ksRook.setAttribute("x", String(xy(7,1).x + (xy(5,1).x - xy(7,1).x) * u));
+            if (u > 0.85) {
+              /* rei em segurança — pulso verde-dourado */
+              highlightSq(fxG, 6, 1, 0.38 + 0.25 * Math.sin(t * 4));
+              highlightSq(fxG, 5, 2, 0.18);
+              highlightSq(fxG, 6, 2, 0.18);
+              highlightSq(fxG, 7, 2, 0.18);
+            }
+            return true;
+          });
+          return;
+        }
+
+        /* ══ ABERTURAS ══ */
+
+        /* move: [fromF, fromR, toF, toR, piece, isWhite, newPiece?] */
+        if (id === "opening-italian") {
+          openingPlayer(piecesG, fxG, i18nT("rules.demo.opening-italian"),
+            [[4,1,"\u2654",true],[4,2,"\u2659",true],[3,2,"\u2659",true],[6,1,"\u2658",true],[5,1,"\u2657",true],
+             [4,8,"\u265A",false],[4,7,"\u265F",false],[3,7,"\u265F",false],[1,8,"\u265E",false]],
+            [[4,2,4,4,"\u2659",true],[4,7,4,5,"\u265F",false],[6,1,5,3,"\u2658",true],[1,8,2,6,"\u265E",false],[5,1,2,4,"\u2657",true]]
+          ); return;
+        }
+
+        if (id === "opening-sicilian") {
+          openingPlayer(piecesG, fxG, i18nT("rules.demo.opening-sicilian"),
+            [[4,1,"\u2654",true],[4,2,"\u2659",true],[3,2,"\u2659",true],[6,1,"\u2658",true],
+             [4,8,"\u265A",false],[4,7,"\u265F",false],[3,7,"\u265F",false],[2,7,"\u265F",false],[1,7,"\u265F",false]],
+            [[4,2,4,4,"\u2659",true],[2,7,2,5,"\u265F",false],[6,1,5,3,"\u2658",true],[3,7,3,6,"\u265F",false]]
+          ); return;
+        }
+
+        if (id === "opening-gambito") {
+          openingPlayer(piecesG, fxG, i18nT("rules.demo.opening-gambito"),
+            [[4,1,"\u2654",true],[3,2,"\u2659",true],[2,2,"\u2659",true],[4,2,"\u2659",true],
+             [4,8,"\u265A",false],[3,7,"\u265F",false],[4,7,"\u265F",false],[2,7,"\u265F",false]],
+            [[3,2,3,4,"\u2659",true],[3,7,3,5,"\u265F",false],[2,2,2,4,"\u2659",true]]
+          ); return;
+        }
+
+        if (id === "opening-ruy") {
+          openingPlayer(piecesG, fxG, i18nT("rules.demo.opening-ruy"),
+            [[4,1,"\u2654",true],[4,2,"\u2659",true],[3,2,"\u2659",true],[6,1,"\u2658",true],[5,1,"\u2657",true],
+             [4,8,"\u265A",false],[4,7,"\u265F",false],[3,7,"\u265F",false],[1,8,"\u265E",false],[6,8,"\u265E",false]],
+            [[4,2,4,4,"\u2659",true],[4,7,4,5,"\u265F",false],[6,1,5,3,"\u2658",true],[1,8,2,6,"\u265E",false],[5,1,1,5,"\u2657",true]]
+          ); return;
+        }
+
+        /* ══ TÁTICAS+ ══ */
+
+        if (id === "double-check") {
+          titleEl.textContent = i18nT("rules.demo.double-check");
+          /* Torre branca e2, Cavalo branco e5 (bloqueando), Rei preto e8 */
+          /* Cavalo e5→g6: libera torre e dá xeque; torre na coluna e também dá xeque */
+          addPiece(piecesG, 4, 2, "\u2656", true);
+          var dcKnight = addPiece(piecesG, 4, 5, "\u2658", true);
+          addPiece(piecesG, 4, 8, "\u265A", false);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.36) % 4;
+            if (c < 1) {
+              /* posição inicial: torre bloqueada pelo cavalo */
+              for (var r = 3; r <= 7; r++) highlightSq(fxG, 4, r, 0.1 + (r === 5 ? 0.15 : 0));
+              dcKnight.setAttribute("x", String(xy(4,5).x));
+              dcKnight.setAttribute("y", String(xy(4,5).y + 4));
+            } else if (c < 2) {
+              /* cavalo salta e5→g6 em arco */
+              var u = c - 1;
+              var arc = -Math.sin(u * Math.PI) * 22;
+              dcKnight.setAttribute("x", String(xy(4,5).x + (xy(6,6).x - xy(4,5).x) * u));
+              dcKnight.setAttribute("y", String(xy(4,5).y + 4 + (xy(6,6).y + 4 - (xy(4,5).y + 4)) * u + arc));
+              arrowLine(fxG, 4, 5, 6, 6, t * 2);
+            } else if (c < 3) {
+              /* xeque duplo: torre (col e) + cavalo (g6) */
+              dcKnight.setAttribute("x", String(xy(6,6).x));
+              dcKnight.setAttribute("y", String(xy(6,6).y + 4));
+              var pulse = 0.45 + 0.35 * Math.sin(t * 5);
+              highlightSq(fxG, 4, 8, pulse);
+              for (var r = 3; r <= 7; r++) highlightSq(fxG, 4, r, 0.12);
+              arrowLine(fxG, 4, 2, 4, 8, t * 2);
+              arrowLine(fxG, 6, 6, 4, 8, t * 2 + 1);
+            } else {
+              /* rei deve fugir — nenhuma captura ou bloqueio resolve */
+              dcKnight.setAttribute("x", String(xy(6,6).x));
+              dcKnight.setAttribute("y", String(xy(6,6).y + 4));
+              var dirs2 = [[-1,0],[1,0],[0,-1],[-1,-1],[1,-1]];
+              for (var j = 0; j < dirs2.length; j++) {
+                var df = 4 + dirs2[j][0], dr = 8 + dirs2[j][1];
+                if (df >= 0 && df <= 7 && dr >= 1 && dr <= 8)
+                  highlightSq(fxG, df, dr, 0.22 + 0.15 * Math.sin(t * 3 + j));
+              }
+              highlightSq(fxG, 4, 8, 0.5 + 0.3 * Math.sin(t * 5));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "zugzwang") {
+          titleEl.textContent = i18nT("rules.demo.zugzwang");
+          /* Rei branco d6, peão e6; Rei preto e8 — qualquer lance preto piora */
+          addPiece(piecesG, 3, 6, "\u2654", true);
+          addPiece(piecesG, 4, 6, "\u2659", true);
+          var zzKing = addPiece(piecesG, 4, 8, "\u265A", false);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.33) % 5;
+            if (c < 1.2) {
+              /* posição — destacar casas disponíveis para o rei preto */
+              highlightSq(fxG, 3, 8, 0.2 + 0.15 * Math.sin(t * 3));
+              highlightSq(fxG, 5, 8, 0.2 + 0.15 * Math.sin(t * 3 + 1));
+              highlightSq(fxG, 4, 7, 0.18);
+              zzKing.setAttribute("x", String(xy(4,8).x));
+              zzKing.setAttribute("y", String(xy(4,8).y + 4));
+            } else if (c < 2.2) {
+              /* rei preto tenta d8 — mas rei branco segue */
+              var u = (c - 1.2) / 1.0;
+              zzKing.setAttribute("x", String(xy(4,8).x + (xy(3,8).x - xy(4,8).x) * u));
+              zzKing.setAttribute("y", String(xy(4,8).y + 4));
+              arrowLine(fxG, 4, 8, 3, 8, t * 2);
+            } else if (c < 3.5) {
+              /* peão avança para e7 */
+              zzKing.setAttribute("x", String(xy(3,8).x));
+              var u2 = (c - 2.2) / 1.3;
+              highlightSq(fxG, 4, 7, 0.5 + 0.2 * Math.sin(t * 4));
+              arrowLine(fxG, 4, 6, 4, 7, t * 2);
+              var py = xy(4,6).y + 4 + (xy(4,7).y + 4 - (xy(4,6).y + 4)) * Math.min(u2, 1);
+              var pEl = el("text", { x: String(xy(4,6).x), y: String(py), "text-anchor": "middle",
+                fill: "#f2ebe0", "font-size": "28", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif" });
+              pEl.textContent = "\u2659";
+              fxG.appendChild(pEl);
+            } else {
+              /* peão promove a dama */
+              zzKing.setAttribute("x", String(xy(3,8).x));
+              var u3 = (c - 3.5) / 1.5;
+              var pyp = xy(4,7).y + 4 + (xy(4,8).y + 4 - (xy(4,7).y + 4)) * Math.min(u3, 1);
+              var pEl2 = el("text", { x: String(xy(4,7).x), y: String(pyp), "text-anchor": "middle",
+                fill: "#f2ebe0", "font-size": "28", "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif" });
+              pEl2.textContent = u3 > 0.85 ? "\u2655" : "\u2659";
+              fxG.appendChild(pEl2);
+              if (u3 > 0.85) highlightSq(fxG, 4, 8, 0.55 + 0.25 * Math.sin(t * 5));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "deflection") {
+          titleEl.textContent = i18nT("rules.demo.deflection");
+          /* Rei preto h8, Torre preta h6 (defende), Dama branca e8 (ameaça h8#), Torre branca h1 */
+          addPiece(piecesG, 7, 8, "\u265A", false);
+          var defBRook = addPiece(piecesG, 7, 6, "\u265C", false);
+          addPiece(piecesG, 4, 8, "\u2655", true);
+          var defWRook = addPiece(piecesG, 7, 1, "\u2656", true);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.35) % 5;
+            if (c < 1.2) {
+              /* ameaça: dama quer ir a h8 mas torre preta defende */
+              arrowLine(fxG, 4, 8, 7, 8, t * 2);
+              highlightSq(fxG, 7, 8, 0.3 + 0.2 * Math.sin(t * 4));
+              for (var r2 = 7; r2 <= 8; r2++) highlightSq(fxG, 7, r2, 0.12);
+              defBRook.setAttribute("x", String(xy(7,6).x));
+              defWRook.setAttribute("y", String(xy(7,1).y + 4));
+            } else if (c < 2.5) {
+              /* sacrifício: Torre branca h1→h6 captura torre preta */
+              var u = (c - 1.2) / 1.3;
+              defWRook.setAttribute("y", String(xy(7,1).y + 4 + (xy(7,6).y + 4 - (xy(7,1).y + 4)) * u));
+              defBRook.setAttribute("opacity", String(1 - u * 0.88));
+              arrowLine(fxG, 7, 1, 7, 6, t * 2);
+              highlightSq(fxG, 7, 6, 0.5 * u);
+            } else if (c < 3.5) {
+              /* torre preta deflectida — caminho livre */
+              defWRook.setAttribute("y", String(xy(7,6).y + 4));
+              defBRook.setAttribute("opacity", "0");
+              arrowLine(fxG, 4, 8, 7, 8, t * 2);
+              highlightSq(fxG, 7, 8, 0.5 + 0.3 * Math.sin(t * 5));
+            } else {
+              /* dama desliza para h8 — xeque-mate */
+              defBRook.setAttribute("opacity", "0");
+              defWRook.setAttribute("y", String(xy(7,6).y + 4));
+              var u2 = (c - 3.5) / 1.5;
+              var qx = xy(4,8).x + (xy(7,8).x - xy(4,8).x) * Math.min(u2, 1);
+              var qEl = el("text", { x: String(qx), y: String(xy(4,8).y + 4),
+                "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
+                "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif" });
+              qEl.textContent = "\u2655";
+              fxG.appendChild(qEl);
+              if (u2 > 0.9) highlightSq(fxG, 7, 8, 0.65 + 0.25 * Math.sin(t * 6));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "overload") {
+          titleEl.textContent = i18nT("rules.demo.overload");
+          /* Torre preta d5 defende d8 (dama preta) E a4 (cavalo preto) simultaneamente */
+          /* Brancas atacam os dois: Dama branca → d8, Torre branca → a4 */
+          var ovRook = addPiece(piecesG, 3, 5, "\u265C", false);
+          addPiece(piecesG, 3, 8, "\u265B", false);
+          addPiece(piecesG, 0, 5, "\u265E", false);
+          addPiece(piecesG, 4, 8, "\u265A", false);
+          addPiece(piecesG, 3, 1, "\u2655", true);
+          addPiece(piecesG, 0, 1, "\u2656", true);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.33) % 5;
+            if (c < 1.2) {
+              /* torre defende ambos */
+              arrowLine(fxG, 3, 5, 3, 8, t * 2);
+              arrowLine(fxG, 3, 5, 0, 5, t * 2 + 1.2);
+              highlightSq(fxG, 3, 8, 0.22 + 0.15 * Math.sin(t * 3));
+              highlightSq(fxG, 0, 5, 0.22 + 0.15 * Math.sin(t * 3 + 1));
+              ovRook.setAttribute("x", String(xy(3,5).x));
+            } else if (c < 2.4) {
+              /* brancas atacam os dois alvos */
+              arrowLine(fxG, 3, 1, 3, 8, t * 2);
+              arrowLine(fxG, 0, 1, 0, 5, t * 2 + 1.2);
+              highlightSq(fxG, 3, 8, 0.5 + 0.25 * Math.sin(t * 5));
+              highlightSq(fxG, 0, 5, 0.5 + 0.25 * Math.sin(t * 5 + 1));
+            } else if (c < 3.6) {
+              /* torre prreta socorre d8 */
+              var u = (c - 2.4) / 1.2;
+              ovRook.setAttribute("x", String(xy(3,5).x));
+              ovRook.setAttribute("y", String(xy(3,5).y + 4 + (xy(3,8).y + 4 - (xy(3,5).y + 4)) * u));
+              arrowLine(fxG, 3, 5, 3, 8, t * 2);
+              if (u > 0.5) {
+                highlightSq(fxG, 0, 5, 0.55 + 0.25 * Math.sin(t * 5));
+                arrowLine(fxG, 0, 1, 0, 5, t * 2 + 1);
+              }
+            } else {
+              /* torre branca captura cavalo preto em a5 */
+              ovRook.setAttribute("x", String(xy(3,8).x));
+              ovRook.setAttribute("y", String(xy(3,8).y + 4));
+              var u2 = (c - 3.6) / 1.4;
+              var wrEl = el("text", {
+                x: String(xy(0,1).x + (xy(0,5).x - xy(0,1).x) * Math.min(u2, 1)),
+                y: String(xy(0,1).y + 4 + (xy(0,5).y + 4 - (xy(0,1).y + 4)) * Math.min(u2, 1)),
+                "text-anchor": "middle", fill: "#f2ebe0", "font-size": "28",
+                "font-family": "Segoe UI Symbol, Apple Symbols, sans-serif" });
+              wrEl.textContent = "\u2656";
+              fxG.appendChild(wrEl);
+              if (u2 > 0.9) highlightSq(fxG, 0, 5, 0.6 + 0.25 * Math.sin(t * 5));
+              arrowLine(fxG, 0, 1, 0, 5, t * 2);
+            }
+            return true;
+          });
+          return;
+        }
+
+        /* ══ ANÁLISE DE ERROS ══ */
+
+        if (id === "scholars-mate") {
+          openingPlayer(piecesG, fxG, i18nT("rules.demo.scholars-mate"),
+            /* peças iniciais simplificadas para mostrar a armadilha */
+            [[4,1,"\u2654",true],[4,2,"\u2659",true],[5,1,"\u2657",true],[3,1,"\u2655",true],
+             [4,8,"\u265A",false],[4,7,"\u265F",false],[5,7,"\u265F",false],[6,7,"\u265F",false],[3,7,"\u265F",false],
+             [1,8,"\u265E",false],[6,8,"\u265E",false]],
+            /* sequência: 1.e4 e5 2.Dh5! Cc6 3.Bc4 Cf6?? 4.Dxf7# */
+            [[4,2,4,4,"\u2659",true],
+             [4,7,4,5,"\u265F",false],
+             [3,1,7,5,"\u2655",true],
+             [1,8,2,6,"\u265E",false],
+             [5,1,2,4,"\u2657",true],
+             [6,8,5,6,"\u265E",false],
+             [7,5,5,7,"\u2655",true]]  /* Dxf7# — captura peão f7 */
+          ); return;
+        }
+
+        if (id === "hanging") {
+          titleEl.textContent = i18nT("rules.demo.hanging");
+          /* Cavalo preto em e5 sem defesa; Dama branca ataca */
+          var hangKnight = addPiece(piecesG, 4, 5, "\u265E", false);
+          addPiece(piecesG, 4, 8, "\u265A", false);
+          var hangQ = addPiece(piecesG, 0, 5, "\u2655", true);
+          addPiece(piecesG, 4, 1, "\u2654", true);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.38) % 4;
+            if (c < 1.2) {
+              /* cavalo pendurado — marca vermelha */
+              var redBox = el("rect", { x: sqTL(4,5).x+1, y: sqTL(4,5).y+1,
+                width: CELL-2, height: CELL-2, fill: "rgba(220,50,50,0.42)", rx:"2" });
+              fxG.appendChild(redBox);
+              hangKnight.setAttribute("opacity", "1");
+              hangQ.setAttribute("x", String(xy(0,5).x));
+              arrowLine(fxG, 0, 5, 4, 5, t * 2);
+              highlightSq(fxG, 4, 5, 0.3 + 0.2 * Math.sin(t * 5));
+            } else if (c < 2.5) {
+              /* dama captura */
+              var u = (c - 1.2) / 1.3;
+              hangQ.setAttribute("x", String(xy(0,5).x + (xy(4,5).x - xy(0,5).x) * u));
+              hangKnight.setAttribute("opacity", String(1 - u * 0.92));
+              arrowLine(fxG, 0, 5, 4, 5, t * 2);
+            } else {
+              /* peça perdida — dama no lugar do cavalo */
+              hangQ.setAttribute("x", String(xy(4,5).x));
+              hangKnight.setAttribute("opacity", "0");
+              highlightSq(fxG, 4, 5, 0.42 + 0.22 * Math.sin(t * 4));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "slow-dev") {
+          titleEl.textContent = i18nT("rules.demo.slow-dev");
+          /* Brancas: rei no centro, peças na 1.ª fileira (não desenvolvidas) */
+          /* Pretas: todas desenvolvidas — ataque devastador */
+          addPiece(piecesG, 4, 1, "\u2654", true);
+          addPiece(piecesG, 3, 1, "\u2655", true);
+          addPiece(piecesG, 5, 1, "\u2657", true);
+          addPiece(piecesG, 6, 1, "\u2658", true);
+          addPiece(piecesG, 4, 2, "\u2659", true);
+          /* pretas desenvolvidas */
+          addPiece(piecesG, 6, 8, "\u265A", false);
+          addPiece(piecesG, 3, 5, "\u265B", false);
+          addPiece(piecesG, 2, 4, "\u265D", false);
+          addPiece(piecesG, 5, 6, "\u265E", false);
+          addPiece(piecesG, 2, 8, "\u265C", false);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = t % 5;
+            if (c < 2.5) {
+              /* mostrar peças brancas não desenvolvidas em vermelho */
+              var undv = [[5,1],[6,1],[3,1]];
+              for (var j = 0; j < undv.length; j++) {
+                var rb = el("rect", { x: sqTL(undv[j][0],undv[j][1]).x+1, y: sqTL(undv[j][0],undv[j][1]).y+1,
+                  width: CELL-2, height: CELL-2, fill: "rgba(220,50,50,0.3)", rx:"2" });
+                fxG.appendChild(rb);
+              }
+              highlightSq(fxG, 4, 1, 0.35 + 0.2 * Math.sin(t * 4));
+              /* pretas atacam */
+              arrowLine(fxG, 3, 5, 4, 4, t * 2);
+              arrowLine(fxG, 2, 4, 5, 1, t * 2 + 1);
+            } else {
+              /* bispo preto captura f1 */
+              var u = (c - 2.5) / 2.5;
+              arrowLine(fxG, 2, 4, 5, 1, t * 2);
+              highlightSq(fxG, 5, 1, 0.5 + 0.25 * Math.sin(t * 5));
+              highlightSq(fxG, 4, 1, 0.4 + 0.2 * Math.sin(t * 4));
+            }
+            return true;
+          });
+          return;
+        }
+
+        if (id === "king-weakness") {
+          titleEl.textContent = i18nT("rules.demo.king-weakness");
+          /* Sacrifício Grego: Bxh7+! — bispo branco c2, dama branca d3, cavalo branco f3 */
+          /* Rei preto g8 com peões h7/g7/f7 */
+          var kwBish = addPiece(piecesG, 2, 3, "\u2657", true);
+          addPiece(piecesG, 3, 3, "\u2655", true);
+          addPiece(piecesG, 5, 3, "\u2658", true);
+          addPiece(piecesG, 6, 8, "\u265A", false);
+          var kwPawn = addPiece(piecesG, 7, 7, "\u265F", false);
+          addPiece(piecesG, 6, 7, "\u265F", false);
+          addPiece(piecesG, 5, 7, "\u265F", false);
+          var kwKing = addPiece(piecesG, 6, 8, "\u265A", false);
+          runLoop(function(t) {
+            for (var i = fxG.childNodes.length - 1; i >= 0; i--) fxG.removeChild(fxG.childNodes[i]);
+            var c = (t * 0.35) % 5;
+            if (c < 1) {
+              /* bispo mira h7 */
+              arrowLine(fxG, 2, 3, 7, 8, t * 2);
+              highlightSq(fxG, 7, 7, 0.45 + 0.3 * Math.sin(t * 5));
+            } else if (c < 2) {
+              /* Bxh7+! bispo saca */
+              var u = c - 1;
+              var arc2 = -Math.sin(u * Math.PI) * 15;
+              kwBish.setAttribute("x", String(xy(2,3).x + (xy(7,7).x - xy(2,3).x) * u));
+              kwBish.setAttribute("y", String(xy(2,3).y + 4 + (xy(7,7).y + 4 - (xy(2,3).y + 4)) * u + arc2));
+              kwPawn.setAttribute("opacity", String(1 - u * 0.9));
+              arrowLine(fxG, 2, 3, 7, 7, t * 2);
+              highlightSq(fxG, 7, 7, 0.5 * u);
+            } else if (c < 3) {
+              /* rei preto captura Kxh7 — exposto */
+              var u2 = c - 2;
+              kwBish.setAttribute("x", String(xy(7,7).x));
+              kwBish.setAttribute("y", String(xy(7,7).y + 4));
+              kwPawn.setAttribute("opacity", "0");
+              kwKing.setAttribute("x", String(xy(6,8).x + (xy(7,7).x - xy(6,8).x) * u2));
+              kwKing.setAttribute("y", String(xy(6,8).y + 4 + (xy(7,7).y + 4 - (xy(6,8).y + 4)) * u2));
+              arrowLine(fxG, 6, 8, 7, 7, t * 2);
+            } else if (c < 4) {
+              /* Dh5+ — dama dá xeque */
+              kwPawn.setAttribute("opacity", "0");
+              kwBish.setAttribute("opacity", "0.2");
+              kwKing.setAttribute("x", String(xy(7,7).x));
+              kwKing.setAttribute("y", String(xy(7,7).y + 4));
+              arrowLine(fxG, 3, 3, 7, 7, t * 2);
+              highlightSq(fxG, 7, 7, 0.55 + 0.3 * Math.sin(t * 5));
+            } else {
+              /* Cg5 — cavalo ameaça Cxf7# */
+              kwPawn.setAttribute("opacity", "0");
+              kwBish.setAttribute("opacity", "0.2");
+              kwKing.setAttribute("x", String(xy(7,7).x));
+              arrowLine(fxG, 5, 3, 6, 5, t * 2);
+              arrowLine(fxG, 6, 5, 5, 7, t * 2 + 1);
+              highlightSq(fxG, 7, 7, 0.4 + 0.2 * Math.sin(t * 4));
+              highlightSq(fxG, 5, 7, 0.4 + 0.25 * Math.sin(t * 5));
+            }
+            return true;
+          });
+          return;
+        }
+
         titleEl.textContent = hoverHint();
       }
 
@@ -1253,6 +2416,14 @@
         if (lockedRule) showRule(lockedRule);
         else titleEl.textContent = hoverHint();
       });
+
+      /* expõe clearSvg para o switcher de abas */
+      window._rulesClearSvg = function () {
+        lockedRule = null;
+        clearSvg();
+        titleEl.textContent = hoverHint();
+        setActiveTrigger(null);
+      };
     })();
 
     document.getElementById("btnRules").onclick   = function() { openModal("overlayRules"); };

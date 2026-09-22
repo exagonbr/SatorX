@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 
@@ -104,6 +104,29 @@ self.addEventListener("fetch", function (event) {
 
   if (url.hostname === "unpkg.com") {
     event.respondWith(staleWhileRevalidate(request, RUNTIME));
+    return;
+  }
+
+  /* JS/CSS: preferir rede para não servir i18n/scripts desatualizados. */
+  if (
+    url.origin === self.location.origin &&
+    (url.pathname.startsWith("/js/") || url.pathname.endsWith(".css"))
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then(function (response) {
+          if (response && response.ok) {
+            var copy = response.clone();
+            caches.open(RUNTIME).then(function (c) {
+              c.put(request, copy);
+            });
+          }
+          return response;
+        })
+        .catch(function () {
+          return caches.match(request);
+        })
+    );
     return;
   }
 

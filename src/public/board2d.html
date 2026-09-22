@@ -5,7 +5,7 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
-  <script src="/js/i18n.js"></script>
+  <script src="/js/i18n.js?v=2"></script>
   <meta name="description" data-i18n-content="meta.2d.desc" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -66,7 +66,7 @@
       position: relative;
       z-index: 1;
       width: 100%;
-      max-width: 1360px;
+      max-width: 1800px;
       margin: 0 auto;
       padding: 16px 16px 36px;
       padding-top: max(16px, env(safe-area-inset-top));
@@ -137,38 +137,42 @@
     }
     a.nav-link:hover { color: var(--gold-bright); text-decoration: underline; }
 
-    /* ── Layout de colunas ──────────────────────────────────────── */
-    .row {
+    /* ── Layout principal ───────────────────────────────────────── */
+    /* Linha superior: tabuleiro (máximo) + sidebar */
+    .top-area {
       display: flex;
-      gap: 24px;
+      gap: 18px;
+      align-items: stretch;   /* sidebar estica até a altura do tabuleiro */
+      width: 100%;
+      margin-bottom: 18px;
+    }
+    .board-stack {
+      flex: 1 1 0;
+      min-width: 0;
+      /* Limita o board à altura útil da janela para mantê-lo quadrado */
+      max-width: min(calc(100vh - 180px), 100%);
+    }
+    /* Coluna lateral: histórico + pensamento empilhados */
+    .side-col {
+      flex: 0 0 300px;
+      width: 300px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    /* Linha inferior: controles + painel de estado */
+    .bottom-area {
+      display: flex;
+      gap: 18px;
       flex-wrap: wrap;
       align-items: flex-start;
       width: 100%;
-      min-width: 0;
-    }
-    .play-row {
-      display: grid;
-      grid-template-columns: minmax(0, 460px) minmax(180px, 220px) minmax(200px, 280px);
-      grid-template-areas:
-        "board history thought"
-        "tools history thought";
-      gap: 14px 18px;
-      flex: 1 1 640px;
-      min-width: 0;
-      align-items: start;
-      width: 100%;
-    }
-    .board-stack {
-      grid-area: board;
-      min-width: 0;
-      width: 100%;
-      max-width: 460px;
     }
     .board-tools {
-      grid-area: tools;
-      min-width: 0;
-      width: 100%;
-      max-width: 460px;
+      flex: 0 0 auto;
+      width: 420px;
+      min-width: 260px;
+      max-width: 100%;
     }
 
     /* ── Tabuleiro ──────────────────────────────────────────────── */
@@ -191,6 +195,24 @@
       pointer-events: none;
       z-index: 12;
       overflow: visible;
+    }
+
+    /* ── Contornos animados das casas ───────────────────────────── */
+    @keyframes sq-from-pulse {
+      0%, 100% { opacity: 0.55; }
+      50%       { opacity: 0.15; }
+    }
+    @keyframes sq-to-pulse {
+      0%, 100% { opacity: 0.95; }
+      50%       { opacity: 0.42; }
+    }
+    @keyframes sq-sel-pulse {
+      0%, 100% { opacity: 0.95; }
+      50%       { opacity: 0.55; }
+    }
+    @keyframes sq-dest-pulse {
+      0%, 100% { opacity: 0.88; }
+      50%       { opacity: 0.35; }
     }
 
     /* ── Relógio ────────────────────────────────────────────────── */
@@ -276,11 +298,9 @@
 
     /* ── Histórico ──────────────────────────────────────────────── */
     .history-panel {
-      grid-area: history;
       width: auto;
       min-width: 0;
       min-height: 0;
-      align-self: stretch;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -288,7 +308,8 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
       display: flex;
       flex-direction: column;
-      max-height: min(72vh, 720px);
+      flex: 3 1 0;      /* ocupa 3/5 do espaço disponível */
+      overflow: hidden;
     }
     .history-panel h2 {
       font-size: 0.72rem;
@@ -301,7 +322,7 @@
     .history-scroll {
       overflow: auto;
       flex: 1;
-      min-height: 180px;
+      min-height: 0;
       border: 1px solid rgba(212, 175, 55, 0.08);
       border-radius: 8px;
       background: rgba(0, 0, 0, 0.28);
@@ -368,11 +389,9 @@
     }
 
     .thought-panel {
-      grid-area: thought;
       width: auto;
       min-width: 0;
       min-height: 0;
-      align-self: stretch;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -380,7 +399,8 @@
       box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
       display: flex;
       flex-direction: column;
-      max-height: min(72vh, 720px);
+      flex: 2 1 0;      /* ocupa 2/5 do espaço disponível */
+      overflow: hidden;
     }
     .thought-panel h2 {
       font-size: 0.72rem;
@@ -393,7 +413,7 @@
     .thought-scroll {
       overflow: auto;
       flex: 1;
-      min-height: 180px;
+      min-height: 0;
       border: 1px solid rgba(212, 175, 55, 0.08);
       border-radius: 8px;
       background: rgba(0, 0, 0, 0.28);
@@ -556,9 +576,9 @@
 
     /* ── Painel lateral ─────────────────────────────────────────── */
     .panel {
-      flex: 1 1 300px;
+      flex: 1 1 200px;
       min-width: 0;
-      max-width: 580px;
+      max-width: none;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 14px;
@@ -700,54 +720,139 @@
     .piece-w { color: #f0e6d2; font-weight: 600; }
     .piece-b { color: #6b7c93; }
 
+    /* ── Modal de seleção de modo ───────────────────────────────── */
+    .mode-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      background: rgba(4, 6, 10, 0.82);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .mode-overlay[hidden] { display: none !important; }
+    .mode-dialog {
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 20px;
+      padding: 32px 28px 28px;
+      max-width: 540px;
+      width: 100%;
+      box-shadow: 0 40px 100px rgba(0, 0, 0, 0.75);
+    }
+    .mode-dialog__title {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 1.55rem;
+      font-weight: 600;
+      margin: 0 0 4px;
+      color: var(--text);
+    }
+    .mode-dialog__title span { color: var(--gold); font-style: italic; }
+    .mode-dialog__sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin: 0 0 22px;
+    }
+    .mode-cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 480px) { .mode-cards { grid-template-columns: 1fr; } }
+    .mode-card {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 18px 16px;
+      border: 2px solid var(--border);
+      border-radius: 14px;
+      background: rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      text-align: left;
+      transition: border-color 0.18s, background 0.18s, transform 0.12s;
+      color: var(--text);
+      font-family: inherit;
+    }
+    .mode-card:hover {
+      border-color: var(--border-strong);
+      background: rgba(212, 175, 55, 0.06);
+      transform: translateY(-2px);
+    }
+    .mode-card.is-active {
+      border-color: var(--gold);
+      background: rgba(212, 175, 55, 0.10);
+    }
+    .mode-card__icon { font-size: 2rem; line-height: 1; }
+    .mode-card__name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--gold-bright);
+      display: block;
+    }
+    .mode-card__desc {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.45;
+      display: block;
+    }
+    .mode-card.is-active .mode-card__desc { color: var(--text); }
+
     /* ── Ajuste do chessboard.js ────────────────────────────────── */
     .white-1e1d7 { background-color: #e8d5b0 !important; }
     .black-3c85d { background-color: #8b6914 !important; }
-    .highlight-white { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
-    .highlight-black { box-shadow: inset 0 0 3px 3px rgba(212, 175, 55, 0.7) !important; }
+    /* highlight classes reservadas – o SVG cuida dos contornos agora */
+    .highlight-white, .highlight-black { /* sem estilo extra */ }
 
     @media (pointer: coarse) {
       .btn { min-height: 44px; }
     }
 
     @media (max-width: 1100px) {
-      .panel { max-width: none; }
-      .play-row {
-        grid-template-columns: minmax(0, 1fr) minmax(180px, 240px);
-        grid-template-areas:
-          "board history"
-          "tools thought";
-      }
+      .side-col { flex: 0 0 260px; width: 260px; }
+      .board-stack { max-width: min(calc(100vh - 180px), 100%); }
     }
 
     @media (max-width: 860px) {
-      .play-row {
-        grid-template-columns: 1fr;
-        grid-template-areas:
-          "board"
-          "history"
-          "thought"
-          "tools";
-        flex: 1 1 100%;
+      /* top-area: empilha board + sidebar verticalmente */
+      .top-area {
+        flex-direction: column;
+        align-items: stretch;
       }
-      .board-stack,
-      .board-tools {
+      .board-stack {
         max-width: none;
+        width: 100%;
       }
+      .side-col {
+        flex: 1 1 auto;
+        width: 100%;
+        flex-direction: row;  /* no mobile, histórico e pensamento ficam lado a lado */
+      }
+      /* no mobile: limita altura dos painéis (scroll interno) */
       .history-panel {
-        max-height: 240px;
-      }
-      .thought-panel {
+        flex: 3 1 0;
         max-height: 280px;
       }
-      .panel {
-        flex: 1 1 100%;
-        max-width: none;
-        padding: 16px;
+      .thought-panel {
+        flex: 2 1 0;
+        max-height: 280px;
       }
       .page-title { font-size: 1.35rem; }
       .lead { font-size: 0.82rem; margin-bottom: 16px; }
       .clock-face { padding: 8px 12px; }
+    }
+
+    @media (max-width: 620px) {
+      /* bottom-area: empilha controles + estado da partida */
+      .board-tools {
+        width: 100%;
+        max-width: none;
+      }
+      .panel {
+        flex: 1 1 100%;
+        padding: 16px;
+      }
       .controls > label {
         flex-direction: column;
         align-items: stretch;
@@ -763,25 +868,28 @@
       .mp-join-row .btn { flex: 1 1 auto; }
     }
 
+    @media (max-width: 540px) {
+      /* tela muito pequena: empilha histórico e pensamento verticalmente */
+      .side-col { flex-direction: column; }
+      .history-panel { max-height: 220px; }
+      .thought-panel { max-height: 200px; }
+    }
+
     @media (max-width: 480px) {
       .page-header { gap: 8px; padding-bottom: 12px; }
       .badge { font-size: 0.6rem; }
-      .history-panel { padding: 12px; max-height: 200px; }
-      .history-scroll { min-height: 120px; }
+      .history-panel { padding: 12px; }
       .move-legend-2d { font-size: 0.62rem; }
       .toolbar .btn { flex: 1 1 100%; }
       pre { font-size: 0.68rem; }
     }
 
     @media (max-width: 860px) and (orientation: landscape) {
-      .play-row {
-        grid-template-columns: minmax(0, 1fr) minmax(160px, 220px);
-        grid-template-areas:
-          "board history"
-          "tools thought";
-      }
-      .history-panel { max-height: min(70vh, 420px); }
-      .thought-panel { max-height: min(40vh, 260px); }
+      .top-area { flex-direction: row; align-items: stretch; }
+      .board-stack { flex: 1 1 0; max-width: calc(100vh - 120px); }
+      .side-col { flex: 0 0 240px; width: 240px; flex-direction: column; }
+      .history-panel { max-height: none; }
+      .thought-panel { max-height: none; }
     }
   </style>
 </head>
@@ -800,8 +908,7 @@
       desligue para mover e só depois pausar / passar o relógio.
     </p>
 
-    <div class="row">
-      <div class="play-row">
+    <div class="top-area">
       <div class="board-stack">
         <div class="clock-face" id="clockTop">
           <div class="clock-face__meta">
@@ -838,6 +945,7 @@
         </div>
       </div>
 
+      <div class="side-col">
       <aside class="history-panel" aria-label="Histórico de jogadas" data-i18n-aria="board2d.history">
         <h2 data-i18n="board2d.history">Histórico de jogadas</h2>
         <div class="history-scroll" id="moveHistory">
@@ -861,13 +969,15 @@
           <p class="history-empty" data-i18n="board2d.engineNoMoves">O motor ainda não jogou nesta partida.</p>
         </div>
       </aside>
+      </div>
+    </div><!-- /.top-area -->
 
+    <div class="bottom-area">
       <div class="board-tools">
         <div class="toolbar">
           <button type="button" class="btn" id="btnNew" data-i18n="board2d.new">Novo jogo</button>
           <button type="button" class="btn" id="btnUndo" data-i18n="board2d.undo">Desfazer</button>
           <button type="button" class="btn" id="btnAnalyze" data-i18n="board2d.analyze">Analisar</button>
-          <button type="button" class="btn" id="btnSave" data-i18n="board2d.save">Salvar replay</button>
           <button type="button" class="btn" id="btnList" data-i18n="board2d.list">Listar replays</button>
         </div>
         <div class="controls">
@@ -932,7 +1042,6 @@
             </div>
           </details>
         </div>
-      </div>
       </div>
 
       <div class="panel">
@@ -1089,6 +1198,44 @@
       capture_promo: "#eb6b1a",
       last: "#d4af37"
     };
+
+    /* ── Modo visual ────────────────────────────────────────────── */
+    // "training" → contornos nas casas legais; "realistic" → sem marcações ao tocar
+    let visualMode = localStorage.getItem("sator_visual_mode") || "training";
+
+    function showModeOverlay(onConfirm) {
+      const overlay = document.getElementById("modeOverlay");
+      if (!overlay) { if (onConfirm) onConfirm(); return; }
+
+      // Marca card ativo
+      overlay.querySelectorAll(".mode-card").forEach(function (c) {
+        c.classList.toggle("is-active", c.dataset.mode === visualMode);
+      });
+
+      // Cancela eventuais handlers anteriores e bloqueia cliques no backdrop
+      overlay.onclick = function (e) { e.stopPropagation(); };
+
+      // Fecha APENAS quando o usuário clicar num card — usa { once: true }
+      // para garantir que o handler se auto-remove após um único uso.
+      overlay.querySelectorAll(".mode-card").forEach(function (c) {
+        // Remove onclick legado
+        c.onclick = null;
+        c.addEventListener("click", function cardHandler(e) {
+          e.stopPropagation();
+          // Atualiza visual
+          overlay.querySelectorAll(".mode-card").forEach(function (x) {
+            x.classList.toggle("is-active", x === c);
+          });
+          visualMode = c.dataset.mode;
+          localStorage.setItem("sator_visual_mode", visualMode);
+          overlay.hidden = true;
+          overlay.onclick = null;
+          if (onConfirm) onConfirm();
+        }, { once: true });
+      });
+
+      overlay.hidden = false;
+    }
     let selectedSq = null;
     let lastMoveArrow = null;
     let thoughtLogEntries = [];
@@ -1709,6 +1856,18 @@
       };
     }
 
+    function squareContourMarkup(sq, color, sw, dur, vals) {
+      const p = getSquareCenter(sq);
+      if (!p) return "";
+      const s = p.r * 2;
+      const inset = sw / 2 + 1;
+      const x = (p.cx - p.r + inset).toFixed(1);
+      const y = (p.cy - p.r + inset).toFixed(1);
+      const d = (s - inset * 2).toFixed(1);
+      const v = vals || "0.9;0.3;0.9";
+      return `<rect x="${x}" y="${y}" width="${d}" height="${d}" fill="none" stroke="${color}" stroke-width="${sw}" rx="3"><animate attributeName="opacity" values="${v}" dur="${dur}s" repeatCount="indefinite"/></rect>`;
+    }
+
     function arrowMarkup(from, to, color, markerId, width) {
       const a = getSquareCenter(from);
       const b = getSquareCenter(to);
@@ -1724,26 +1883,19 @@
     }
 
     function destMarkup(sq, color, kind) {
-      const p = getSquareCenter(sq);
-      if (!p) return "";
-      if (kind === "capture" || kind === "capture_promo" || kind === "ep") {
-        return `<circle cx="${p.cx}" cy="${p.cy}" r="${p.r * 0.42}" fill="none" stroke="${color}" stroke-width="3.5" opacity="0.85"/>`;
-      }
-      return `<circle cx="${p.cx}" cy="${p.cy}" r="${Math.max(5, p.r * 0.16)}" fill="${color}" opacity="0.88"/>`;
+      // Captura: contorno mais espesso e rápido; lance simples: contorno fino e lento
+      const isCapture = kind === "capture" || kind === "capture_promo" || kind === "ep";
+      const sw  = isCapture ? 3.5 : 2.0;
+      const dur = isCapture ? 1.0 : 1.7;
+      return squareContourMarkup(sq, color, sw, dur, "0.88;0.22;0.88");
     }
 
     function highlightLastMoveSquares() {
+      // Remove classes legadas; o SVG cuida dos contornos animados agora
       const squares = document.querySelectorAll("#board .square-55d63");
       for (const el of squares) {
         el.classList.remove("highlight-white", "highlight-black");
       }
-      if (!lastMoveArrow) return;
-      [lastMoveArrow.from, lastMoveArrow.to].forEach(function (sq) {
-        const el = document.querySelector("#board .square-" + sq);
-        if (!el) return;
-        const light = el.classList.contains("white-1e1d7");
-        el.classList.add(light ? "highlight-white" : "highlight-black");
-      });
     }
 
     function drawBoardGraphics() {
@@ -1755,26 +1907,26 @@
       svg.setAttribute("viewBox", "0 0 " + w + " " + h);
       svg.setAttribute("width", String(w));
       svg.setAttribute("height", String(h));
-      const markers = Object.keys(KIND_HEX).map(function (k) {
-        return `<marker id="ah-${k}" markerWidth="8" markerHeight="8" refX="6.2" refY="4" orient="auto">
-          <path d="M0,0.6 L8,4 L0,7.4 z" fill="${KIND_HEX[k]}"/>
-        </marker>`;
-      }).join("");
-      const parts = [`<defs>${markers}</defs>`];
+      const parts = [];
       if (lastMoveArrow) {
-        parts.push(arrowMarkup(lastMoveArrow.from, lastMoveArrow.to, KIND_HEX.last, "ah-last", 6));
+        // contorno fraco na origem (casa de partida)
+        parts.push(squareContourMarkup(lastMoveArrow.from, KIND_HEX.last, 2.5, 2.4, "0.55;0.12;0.55"));
+        // contorno forte no destino (casa de chegada)
+        parts.push(squareContourMarkup(lastMoveArrow.to, KIND_HEX.last, 4.5, 1.5, "0.95;0.42;0.95"));
       }
       if (selectedSq) {
-        const origin = getSquareCenter(selectedSq);
-        if (origin) {
-          parts.push(`<circle cx="${origin.cx}" cy="${origin.cy}" r="${origin.r * 0.46}" fill="${KIND_HEX.selected}" opacity="0.22"/>`);
+        if (visualMode !== "realistic") {
+          // contorno da peça selecionada (treino e intermediário)
+          parts.push(squareContourMarkup(selectedSq, KIND_HEX.selected, 4.5, 0.85, "0.95;0.55;0.95"));
         }
-        const moves = game.moves({ square: selectedSq, verbose: true });
-        for (const mv of moves) {
-          const kind = moveKind(mv);
-          const color = KIND_HEX[kind] || KIND_HEX.quiet;
-          parts.push(arrowMarkup(mv.from, mv.to, color, "ah-" + kind, 3.4));
-          parts.push(destMarkup(mv.to, color, kind));
+        if (visualMode === "training") {
+          // contornos das casas legais apenas no modo treino
+          const moves = game.moves({ square: selectedSq, verbose: true });
+          for (const mv of moves) {
+            const kind = moveKind(mv);
+            const color = KIND_HEX[kind] || KIND_HEX.quiet;
+            parts.push(destMarkup(mv.to, color, kind));
+          }
         }
       }
       svg.innerHTML = parts.join("");
@@ -2689,13 +2841,15 @@
     }
 
     document.getElementById("btnNew").onclick = async () => {
-      const view = liveApi ? await liveApi.chooseNewGame() : "2d";
-      if (!view) return;
-      if (liveApi) liveApi.beginNewSession();
-      resetLocalGame();
-      if (view === "3d") {
-        liveApi.goToView("3d");
-      }
+      // Mostra o modal de modo ANTES do diálogo de vista, para que
+      // apareça sempre — mesmo quando liveApi está ativo.
+      showModeOverlay(async function () {
+        const view = liveApi ? await liveApi.chooseNewGame() : "2d";
+        if (!view) return; // usuário cancelou o diálogo de vista — não inicia novo jogo
+        if (liveApi) liveApi.beginNewSession();
+        resetLocalGame();
+        if (view === "3d") liveApi.goToView("3d");
+      });
     };
     document.getElementById("btnUndo").onclick = () => {
       if (busy) return;
@@ -2769,10 +2923,6 @@
         }).then(r => r.json());
         document.getElementById("report").textContent = JSON.stringify(res, null, 2);
       } catch (e) { console.error(e); }
-    };
-    document.getElementById("btnSave").onclick = async () => {
-      await saveReplayAuto();
-      document.getElementById("btnList").click();
     };
     document.getElementById("btnList").onclick = async () => {
       try {
@@ -2881,7 +3031,32 @@
       const shareBtn = document.getElementById("btnShareLink");
       if (shareBtn) shareBtn.textContent = t("mp.share");
     });
+
+    // Mostra seleção de modo na primeira visita
+    if (!localStorage.getItem("sator_visual_mode")) {
+      showModeOverlay(null);
+    }
   </script>
   <script src="/js/pwa-register.js" defer></script>
+
+  <!-- ── Modal de seleção de modo ──────────────────────────────── -->
+  <div class="mode-overlay" id="modeOverlay" hidden>
+    <div class="mode-dialog">
+      <h2 class="mode-dialog__title">Sator <span>Engine</span></h2>
+      <p class="mode-dialog__sub">Escolha o modo antes de começar a partida</p>
+      <div class="mode-cards">
+        <button type="button" class="mode-card" data-mode="training">
+          <span class="mode-card__icon">🎓</span>
+          <strong class="mode-card__name">Modo Treino</strong>
+          <span class="mode-card__desc">Contornos animados mostram as casas legais ao tocar numa peça. Ideal para aprender aberturas, táticas e regras.</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="realistic">
+          <span class="mode-card__icon">♟</span>
+          <strong class="mode-card__name">Modo Realístico</strong>
+          <span class="mode-card__desc">Sem marcações ao tocar nas peças — apenas o último lance é destacado. Experiência de torneio real.</span>
+        </button>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
