@@ -4,7 +4,7 @@
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#04060a"/>
-  <script src="/js/i18n.js?v=2"></script>
+  <script src="/js/i18n.js?v=3"></script>
   <title data-i18n="meta.matches.title">Ranking | SatorX</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -105,6 +105,7 @@
     }
     tbody tr:nth-child(even) { background: var(--row); }
     .score { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold-bright); }
+    .elo { font-variant-numeric: tabular-nums; color: var(--gold-bright); font-weight: 600; white-space: nowrap; }
     .type-mp { color: #8ec5ff; font-weight: 600; }
     .type-engine { color: var(--gold-bright); font-weight: 600; }
     .type-human { color: #b8d4a8; font-weight: 600; }
@@ -143,6 +144,7 @@
       <thead>
         <tr>
           <th data-i18n="matches.type">Tipo</th>
+          <th data-i18n="matches.elo">Elo</th>
           <th data-i18n="matches.start">Início</th>
           <th data-i18n="matches.end">Fim</th>
           <th data-i18n="matches.score">Placar</th>
@@ -204,15 +206,45 @@
       return window.SatorI18n ? window.SatorI18n.matchLocationLabel(e) : (e.location || "—");
     }
 
+    function nameToken(v) {
+      const s = String(v || "").trim().toLowerCase();
+      if (s === "player" || s === "you" || s === "você" || s === "voce") return t("matches.you");
+      if (s === "engine" || s === "sator engine" || s.indexOf("sator") === 0) return t("matches.engine");
+      if (s === "white" || s === "brancas") return t("common.white");
+      if (s === "black" || s === "pretas") return t("common.black");
+      if (s === "local") return t("matches.localOpp");
+      return v || "—";
+    }
+
     function versusLabel(e) {
+      if (e.matchType === "engine") {
+        const w = nameToken(e.whiteName);
+        const b = nameToken(e.blackName);
+        return w + " vs " + b;
+      }
+      if (e.matchType === "human") {
+        return nameToken(e.whiteName || "white") + " vs " + nameToken(e.blackName || "black");
+      }
       const white = e.whiteName || t("common.white");
       const black = e.blackName || t("common.black");
-      if (e.matchType === "engine" && e.opponent) return e.opponent;
-      if (e.matchType === "human") {
-        return white + " vs " + black;
-      }
       if (e.opponent && e.opponent.indexOf(" vs ") !== -1) return e.opponent;
       return white + " vs " + black;
+    }
+
+    function eloLabel(e) {
+      const engine = e.eloEngine;
+      const player = e.eloPlayer;
+      if (e.matchType === "engine") {
+        if (player != null && engine != null) {
+          return t("matches.eloPlayer", { player: player, elo: engine });
+        }
+        if (engine != null) return t("matches.eloEngine", { elo: engine });
+        if (player != null) return "Elo ~" + player;
+        return t("matches.eloNone");
+      }
+      if (player != null) return "Elo ~" + player;
+      if (engine != null) return t("matches.eloEngine", { elo: engine });
+      return t("matches.eloNone");
     }
 
     async function loadMatches() {
@@ -245,6 +277,7 @@
               tr.appendChild(d);
             }
             addCell(typeLabel(e), typeClass(e));
+            addCell(eloLabel(e), "elo");
             addCell(fmtWhen(e.startedAt));
             addCell(fmtWhen(e.endedAt || e.recordedAt));
             addCell(fmtScore(e), "score");

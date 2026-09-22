@@ -171,7 +171,12 @@ function findBestMove(chess, depth = 7, timeMs = 3000, options = {}) {
       if (score > alpha) alpha = score;
     }
 
-    const ranked = blendRootMoves(chess, rootRows, profile, 55);
+    const ranked = blendRootMoves(
+      chess,
+      rootRows,
+      profile,
+      profile && (profile.id === "polgar" || profile.id === "belenkaya") ? 90 : 40
+    );
     if (ranked[0]) {
       best = ranked[0].mv;
       bestScore = ranked[0].score;

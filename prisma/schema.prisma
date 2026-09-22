@@ -101,6 +101,10 @@ model MatchLog {
   reasonLabel String? @map("reason_label")
   scoreWhite  Float   @map("score_white")
   scoreBlack  Float   @map("score_black")
+  /// Elo estimado do motor (referência) no momento da partida.
+  eloEngine   Int?    @map("elo_engine")
+  /// Elo preditivo do jogador (vs motor), quando aplicável.
+  eloPlayer   Int?    @map("elo_player")
   startedAt   String  @map("started_at")
   endedAt     String  @map("ended_at")
   recordedAt  String  @map("recorded_at")

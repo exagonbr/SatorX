@@ -21,6 +21,10 @@ const STYLE_LABEL = {
   belenkaya: "ataque prático"
 };
 
+/** Belenkaya e Polgár têm prioridade na escolha e no desempate. */
+const PRIORITY_MASTERS = ["belenkaya", "polgar"];
+const PRIORITY_SET = new Set(PRIORITY_MASTERS);
+
 const CENTER = new Set(["d4", "e4", "d5", "e5"]);
 
 function gamePhase(chess) {
@@ -72,14 +76,20 @@ function selectMasterForPosition(chess, opts = {}) {
   const legal = chess.moves({ verbose: true });
   const tactical = legal.filter((m) => m.captured || m.san.includes("+") || m.san.includes("#") || m.promotion);
 
+  addScore(bag, "belenkaya", 4, "Prioridade: ataque prático de Dina Belenkaya");
+  addScore(bag, "polgar", 4, "Prioridade: ataque tático de Judit Polgár");
+
   if (phase === "abertura") {
-    addScore(bag, "kasparov", 3, "Abertura: luta pelo centro e iniciativa cedo");
-    addScore(bag, "belenkaya", 1, "Abertura 1.e4 com jogo prático");
+    addScore(bag, "belenkaya", 4, "Abertura 1.e4 com jogo prático e iniciativa");
+    addScore(bag, "polgar", 3, "Abertura agressiva: complicar cedo");
+    addScore(bag, "kasparov", 1, "Abertura: luta pelo centro");
   } else if (phase === "final") {
-    addScore(bag, "carlsen", 7, "Final: técnica e conversão de vantagens mínimas");
+    addScore(bag, "polgar", 3, "Final: tática residual e promoção");
+    addScore(bag, "belenkaya", 3, "Final: conversão prática sob pressão");
+    addScore(bag, "carlsen", 2, "Final: técnica de conversão");
   } else {
-    addScore(bag, "kasparov", 1, "Meio-jogo: pressão contínua");
-    addScore(bag, "carlsen", 1, "Meio-jogo: posições jogáveis");
+    addScore(bag, "polgar", 3, "Meio-jogo: ataque e desequilíbrio");
+    addScore(bag, "belenkaya", 3, "Meio-jogo: decisões práticas e pressão");
   }
 
   for (const key of keys) {
@@ -90,56 +100,61 @@ function selectMasterForPosition(chess, opts = {}) {
   }
 
   if (policy.mode === "ATK") {
-    addScore(bag, "kasparov", 3, `Iniciativa alta (${policy.initiative}): pressão dinâmica`);
-    addScore(bag, "polgar", 3, "Ataque: complicações táticas");
-    addScore(bag, "belenkaya", 2, "Ataque prático para forçar erros");
+    addScore(bag, "polgar", 5, "Ataque: complicações táticas");
+    addScore(bag, "belenkaya", 4, "Ataque prático para forçar erros");
+    addScore(bag, "kasparov", 1, `Iniciativa alta (${policy.initiative})`);
   } else if (policy.mode === "DEF") {
-    addScore(bag, "carlsen", 3, `Perigo ${policy.danger}: defesa pragmática`);
-    addScore(bag, "kasparov", 2, "Defesa com contrajogo e iniciativa");
-    addScore(bag, "polgar", 1, "Tática de recurso sob pressão");
+    addScore(bag, "belenkaya", 4, `Perigo ${policy.danger}: defesa prática e contrajogo`);
+    addScore(bag, "polgar", 3, "Tática de recurso sob pressão");
+    addScore(bag, "carlsen", 1, "Defesa pragmática");
   } else {
-    addScore(bag, "carlsen", 2, "Posição equilibrada: jogo universal");
-    addScore(bag, "kasparov", 1, "Equilíbrio: procurar a iniciativa");
+    addScore(bag, "belenkaya", 3, "Equilíbrio: complicar e forçar decisões");
+    addScore(bag, "polgar", 2, "Equilíbrio: procurar o ataque");
   }
 
   if (tactical.length >= 4) {
-    addScore(bag, "polgar", 4, `${tactical.length} lances táticos (xeque/captura/promoção)`);
-    addScore(bag, "belenkaya", 2, "Posição táctica: complicar e calcular");
+    addScore(bag, "polgar", 5, `${tactical.length} lances táticos (xeque/captura/promoção)`);
+    addScore(bag, "belenkaya", 3, "Posição táctica: complicar e calcular");
   }
 
   if (last) {
     if (last.san && last.san.includes("#")) {
-      addScore(bag, "polgar", 2, "Resposta a ameaça máxima");
+      addScore(bag, "polgar", 3, "Resposta a ameaça máxima");
+      addScore(bag, "belenkaya", 2, "Converter a ameaça com jogo prático");
     } else if (last.san && last.san.includes("+")) {
       addScore(bag, "polgar", 7, `O adversário deu xeque (${last.san}): cálculo tático`);
-      addScore(bag, "kasparov", 2, "Responder à pressão com contra-pressão");
+      addScore(bag, "belenkaya", 3, "Responder ao xeque com contra-pressão prática");
     }
     if (last.captured) {
-      addScore(bag, "kasparov", 3, `Captura em ${last.to}: tensão material e iniciativa`);
-      addScore(bag, "carlsen", 1, "Avaliar se simplificar favorece o final");
+      addScore(bag, "belenkaya", 3, `Captura em ${last.to}: tensão e iniciativa prática`);
+      addScore(bag, "polgar", 2, "Captura: manter o ataque");
     }
     if (last.san === "O-O" || last.san === "O-O-O") {
-      addScore(bag, "carlsen", 2, "Adversário rocou: plano posicional de médio prazo");
+      addScore(bag, "belenkaya", 2, "Adversário rocou: atacar o novo abrigo");
+      addScore(bag, "polgar", 2, "Roque rival: procurar o ataque ao rei");
     }
     if (last.piece === "p" && CENTER.has(last.to)) {
-      addScore(bag, "kasparov", 2, "Peão central do adversário: disputa do centro");
+      addScore(bag, "belenkaya", 3, "Peão central do adversário: disputa prática do centro");
+      addScore(bag, "polgar", 2, "Centro: abrir linhas para o ataque");
     }
     if (last.promotion) {
-      addScore(bag, "carlsen", 2, "Promoções: técnica de conversão");
-      addScore(bag, "polgar", 2, "Promoções: tática no final do tabuleiro");
+      addScore(bag, "polgar", 3, "Promoções: tática no final do tabuleiro");
+      addScore(bag, "belenkaya", 2, "Promoções: converter com decisões rápidas");
     }
   }
 
   if (policy.danger >= 10 && policy.initiative >= 5) {
-    addScore(bag, "belenkaya", 4, "Posição caótica: decisões práticas de blitz");
-    addScore(bag, "polgar", 2, "Caos tático favorece o cálculo agressivo");
+    addScore(bag, "belenkaya", 5, "Posição caótica: decisões práticas de blitz");
+    addScore(bag, "polgar", 4, "Caos tático favorece o cálculo agressivo");
   }
 
-  let bestId = keys[0];
+  let bestId = PRIORITY_MASTERS[0];
   let bestPts = -Infinity;
-  for (const k of keys) {
-    if (bag.scores[k] > bestPts) {
-      bestPts = bag.scores[k];
+  const ordered = PRIORITY_MASTERS.concat(keys.filter((k) => !PRIORITY_SET.has(k)));
+  for (const k of ordered) {
+    const pts = bag.scores[k] || 0;
+    if (pts > bestPts) {
+      bestPts = pts;
       bestId = k;
     }
   }
@@ -297,6 +312,7 @@ function buildThought(chess, mv, strategy, lastMove) {
 module.exports = {
   STYLE_LABEL,
   PIECE_PT,
+  PRIORITY_MASTERS,
   gamePhase,
   selectMasterForPosition,
   describeMove,

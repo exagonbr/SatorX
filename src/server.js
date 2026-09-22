@@ -309,34 +309,39 @@ app.post("/api/move-learn", (req, res) => {
 
 app.get("/api/nn/status", async (req, res) => {
   const status = getStatus();
-  // Estima o Elo do motor: combina V(s) na posição inicial (sinal imediato da rede)
-  // com um bônus de progresso de treino (updates × calibração do erro TD).
-  // K é estimado automaticamente a partir do historial de erros TD no banco de dados.
+  const elo = await estimateEngineElo();
+  return res.json({
+    ok: true,
+    ...status,
+    eloEstimate: elo.eloEstimate,
+    eloEstimateRounded: elo.eloEstimateRounded
+  });
+});
+
+/** Estima Elo do motor (mesmo cálculo do status NN). */
+async function estimateEngineElo() {
   let eloEstimate = null;
   let eloEstimateRounded = null;
   try {
+    const status = getStatus();
     const refRaw = parseInt(process.env.SATOR_NN_REFERENCE_ELO || String(DEFAULT_REFERENCE_ELO), 10);
     const ref = Number.isFinite(refRaw) ? refRaw : DEFAULT_REFERENCE_ELO;
-
-    // V(s) na posição inicial → Elo base pela curva logística (perspectiva de brancas)
     const chessInit = new Chess();
     const vMover = forward(toFeatureVector(chessInit));
     const predW = classicalRatingPredictive(chessInit, vMover, "w", ref);
     const vBasedElo = predW.ratingPredictive;
-
-    // K estimado automaticamente pelo decaimento exponencial do erro TD histórico
     const K_UPDATES = await estimateKUpdates();
     const progress = status.updates > 0 ? status.updates / (status.updates + K_UPDATES) : 0;
     const errAbs = status.lastTdError != null ? Math.abs(status.lastTdError) : 1;
-    const calibration = Math.exp(-errAbs * 0.5); // 0→1 conforme erro diminui
-    const trainingBonus = 400 * progress * calibration; // até +400 Elo com treino completo
-
+    const calibration = Math.exp(-errAbs * 0.5);
+    const trainingBonus = 400 * progress * calibration;
     eloEstimate = vBasedElo + trainingBonus;
-    // Arredonda para múltiplo de 25 para evitar falsa precisão
     eloEstimateRounded = Math.round(eloEstimate / 25) * 25;
-  } catch (_) { /* não bloqueia o status em caso de erro */ }
-  return res.json({ ok: true, ...status, eloEstimate, eloEstimateRounded });
-});
+  } catch (_) {
+    /* ignore */
+  }
+  return { eloEstimate, eloEstimateRounded };
+}
 
 /** Elo clássico preditivo (heurístico) a partir de V(s) da rede, vs oponente de referência. */
 app.post("/api/nn/predict-rating", (req, res) => {
@@ -1154,7 +1159,15 @@ app.get("/api/matches", async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 80;
   try {
     const entries = await listAllMatches(limit);
-    return res.json({ ok: true, entries });
+    const refRaw = parseInt(process.env.SATOR_NN_REFERENCE_ELO || String(DEFAULT_REFERENCE_ELO), 10);
+    const fallback = Number.isFinite(refRaw) ? refRaw : DEFAULT_REFERENCE_ELO;
+    const enriched = entries.map((e) => {
+      if (e.matchType === "engine" && e.eloEngine == null && fallback != null) {
+        return { ...e, eloEngine: fallback };
+      }
+      return e;
+    });
+    return res.json({ ok: true, entries: enriched, engineElo: fallback });
   } catch (e) {
     console.error("[matches]", e.message);
     return res.status(500).json({ ok: false, error: "Falha ao ler o registro de partidas (corra: npx prisma migrate deploy)" });
@@ -1179,6 +1192,20 @@ app.post("/api/matches/log", async (req, res) => {
     clientLocation: clipMatchField(body.location, 160)
   });
   try {
+    let eloEngine =
+      body.eloEngine != null && body.eloEngine !== ""
+        ? Math.round(Number(body.eloEngine))
+        : null;
+    let eloPlayer =
+      body.eloPlayer != null && body.eloPlayer !== ""
+        ? Math.round(Number(body.eloPlayer))
+        : null;
+    if (!Number.isFinite(eloEngine)) eloEngine = null;
+    if (!Number.isFinite(eloPlayer)) eloPlayer = null;
+    if (eloEngine == null && (mode === "engine" || mode === "multiplayer" || mode === "human")) {
+      const elo = await estimateEngineElo();
+      if (mode === "engine") eloEngine = elo.eloEstimateRounded;
+    }
     await upsertMatchLog({
       sourceKey,
       mode,
@@ -1192,6 +1219,8 @@ app.post("/api/matches/log", async (req, res) => {
       reasonLabel: clipMatchField(body.reasonLabel, 200),
       scoreWhite: body.scoreWhite,
       scoreBlack: body.scoreBlack,
+      eloEngine,
+      eloPlayer,
       startedAt: body.startedAt,
       endedAt: body.endedAt,
       lobbyId: clipMatchField(body.lobbyId, 64),

@@ -31,11 +31,16 @@ function numScore(v, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function optionalInt(v) {
+  if (v == null || v === "") return null;
+  const n = Math.round(Number(v));
+  return Number.isFinite(n) ? n : null;
+}
+
 /**
  * @param {object} row
  */
 async function upsertMatchLog(row) {
-  const prisma = getPrisma();
   const sourceKey = clip(row.sourceKey, 160);
   if (!sourceKey) throw new Error("sourceKey é obrigatório");
   const winner = clip(row.winner, 16) || "draw";
@@ -52,6 +57,8 @@ async function upsertMatchLog(row) {
     reasonLabel: clip(row.reasonLabel, 200),
     scoreWhite: numScore(row.scoreWhite, 0.5),
     scoreBlack: numScore(row.scoreBlack, 0.5),
+    eloEngine: optionalInt(row.eloEngine),
+    eloPlayer: optionalInt(row.eloPlayer),
     startedAt: toIso(row.startedAt),
     endedAt: toIso(row.endedAt),
     recordedAt: row.recordedAt ? toIso(row.recordedAt) : new Date().toISOString(),
@@ -73,6 +80,8 @@ async function upsertMatchLog(row) {
       reasonLabel: data.reasonLabel,
       scoreWhite: data.scoreWhite,
       scoreBlack: data.scoreBlack,
+      eloEngine: data.eloEngine,
+      eloPlayer: data.eloPlayer,
       startedAt: data.startedAt,
       endedAt: data.endedAt,
       recordedAt: data.recordedAt,
@@ -113,6 +122,8 @@ function mapRow(r) {
     reasonLabel: r.reasonLabel,
     scoreWhite: r.scoreWhite,
     scoreBlack: r.scoreBlack,
+    eloEngine: r.eloEngine != null ? r.eloEngine : null,
+    eloPlayer: r.eloPlayer != null ? r.eloPlayer : null,
     startedAt: r.startedAt,
     endedAt: r.endedAt,
     recordedAt: r.recordedAt,
@@ -138,6 +149,8 @@ function rankingAsMatch(r) {
     reasonLabel: r.reasonLabel,
     scoreWhite: r.scoreWhite,
     scoreBlack: r.scoreBlack,
+    eloEngine: null,
+    eloPlayer: null,
     startedAt: r.startedAt,
     endedAt: r.endedAt,
     recordedAt: r.recordedAt,
@@ -147,7 +160,6 @@ function rankingAsMatch(r) {
 }
 
 async function listMatchLogs(limit = 80) {
-  const prisma = getPrisma();
   const n = Math.min(200, Math.max(1, parseInt(limit, 10) || 80));
   const rows = await matchLogDelegate().findMany({
     orderBy: { endedAt: "desc" },

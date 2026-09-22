@@ -40,12 +40,12 @@ export function resultFromChessGame(game) {
 export function playersForMatch(opts) {
   const o = opts || {};
   const mode = o.mode || "engine";
-  const you = o.youLabel || "Você";
-  const engine = o.engineName || "Sator Engine";
+  const you = "player";
+  const engine = "engine";
   if (mode === "multiplayer") {
     const names = o.mpNames || {};
-    const white = names.white || o.whiteLabel || "Brancas";
-    const black = names.black || names.opponentExpected || o.blackLabel || "Pretas";
+    const white = names.white || "white";
+    const black = names.black || names.opponentExpected || "black";
     const myColor = o.myColor || "w";
     return {
       whiteName: white,
@@ -60,9 +60,9 @@ export function playersForMatch(opts) {
     return { whiteName: you, blackName: engine, opponent: engine };
   }
   return {
-    whiteName: o.whiteLabel || "Brancas",
-    blackName: o.blackLabel || "Pretas",
-    opponent: o.localOpponent || "Jogador local"
+    whiteName: "white",
+    blackName: "black",
+    opponent: "local"
   };
 }
 
@@ -96,6 +96,8 @@ export async function logFinishedMatch(payload) {
     reasonLabel: p.reasonLabel || "",
     scoreWhite: p.scoreWhite,
     scoreBlack: p.scoreBlack,
+    eloEngine: p.eloEngine != null ? p.eloEngine : null,
+    eloPlayer: p.eloPlayer != null ? p.eloPlayer : null,
     startedAt: p.startedAt,
     endedAt: p.endedAt || new Date().toISOString(),
     lobbyId: p.lobbyId || "",

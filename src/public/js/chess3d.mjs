@@ -10,7 +10,7 @@ import {
   resultFromChessGame,
   playersForMatch,
   resetMatchLogKey
-} from "/js/matchLog.mjs?v=1";
+} from "/js/matchLog.mjs?v=2";
 
 function t(key, vars) {
   return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
@@ -69,7 +69,7 @@ let rendererRef = null;
 let composerRef = null;
 /** @type {{
  *   fireLight: THREE.PointLight | null, firePhase: number,
- *   bgFar: THREE.Mesh | null, bgNear: THREE.Mesh | null,
+ *   skybox: THREE.Mesh | null,
  *   candleLights: THREE.PointLight[], chandelierPhase: number,
  *   moonLight: THREE.PointLight | null,
  *   dust: { points: THREE.Points, positions: Float32Array, phases: Float32Array, speeds: Float32Array } | null
@@ -77,8 +77,7 @@ let composerRef = null;
 const libraryAnim = {
   fireLight: null,
   firePhase: 0,
-  bgFar: null,
-  bgNear: null,
+  skybox: null,
   candleLights: [],
   chandelierPhase: 0,
   moonLight: null,
@@ -262,13 +261,26 @@ async function logMatchIfFinished() {
   lastMatchLogKey = sourceKey;
   const players = playersForMatch({
     mode,
-    playerColor: getPlayerColor(),
-    youLabel: t("matches.you"),
-    engineName: t("matches.engine"),
-    whiteLabel: t("common.white"),
-    blackLabel: t("common.black"),
-    localOpponent: t("matches.localOpp")
+    playerColor: getPlayerColor()
   });
+  let eloEngine = null;
+  let eloPlayer = null;
+  if (mode === "engine") {
+    try {
+      const st = await fetch("/api/nn/status").then((r) => r.json());
+      if (st && st.ok && st.eloEstimateRounded != null) eloEngine = st.eloEstimateRounded;
+      const pred = await fetch("/api/nn/predict-rating", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fen: game.fen(), playerColor: getPlayerColor() })
+      }).then((r) => r.json());
+      if (pred && pred.ok && pred.ratingPredictiveRounded != null) {
+        eloPlayer = pred.ratingPredictiveRounded;
+      }
+    } catch {
+      /* offline */
+    }
+  }
   await logFinishedMatch({
     sourceKey,
     mode,
@@ -278,6 +290,8 @@ async function logMatchIfFinished() {
     reasonCode: outcome.reasonCode,
     scoreWhite: outcome.scoreWhite,
     scoreBlack: outcome.scoreBlack,
+    eloEngine,
+    eloPlayer,
     startedAt: matchStartedAt || endedAt,
     endedAt,
     sessionId: sessionId || ""
@@ -2382,6 +2396,41 @@ function installLibraryEnvironment(scene) {
   addDustParticles(scene);
 }
 
+// ── Skybox (técnica clássica: cubo gigante + 6 materiais BackSide) ───────────────────────
+// Ref.: https://redstapler.co/create-3d-world-with-three-js-and-skybox-technique/
+// A câmera fica "dentro" do cubo; cada face recebe uma textura própria (frente, trás, cima,
+// baixo, direita, esquerda) com side: THREE.BackSide para renderizar a face interna.
+// Como a sala agora tem 4 paredes fechadas, o céu só é visto através da janela gótica —
+// por isso reaproveitamos a mesma textura lateral nas 4 faces horizontais (economiza
+// geração de assets e evita costuras visíveis, já que a abertura é pequena).
+function installSkybox(scene) {
+  const texLoader = new THREE.TextureLoader();
+  const sideTex = texLoader.load("/img/sky_side.webp");
+  const upTex = texLoader.load("/img/sky_up.webp");
+  const downTex = texLoader.load("/img/sky_down.webp");
+  for (const tex of [sideTex, upTex, downTex]) {
+    tex.colorSpace = THREE.SRGBColorSpace;
+  }
+
+  // Ordem de faces do BoxGeometry: +x (direita), -x (esquerda), +y (cima), -y (baixo),
+  // +z (frente), -z (trás).
+  const materialArray = [
+    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: upTex, fog: false, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: downTex, fog: false, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false })
+  ];
+  for (const mat of materialArray) mat.side = THREE.BackSide;
+
+  const skyboxGeo = new THREE.BoxGeometry(2000, 2000, 2000);
+  const skybox = new THREE.Mesh(skyboxGeo, materialArray);
+  skybox.renderOrder = -10;
+  scene.add(skybox);
+  libraryAnim.skybox = skybox;
+}
+
 // ── Iniciação Three.js ───────────────────────────────────────────────────────────────────
 function createScene() {
   const canvas = document.getElementById("renderCanvas");
@@ -2398,47 +2447,7 @@ function createScene() {
   sceneRef = scene;
 
   installLibraryEnvironment(scene);
-
-  // Ambiente 3D: dois cilindros concêntricos (panorama distante + camada próxima com transparência)
-  const texLoader = new THREE.TextureLoader();
-  texLoader.load("/img/library-panorama.webp", (texFar) => {
-    texFar.colorSpace = THREE.SRGBColorSpace;
-
-    const envTex = texFar.clone();
-    envTex.mapping = THREE.EquirectangularReflectionMapping;
-    scene.environment = envTex;
-
-    const geoFar = new THREE.CylinderGeometry(35, 35, 25, 64, 1, true);
-    const matFar = new THREE.MeshBasicMaterial({
-      map: texFar,
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false
-    });
-    const meshFar = new THREE.Mesh(geoFar, matFar);
-    meshFar.renderOrder = -2;
-    meshFar.position.y = 5;
-    scene.add(meshFar);
-    libraryAnim.bgFar = meshFar;
-  });
-
-  texLoader.load("/img/library-bg.webp", (texNear) => {
-    texNear.colorSpace = THREE.SRGBColorSpace;
-
-    const geoNear = new THREE.CylinderGeometry(30, 30, 25, 64, 1, true);
-    const matNear = new THREE.MeshBasicMaterial({
-      map: texNear,
-      side: THREE.BackSide,
-      transparent: true,
-      depthWrite: false,
-      fog: false
-    });
-    const meshNear = new THREE.Mesh(geoNear, matNear);
-    meshNear.renderOrder = -1;
-    meshNear.position.y = 5;
-    scene.add(meshNear);
-    libraryAnim.bgNear = meshNear;
-  });
+  installSkybox(scene);
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
   cameraRef = camera;
@@ -2629,9 +2638,8 @@ function createScene() {
       const f = libraryAnim.firePhase;
       libraryAnim.fireLight.intensity = 9 + Math.sin(f) * 1.4 + Math.sin(f * 2.7) * 0.9;
     }
-    // Paralaxe sutil: rotação muito lenta dos cilindros de fundo (sensação de profundidade)
-    if (libraryAnim.bgFar) libraryAnim.bgFar.rotation.y += dt * 0.004;
-    if (libraryAnim.bgNear) libraryAnim.bgNear.rotation.y -= dt * 0.007;
+    // Paralaxe sutil: rotação muito lenta do skybox (sensação de céu vivo/profundidade)
+    if (libraryAnim.skybox) libraryAnim.skybox.rotation.y += dt * 0.0015;
     // Velas do lustre: tremular independente por vela
     if (libraryAnim.candleLights && libraryAnim.candleLights.length) {
       libraryAnim.chandelierPhase += dt * 6;

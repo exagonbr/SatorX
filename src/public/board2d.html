@@ -370,24 +370,15 @@
     }
 
     .master-banner {
-      margin: 10px 0 0;
-      padding: 10px 12px;
+      margin: 0 0 14px;
+      padding: 10px 14px;
       border-radius: 10px;
       border: 1px solid var(--border-strong);
       background: linear-gradient(180deg, rgba(212,175,55,0.14), rgba(0,0,0,0.35));
     }
     .master-banner[hidden] { display: none; }
-    .master-banner__kicker {
-      display: block;
-      font-size: 0.64rem;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      font-weight: 600;
-    }
     .master-banner__line {
       display: block;
-      margin-top: 4px;
       font-size: 0.92rem;
       color: var(--gold-bright);
       font-weight: 600;
@@ -910,6 +901,12 @@
         <button type="button" id="btnSwitch3d" data-i18n="board2d.continue3d">Continuar em 3D</button>
       </span>
     </div>
+    <div class="master-banner" id="masterBanner" hidden>
+      <span class="master-banner__line">
+        <span data-i18n="board2d.masterBanner">Motor usando estratégia do Mestre</span>:
+        “<span id="masterStyleLabel">—</span>” (<span id="masterName">—</span>)
+      </span>
+    </div>
     <p class="lead" data-i18n="board2d.lead">
       Vista 2D com setas de lance, histórico na lateral e relógio. Auto-clique troca o tempo ao jogar;
       desligue para mover e só depois pausar / passar o relógio.
@@ -943,12 +940,6 @@
           <button type="button" class="btn" id="btnClockPause" data-i18n="board2d.pause">Pausar</button>
           <button type="button" class="btn btn-clock-press" id="btnClockPress" hidden data-i18n="board2d.pressClock">Passar relógio</button>
           <p class="clock-hint" id="clockHint" data-i18n="board2d.clockHint">O relógio começa no primeiro lance. Auto-clique troca o lado automaticamente.</p>
-        </div>
-        <div class="master-banner" id="masterBanner" hidden>
-          <span class="master-banner__line">
-            <span data-i18n="board2d.masterBanner">Motor usando estratégia do Mestre</span>:
-            “<span id="masterStyleLabel">—</span>” (<span id="masterName">—</span>)
-          </span>
         </div>
       </div>
 
@@ -1121,7 +1112,7 @@
       resultFromChessGame,
       playersForMatch,
       resetMatchLogKey
-    } from "/js/matchLog.mjs?v=1";
+    } from "/js/matchLog.mjs?v=2";
     function t(key, vars) {
       return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
     }
@@ -1169,13 +1160,24 @@
       lastMatchLogKey = sourceKey;
       const players = playersForMatch({
         mode: getMode(),
-        playerColor: getPlayerColor(),
-        youLabel: t("matches.you"),
-        engineName: t("matches.engine"),
-        whiteLabel: t("common.white"),
-        blackLabel: t("common.black"),
-        localOpponent: t("matches.localOpp")
+        playerColor: getPlayerColor()
       });
+      let eloEngine = null;
+      let eloPlayer = null;
+      if (getMode() === "engine") {
+        try {
+          const st = await fetch("/api/nn/status").then(function (r) { return r.json(); });
+          if (st && st.ok && st.eloEstimateRounded != null) eloEngine = st.eloEstimateRounded;
+          const pred = await fetch("/api/nn/predict-rating", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fen: game.fen(), playerColor: getPlayerColor() })
+          }).then(function (r) { return r.json(); });
+          if (pred && pred.ok && pred.ratingPredictiveRounded != null) {
+            eloPlayer = pred.ratingPredictiveRounded;
+          }
+        } catch (_) { /* offline */ }
+      }
       await logFinishedMatch({
         sourceKey,
         mode: getMode(),
@@ -1185,6 +1187,8 @@
         reasonCode: outcome.reasonCode,
         scoreWhite: outcome.scoreWhite,
         scoreBlack: outcome.scoreBlack,
+        eloEngine: eloEngine,
+        eloPlayer: eloPlayer,
         startedAt: matchStartedAt || endedAt,
         endedAt,
         sessionId: sessionId || ""

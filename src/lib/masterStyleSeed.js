@@ -371,14 +371,17 @@ function styleGameCounts(gamesPerMaster) {
   } catch {
     freq = {};
   }
+  const PRIORITY_SEED = { belenkaya: 1.85, polgar: 1.85, kasparov: 0.7, carlsen: 0.7 };
   const keys = Object.keys(MASTER_PROFILES);
   const total = keys.reduce((s, k) => s + (freq[k] || 0), 0);
   const out = {};
   for (const k of keys) {
-    if (total < 6) out[k] = gamesPerMaster;
+    const prior = PRIORITY_SEED[k] || 1;
+    const floor = prior >= 1.5 ? Math.max(2, gamesPerMaster) : 1;
+    if (total < 6) out[k] = Math.max(floor, Math.round(gamesPerMaster * prior));
     else {
       const share = (freq[k] || 0) / total;
-      out[k] = Math.max(1, Math.round(gamesPerMaster * (0.55 + share * 1.2)));
+      out[k] = Math.max(floor, Math.round(gamesPerMaster * (0.55 + share * 1.2) * prior));
     }
   }
   return { counts: out, freq, total };

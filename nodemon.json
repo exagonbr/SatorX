@@ -1,0 +1,8 @@
+{
+  "watch": ["src"],
+  "ext": "js,mjs,json",
+  "env": {
+    "SATOR_DISABLE_MASTER_SEED": "1",
+    "SATOR_DISABLE_CONTINUOUS_LEARN": "1"
+  }
+}
