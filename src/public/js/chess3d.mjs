@@ -72,6 +72,7 @@ let composerRef = null;
  *   skybox: THREE.Mesh | null,
  *   candleLights: THREE.PointLight[], chandelierPhase: number,
  *   moonLight: THREE.PointLight | null,
+ *   ceilingGroup: THREE.Group | null,
  *   dust: { points: THREE.Points, positions: Float32Array, phases: Float32Array, speeds: Float32Array } | null
  * }} */
 const libraryAnim = {
@@ -81,6 +82,7 @@ const libraryAnim = {
   candleLights: [],
   chandelierPhase: 0,
   moonLight: null,
+  ceilingGroup: null,
   dust: null
 };
 let pieceNodes = [];
@@ -1709,17 +1711,22 @@ function applyBoardCamera() {
   const orientWhiteBottom = preset === "fixed_white" ? true : whiteSide;
 
   if (preset === "top") {
+    // Câmera fica acima do teto da sala: escondemos o teto/vigas (só têm face voltada
+    // para dentro) para não bloquear/distorcer a vista de cima.
     cameraRef.position.set(0, 18, 0.1);
     controlsRef.target.set(0, 0, 0);
   } else if (preset === "quarter") {
-    cameraRef.position.set(0, 10, orientWhiteBottom ? 8 : -8);
+    // Mantida dentro da sala (abaixo do teto em ~6.65 e do lustre em ~5.75) para evitar
+    // "furar" o telhado e ver a sala por fora.
+    cameraRef.position.set(0, 5.1, orientWhiteBottom ? 8 : -8);
     controlsRef.target.set(0, 0, 0);
   } else {
     // player / default
     cameraRef.position.set(0, 6, orientWhiteBottom ? 7.5 : -7.5);
     controlsRef.target.set(0, 0.5, orientWhiteBottom ? -0.6 : 0.6);
   }
-  
+  if (libraryAnim.ceilingGroup) libraryAnim.ceilingGroup.visible = preset !== "top";
+
   if (controlsRef) {
     controlsRef.maxDistance = 25;
     controlsRef.minDistance = 5;
@@ -2050,10 +2057,10 @@ function buildGothicWindow(parent, wx, wy, wz) {
     new THREE.MeshStandardMaterial({
       color: 0x9fc2e8,
       emissive: 0x3a5c8c,
-      emissiveIntensity: 1.5,
-      roughness: 0.15,
+      emissiveIntensity: 0.55,
+      roughness: 0.1,
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.32,
       side: THREE.DoubleSide
     })
   );
@@ -2139,11 +2146,41 @@ function addProceduralLibraryRoom(parent) {
     return wall;
   }
 
-  // Parede de fundo (atrás da lareira) e parede frontal
-  for (const z of [ROOM_Z_BACK, ROOM_Z_FRONT]) {
-    addWallSlab(ROOM_HALF_X * 2, wainscotH, 0.3, 0, FLOOR_Y + wainscotH / 2, z, wainscotMat);
-    addWallSlab(ROOM_HALF_X * 2, ROOM_HEIGHT - wainscotH, 0.3, 0, FLOOR_Y + wainscotH + (ROOM_HEIGHT - wainscotH) / 2, z, stoneMat);
-    addWallSlab(ROOM_HALF_X * 2, 0.12, 0.34, 0, FLOOR_Y + wainscotH, z, trimMat);
+  // Parede de fundo (atrás da lareira) — permanece fechada.
+  addWallSlab(ROOM_HALF_X * 2, wainscotH, 0.3, 0, FLOOR_Y + wainscotH / 2, ROOM_Z_BACK, wainscotMat);
+  addWallSlab(ROOM_HALF_X * 2, ROOM_HEIGHT - wainscotH, 0.3, 0, FLOOR_Y + wainscotH + (ROOM_HEIGHT - wainscotH) / 2, ROOM_Z_BACK, stoneMat);
+  addWallSlab(ROOM_HALF_X * 2, 0.12, 0.34, 0, FLOOR_Y + wainscotH, ROOM_Z_BACK, trimMat);
+
+  // Parede frontal — vão ogival aberto (sem laje atrás do vidro): o céu do skybox fica
+  // visível de verdade através da janela gótica, em vez de bloqueado por uma parede opaca.
+  const WIN_WX = 3.0;
+  const WIN_HALF_W = 1.2;
+  const WIN_BOTTOM = FLOOR_Y + 0.6;
+  const WIN_TOP = FLOOR_Y + 4.7;
+  const holeLeft = WIN_WX - WIN_HALF_W;
+  const holeRight = WIN_WX + WIN_HALF_W;
+  const holeWidth = holeRight - holeLeft;
+
+  function addFrontColumn(xStart, xEnd) {
+    const width = xEnd - xStart;
+    if (width <= 0.02) return;
+    const cx = (xStart + xEnd) / 2;
+    addWallSlab(width, wainscotH, 0.3, cx, FLOOR_Y + wainscotH / 2, ROOM_Z_FRONT, wainscotMat);
+    addWallSlab(width, ROOM_HEIGHT - wainscotH, 0.3, cx, FLOOR_Y + wainscotH + (ROOM_HEIGHT - wainscotH) / 2, ROOM_Z_FRONT, stoneMat);
+    addWallSlab(width, 0.12, 0.34, cx, FLOOR_Y + wainscotH, ROOM_Z_FRONT, trimMat);
+  }
+  addFrontColumn(-ROOM_HALF_X, holeLeft);
+  addFrontColumn(holeRight, ROOM_HALF_X);
+
+  // Verga (lintel) de pedra acima do vão, até o teto.
+  const lintelHeight = ROOM_HEIGHT - (WIN_TOP - FLOOR_Y);
+  if (lintelHeight > 0.02) {
+    addWallSlab(holeWidth, lintelHeight, 0.3, WIN_WX, WIN_TOP + lintelHeight / 2, ROOM_Z_FRONT, stoneMat);
+  }
+  // Soleira baixa abaixo do vão (o vitral não desce até o piso).
+  const sillHeight = WIN_BOTTOM - FLOOR_Y;
+  if (sillHeight > 0.02) {
+    addWallSlab(holeWidth, sillHeight, 0.3, WIN_WX, FLOOR_Y + sillHeight / 2, ROOM_Z_FRONT, wainscotMat);
   }
   // Paredes laterais
   const runZ = ROOM_Z_FRONT - ROOM_Z_BACK;
@@ -2156,13 +2193,21 @@ function addProceduralLibraryRoom(parent) {
   }
 
   // ── Teto com vigas (coffered) ───────────────────────────────────────────────────────────
+  // Agrupado para poder ser ocultado na câmera "De cima": o plano do teto só tem face
+  // voltada para baixo (visível de dentro da sala); visto de fora/cima ele fica invisível
+  // e sobrariam só as vigas cortando a vista — por isso escondemos o grupo inteiro nesse caso.
+  const ceilingGroup = new THREE.Group();
+  ceilingGroup.name = "ceilingGroup";
+  parent.add(ceilingGroup);
+  libraryAnim.ceilingGroup = ceilingGroup;
+
   const ceiling = new THREE.Mesh(
     new THREE.PlaneGeometry(ROOM_HALF_X * 2, runZ),
     new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.88 })
   );
   ceiling.rotation.x = Math.PI / 2;
   ceiling.position.set(0, FLOOR_Y + ROOM_HEIGHT, midZ);
-  parent.add(ceiling);
+  ceilingGroup.add(ceiling);
 
   const beamMat = new THREE.MeshStandardMaterial({ color: 0x120b07, roughness: 0.7 });
   const beamCountZ = 7;
@@ -2171,14 +2216,14 @@ function addProceduralLibraryRoom(parent) {
     const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM_HALF_X * 2 - 0.2, 0.28, 0.34), beamMat);
     beam.position.set(0, FLOOR_Y + ROOM_HEIGHT - 0.16, z);
     beam.castShadow = true;
-    parent.add(beam);
+    ceilingGroup.add(beam);
   }
   const beamCountX = 3;
   for (let i = 0; i <= beamCountX; i++) {
     const x = -ROOM_HALF_X + 0.4 + (i / beamCountX) * (ROOM_HALF_X * 2 - 0.8);
     const beam = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.24, runZ - 0.2), beamMat);
     beam.position.set(x, FLOOR_Y + ROOM_HEIGHT - 0.28, midZ);
-    parent.add(beam);
+    ceilingGroup.add(beam);
   }
 
   // ── Lareira (fundo, eixo -Z) — soleira, brasas, quadro e velas ─────────────────────────
@@ -2381,7 +2426,9 @@ function installLibraryEnvironment(scene) {
   root.name = "libraryFurniture";
   scene.add(root);
 
-  scene.fog = new THREE.FogExp2(0x0e0b08, 0.038);
+  // Densidade reduzida (era 0.038): o céu visto pelo vão ogival precisa "respirar" em vez
+  // de ficar embaçado logo na abertura.
+  scene.fog = new THREE.FogExp2(0x0e0b08, 0.03);
 
   const fireLight = new THREE.PointLight(0xff6620, 9, 24, 2.2);
   fireLight.position.set(0, 1.28, -10.5);
@@ -2396,33 +2443,108 @@ function installLibraryEnvironment(scene) {
   addDustParticles(scene);
 }
 
+// ── Céu noturno procedural (6 faces, gerado em CanvasTexture) ────────────────────────────
+// Gradiente + estrelas + névoa de horizonte; a face "moon" recebe a lua cheia e fica
+// alinhada com a janela gótica da parede frontal (+z), para o luar bater direto no vão.
+function makeNightSkyTexture(kind, seed) {
+  const rnd = makeSeededRandom(seed);
+  return makeCanvasTexture((ctx, w, h) => {
+    let top, bottom;
+    if (kind === "up") {
+      top = "#02030a";
+      bottom = "#0a1330";
+    } else if (kind === "down") {
+      top = "#04060c";
+      bottom = "#010102";
+    } else {
+      top = "#05091a";
+      bottom = "#142448";
+    }
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, top);
+    g.addColorStop(1, bottom);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+
+    if (kind !== "down") {
+      const starCount = kind === "up" ? 280 : 150;
+      const starSpanY = kind === "up" ? h : h * 0.78;
+      for (let i = 0; i < starCount; i++) {
+        const x = rnd() * w;
+        const y = rnd() * starSpanY;
+        const r = 0.4 + rnd() * 1.5;
+        const alpha = 0.35 + rnd() * 0.65;
+        ctx.fillStyle = `rgba(230,236,255,${alpha.toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    if (kind === "moon") {
+      const mx = w * 0.6;
+      const my = h * 0.35;
+      const mr = w * 0.055;
+      const glow = ctx.createRadialGradient(mx, my, 0, mx, my, mr * 5.5);
+      glow.addColorStop(0, "rgba(210,225,255,0.55)");
+      glow.addColorStop(1, "rgba(210,225,255,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#eef3ff";
+      ctx.beginPath();
+      ctx.arc(mx, my, mr, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(178,192,218,0.5)";
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        ctx.arc(
+          mx + (rnd() - 0.5) * mr * 1.2,
+          my + (rnd() - 0.5) * mr * 1.2,
+          mr * (0.08 + rnd() * 0.12),
+          0,
+          Math.PI * 2
+        );
+        ctx.fill();
+      }
+    }
+
+    if (kind === "side" || kind === "moon") {
+      const hg = ctx.createLinearGradient(0, h * 0.72, 0, h);
+      hg.addColorStop(0, "rgba(20,32,58,0)");
+      hg.addColorStop(1, "rgba(30,45,70,0.55)");
+      ctx.fillStyle = hg;
+      ctx.fillRect(0, h * 0.72, w, h * 0.28);
+    }
+  }, 1024, 1024);
+}
+
 // ── Skybox (técnica clássica: cubo gigante + 6 materiais BackSide) ───────────────────────
 // Ref.: https://redstapler.co/create-3d-world-with-three-js-and-skybox-technique/
 // A câmera fica "dentro" do cubo; cada face recebe uma textura própria (frente, trás, cima,
 // baixo, direita, esquerda) com side: THREE.BackSide para renderizar a face interna.
-// Como a sala agora tem 4 paredes fechadas, o céu só é visto através da janela gótica —
-// por isso reaproveitamos a mesma textura lateral nas 4 faces horizontais (economiza
-// geração de assets e evita costuras visíveis, já que a abertura é pequena).
 function installSkybox(scene) {
-  const texLoader = new THREE.TextureLoader();
-  const sideTex = texLoader.load("/img/sky_side.webp");
-  const upTex = texLoader.load("/img/sky_up.webp");
-  const downTex = texLoader.load("/img/sky_down.webp");
-  for (const tex of [sideTex, upTex, downTex]) {
-    tex.colorSpace = THREE.SRGBColorSpace;
+  const sideTex = makeNightSkyTexture("side", 501);
+  const upTex = makeNightSkyTexture("up", 502);
+  const downTex = makeNightSkyTexture("down", 503);
+  const moonTex = makeNightSkyTexture("moon", 504);
+  for (const tex of [sideTex, upTex, downTex, moonTex]) {
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
   }
 
+  const faceMat = (map) =>
+    new THREE.MeshBasicMaterial({ map, fog: false, depthWrite: false, side: THREE.BackSide });
+
   // Ordem de faces do BoxGeometry: +x (direita), -x (esquerda), +y (cima), -y (baixo),
-  // +z (frente), -z (trás).
+  // +z (frente — alinhada com a janela gótica), -z (trás — parede da lareira).
   const materialArray = [
-    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
-    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
-    new THREE.MeshBasicMaterial({ map: upTex, fog: false, depthWrite: false }),
-    new THREE.MeshBasicMaterial({ map: downTex, fog: false, depthWrite: false }),
-    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false }),
-    new THREE.MeshBasicMaterial({ map: sideTex, fog: false, depthWrite: false })
+    faceMat(sideTex),
+    faceMat(sideTex),
+    faceMat(upTex),
+    faceMat(downTex),
+    faceMat(moonTex),
+    faceMat(sideTex)
   ];
-  for (const mat of materialArray) mat.side = THREE.BackSide;
 
   const skyboxGeo = new THREE.BoxGeometry(2000, 2000, 2000);
   const skybox = new THREE.Mesh(skyboxGeo, materialArray);
@@ -2446,10 +2568,10 @@ function createScene() {
   const scene = new THREE.Scene();
   sceneRef = scene;
 
-  installLibraryEnvironment(scene);
   installSkybox(scene);
+  installLibraryEnvironment(scene);
 
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
   cameraRef = camera;
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -2638,8 +2760,12 @@ function createScene() {
       const f = libraryAnim.firePhase;
       libraryAnim.fireLight.intensity = 9 + Math.sin(f) * 1.4 + Math.sin(f * 2.7) * 0.9;
     }
-    // Paralaxe sutil: rotação muito lenta do skybox (sensação de céu vivo/profundidade)
-    if (libraryAnim.skybox) libraryAnim.skybox.rotation.y += dt * 0.0015;
+    // Paralaxe sutil: rotação muito lenta do skybox (sensação de céu vivo/profundidade).
+    // Mantido centrado na câmera para nunca haver clipping/seam ao orbitar perto das bordas.
+    if (libraryAnim.skybox) {
+      libraryAnim.skybox.position.copy(camera.position);
+      libraryAnim.skybox.rotation.y += dt * 0.0015;
+    }
     // Velas do lustre: tremular independente por vela
     if (libraryAnim.candleLights && libraryAnim.candleLights.length) {
       libraryAnim.chandelierPhase += dt * 6;
