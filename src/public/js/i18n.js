@@ -45,18 +45,20 @@
       "meta.3d.title": "Sator Engine — Vista 3D",
       "meta.3d.desc": "Partida de xadrez 3D com motor Sator Engine e IA híbrida.",
       "meta.ranking.title": "Ranking — salas online | SatorX",
+      "meta.matches.title": "Registro de partidas | SatorX",
       "meta.offline.title": "Offline — Sator Engine",
 
       "menu.aria": "Menu principal",
       "menu.start": "▶  Iniciar Partida",
       "menu.online": "Jogar Online (Lobby)",
       "menu.ranking": "Ranking — salas online",
+      "menu.matches": "Ranking",
       "menu.rules": "Regras do Xadrez",
       "menu.options": "Configurações",
       "menu.ia": "IA & Rede Neural",
-      "menu.footer": "Sator Engine  ·  Motor híbrido V5  ·  Three.js 3D",
-      "alt.piece": "Peça central",
-      "alt.logo": "Sator Engine",
+      "menu.footer": "Sator Ngx v5  ·  Motor híbrido",
+      "alt.piece": "Quadrado Sator",
+      "alt.logo": "Sator Ngx v5",
 
       "common.close": "Fechar",
       "common.menu": "← Menu",
@@ -119,6 +121,7 @@
       "ia.tdError": "Último Erro (TD-λ):",
       "ia.elo": "Média de Ranking (Elo):",
       "ia.eloRef": "(Referência inicial)",
+      "ia.eloEst": "(estimado pela rede)",
       "ia.calcTitle": "Como são feitos os cálculos",
       "ia.calc1": "O <strong>Sator Engine</strong> combina busca clássica (minimax + alpha-beta) com uma rede de valor treinada por <em>aprendizado por diferença temporal</em> (TD-λ).",
       "ia.calc2": "A avaliação utiliza uma <strong>curva logística (Sigmoid)</strong> que converte a saída linear da rede neural (V) numa probabilidade de vitória e Elo estimado. Além disso, usa heurísticas híbridas e <strong>Geometria Sagrada</strong> (Quadrado SATOR) para analisar simetria e conectividade.",
@@ -438,6 +441,27 @@
       "ranking.err": "Não foi possível carregar o ranking. Confirme que o servidor está a correr (ex.: npm run server). {msg}",
       "ranking.bad": "Resposta inválida",
 
+      "matches.title": "Ranking",
+      "matches.sub": "Todas as partidas — multiplayer online, contra o motor ou contra outro humano — com início, fim, placar, oponente e localização.",
+      "matches.start": "Início",
+      "matches.end": "Fim",
+      "matches.score": "Placar",
+      "matches.versus": "Contra quem",
+      "matches.type": "Tipo",
+      "matches.typeMultiplayer": "Multiplayer",
+      "matches.typeEngine": "Contra o motor",
+      "matches.typeHuman": "Contra humano",
+      "matches.location": "Localização",
+      "matches.empty": "Nenhuma partida registada ainda. Jogue no 2D, no 3D ou online e o histórico aparece aqui.",
+      "matches.loading": "A carregar…",
+      "matches.records": "{n} registo",
+      "matches.recordsPlural": "{n} registos",
+      "matches.err": "Não foi possível carregar o registro. Confirme que o servidor está a correr (ex.: npm run server). {msg}",
+      "matches.bad": "Resposta inválida",
+      "matches.you": "Você",
+      "matches.engine": "Sator Engine",
+      "matches.localOpp": "Jogador local",
+
       "reason.checkmate.w": "Xeque-mate — vitória das brancas.",
       "reason.checkmate.b": "Xeque-mate — vitória das pretas.",
       "reason.stalemate": "Afogamento — empate.",
@@ -448,6 +472,7 @@
       "reason.disconnect_timeout.w": "Vitória das brancas — oponente ausente (tempo real) por 2+ minutos.",
       "reason.disconnect_timeout.b": "Vitória das pretas — oponente ausente (tempo real) por 2+ minutos.",
       "reason.disconnect_timeout": "Vitória por ausência (2+ minutos sem ligação em tempo real).",
+      "reason.dual_offline": "Empate — ambos ausentes (tempo real) por 2+ minutos.",
 
       "offline.title": "Sem conexão",
       "offline.body": "O Sator Engine precisa de rede para o motor e APIs. Verifique sua conexão e tente de novo.",
@@ -509,18 +534,20 @@
       "meta.3d.title": "Sator Engine — 3D view",
       "meta.3d.desc": "3D chess with the Sator Engine and hybrid AI.",
       "meta.ranking.title": "Ranking — online rooms | SatorX",
+      "meta.matches.title": "Match log | SatorX",
       "meta.offline.title": "Offline — Sator Engine",
 
       "menu.aria": "Main menu",
       "menu.start": "▶  Start Game",
       "menu.online": "Play Online (Lobby)",
       "menu.ranking": "Ranking — online rooms",
+      "menu.matches": "Ranking",
       "menu.rules": "Chess Rules",
       "menu.options": "Settings",
       "menu.ia": "AI & Neural Network",
-      "menu.footer": "Sator Engine  ·  Hybrid engine V5  ·  Three.js 3D",
-      "alt.piece": "Central piece",
-      "alt.logo": "Sator Engine",
+      "menu.footer": "Sator Ngx v5  ·  Hybrid engine",
+      "alt.piece": "Sator square",
+      "alt.logo": "Sator Ngx v5",
 
       "common.close": "Close",
       "common.menu": "← Menu",
@@ -583,6 +610,7 @@
       "ia.tdError": "Last error (TD-λ):",
       "ia.elo": "Average ranking (Elo):",
       "ia.eloRef": "(Initial reference)",
+      "ia.eloEst": "(estimated by network)",
       "ia.calcTitle": "How the calculations work",
       "ia.calc1": "The <strong>Sator Engine</strong> combines classical search (minimax + alpha-beta) with a value network trained by <em>temporal-difference learning</em> (TD-λ).",
       "ia.calc2": "Evaluation uses a <strong>logistic curve (sigmoid)</strong> that converts the network’s linear output (V) into a win probability and estimated Elo. It also uses hybrid heuristics and <strong>Sacred Geometry</strong> (the SATOR square) to analyze symmetry and connectivity.",
@@ -902,6 +930,27 @@
       "ranking.err": "Could not load the ranking. Make sure the server is running (e.g. npm run server). {msg}",
       "ranking.bad": "Invalid response",
 
+      "matches.title": "Ranking",
+      "matches.sub": "All games — online multiplayer, vs the engine, or vs another human — with start, end, score, opponent, and location.",
+      "matches.start": "Start",
+      "matches.end": "End",
+      "matches.score": "Score",
+      "matches.versus": "Opponent",
+      "matches.type": "Type",
+      "matches.typeMultiplayer": "Multiplayer",
+      "matches.typeEngine": "Vs engine",
+      "matches.typeHuman": "Vs human",
+      "matches.location": "Location",
+      "matches.empty": "No games recorded yet. Play in 2D, 3D, or online and the history will appear here.",
+      "matches.loading": "Loading…",
+      "matches.records": "{n} record",
+      "matches.recordsPlural": "{n} records",
+      "matches.err": "Could not load the match log. Make sure the server is running (e.g. npm run server). {msg}",
+      "matches.bad": "Invalid response",
+      "matches.you": "You",
+      "matches.engine": "Sator Engine",
+      "matches.localOpp": "Local player",
+
       "reason.checkmate.w": "Checkmate — White wins.",
       "reason.checkmate.b": "Checkmate — Black wins.",
       "reason.stalemate": "Stalemate — draw.",
@@ -912,6 +961,7 @@
       "reason.disconnect_timeout.w": "White wins — opponent absent (realtime) for 2+ minutes.",
       "reason.disconnect_timeout.b": "Black wins — opponent absent (realtime) for 2+ minutes.",
       "reason.disconnect_timeout": "Win by absence (2+ minutes without a realtime connection).",
+      "reason.dual_offline": "Draw — both players absent (realtime) for 2+ minutes.",
 
       "offline.title": "No connection",
       "offline.body": "Sator Engine needs a network for the engine and APIs. Check your connection and try again.",
@@ -1054,6 +1104,33 @@
     return msg;
   }
 
+  function matchTypeLabel(entry) {
+    var code = entry && entry.matchType;
+    if (!code && entry) {
+      var mode = String(entry.mode || "").toLowerCase();
+      if (mode === "multiplayer" || entry.lobbyId) code = "multiplayer";
+      else if (mode === "human") code = "human";
+      else code = "engine";
+    }
+    if (code === "multiplayer") return t("matches.typeMultiplayer");
+    if (code === "human") return t("matches.typeHuman");
+    return t("matches.typeEngine");
+  }
+
+  function matchLocationLabel(entry) {
+    var loc = entry && entry.location ? String(entry.location).trim() : "";
+    if (!loc) return t("common.na");
+    var stripped = loc
+      .replace(/^Online\s*·?\s*/i, "")
+      .replace(/^Local vs IA\s*·?\s*/i, "")
+      .replace(/^Local\s*·?\s*/i, "")
+      .trim();
+    if (!stripped || /^online$/i.test(stripped)) {
+      return entry.matchType === "multiplayer" || entry.lobbyId ? "Online" : t("common.na");
+    }
+    return stripped;
+  }
+
   function reason(code, winner, fallback) {
     if (code === "checkmate") {
       return t(winner === "b" ? "reason.checkmate.b" : "reason.checkmate.w");
@@ -1189,6 +1266,8 @@
     t: t,
     apiError: apiError,
     reason: reason,
+    matchTypeLabel: matchTypeLabel,
+    matchLocationLabel: matchLocationLabel,
     apply: apply,
     setLang: setLang,
     getLang: getLang,

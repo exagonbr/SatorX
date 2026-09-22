@@ -1000,6 +1000,12 @@
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
     import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=3";
+    import {
+      logFinishedMatch,
+      resultFromChessGame,
+      playersForMatch,
+      resetMatchLogKey
+    } from "/js/matchLog.mjs?v=1";
     function t(key, vars) {
       return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
     }
@@ -1021,6 +1027,53 @@
     var mpOpponentReady = false;
     let mpResultPosted = false;
     let mpServerEndShown = false;
+    let matchStartedAt = null;
+    let lastMatchLogKey = null;
+
+    function markMatchStarted() {
+      if (!matchStartedAt) matchStartedAt = new Date().toISOString();
+    }
+
+    function resetMatchSession() {
+      matchStartedAt = null;
+      if (lastMatchLogKey) resetMatchLogKey(lastMatchLogKey);
+      lastMatchLogKey = null;
+    }
+
+    async function logMatchIfFinished() {
+      if (!game.isGameOver()) return;
+      if (getMode() === "multiplayer") return;
+      const outcome = resultFromChessGame(game);
+      if (!outcome) return;
+      const sessionId = liveApi && liveApi.snapshot ? liveApi.snapshot().id : null;
+      const endedAt = new Date().toISOString();
+      const sourceKey = sessionId
+        ? "live:" + sessionId + ":" + endedAt.slice(0, 16)
+        : "local-2d:" + endedAt;
+      lastMatchLogKey = sourceKey;
+      const players = playersForMatch({
+        mode: getMode(),
+        playerColor: getPlayerColor(),
+        youLabel: t("matches.you"),
+        engineName: t("matches.engine"),
+        whiteLabel: t("common.white"),
+        blackLabel: t("common.black"),
+        localOpponent: t("matches.localOpp")
+      });
+      await logFinishedMatch({
+        sourceKey,
+        mode: getMode(),
+        ui: "board2d",
+        ...players,
+        winner: outcome.winner,
+        reasonCode: outcome.reasonCode,
+        scoreWhite: outcome.scoreWhite,
+        scoreBlack: outcome.scoreBlack,
+        startedAt: matchStartedAt || endedAt,
+        endedAt,
+        sessionId: sessionId || ""
+      });
+    }
     let mpCaps = null;
     let mpCapsPromise = null;
     let mpRealtimeConnectGen = 0;
@@ -2400,6 +2453,7 @@
           meta: { auto: true, ui: "board2d", mode: getMode(), sessionId: liveApi && liveApi.snapshot ? liveApi.snapshot().id : null }
         })
       }).catch(() => {});
+      await logMatchIfFinished();
     }
 
     function initBoard() {
@@ -2614,12 +2668,14 @@
     }
 
     function resetLocalGame() {
+      resetMatchSession();
       game.reset();
       board.start();
       selectedSq = null;
       lastMoveArrow = null;
       resetThoughtUi();
       resetClock();
+      markMatchStarted();
       syncModeUI();
       updateStatus();
       if (liveApi) liveApi.publish();

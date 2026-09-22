@@ -51,6 +51,10 @@
       color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif;
     }
+    @media (max-height: 780px) {
+      html, body { overflow-y: auto; }
+      .screen { justify-content: flex-start; padding: 20px 0 72px; }
+    }
 
     /* Fundo de pedra com tabuleiro */
     .bg-layer {
@@ -68,7 +72,7 @@
       pointer-events: none;
       overflow: hidden;
     }
-    .bg-eyes picture {
+    .bg-eyes__stage {
       position: absolute;
       left: 50%;
       top: 24%;
@@ -76,13 +80,22 @@
       width: min(122vw, 1480px);
       line-height: 0;
     }
-    .bg-eyes img {
+    .bg-eyes__art {
+      position: relative;
+      display: block;
+      width: 100%;
+      isolation: isolate;
+    }
+    .bg-eyes__art picture {
+      display: block;
+    }
+    .bg-eyes__art img {
       width: 100%;
       height: auto;
       display: block;
       opacity: 0.4;
       mix-blend-mode: screen;
-      filter: saturate(1.04) brightness(1.08) contrast(1.1);
+      filter: saturate(1.10) brightness(1.10) contrast(1.1);
       -webkit-mask-image:
         radial-gradient(ellipse 68% 78% at 50% 42%, #000 16%, rgba(0,0,0,0.5) 52%, transparent 78%),
         linear-gradient(to bottom, #000 0%, #000 58%, transparent 86%);
@@ -91,18 +104,56 @@
         linear-gradient(to bottom, #000 0%, #000 58%, transparent 86%);
       -webkit-mask-composite: source-in;
       mask-composite: intersect;
-      animation: eyesGlow 12s ease-in-out infinite;
     }
-    @keyframes eyesGlow {
-      0%, 100% { opacity: 0.32; filter: saturate(0.98) brightness(1.0)  contrast(1.08); }
-      50%      { opacity: 0.46; filter: saturate(1.08) brightness(1.14) contrast(1.12); }
+    /* Realce: só nas íris (gradiente local — não repinta a arte inteira) */
+    .bg-eyes__iris {
+      position: absolute;
+      z-index: 1;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      mix-blend-mode: screen;
+      overflow: hidden;
+      clip-path: inset(0 round 48%);
+      background: radial-gradient(
+        ellipse 100% 100% at 44% 40%,
+        rgba(255, 252, 238, 0.55) 0%,
+        rgba(190, 220, 235, 0.28) 34%,
+        transparent 62%
+      );
+      animation: eyeIrisPulse 6s ease-in-out infinite;
+    }
+    .bg-eyes__iris--L { animation-delay: -0.5s; }
+    .bg-eyes__iris--R { animation-delay: -2.2s; }
+    .bg-eyes__iris::after {
+      content: "";
+      position: absolute;
+      left: 32%;
+      top: 26%;
+      width: 18%;
+      height: 16%;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.75);
+      animation: eyeCatchlight 5s ease-in-out infinite;
+    }
+    @keyframes eyeIrisPulse {
+      0%, 100% { opacity: 0.28; }
+      50%      { opacity: 0.52; }
+    }
+    @keyframes eyeCatchlight {
+      0%, 100% { opacity: 0.35; }
+      50%      { opacity: 0.8; }
     }
     @media (max-width: 640px) {
-      .bg-eyes picture { width: 165vw; top: 18%; }
+      .bg-eyes__stage { width: 165vw; top: 18%; }
       .bg-eyes img { opacity: 0.36; }
     }
     @media (prefers-reduced-motion: reduce) {
-      .bg-eyes img { animation: none; opacity: 0.38; }
+      .bg-eyes__iris,
+      .bg-eyes__iris::after {
+        animation: none;
+      }
+      .bg-eyes__iris { opacity: 0.5; }
     }
 
     /* Canvas de constelação */
@@ -131,23 +182,78 @@
       from { opacity: 0; transform: translateY(20px) scale(0.98); }
       to   { opacity: 1; transform: translateY(0)    scale(1);   }
     }
-    .peca-central {
-      width: min(540px, 80vw);
-      display: block;
-      mix-blend-mode: screen;
-      margin-top: -65px; /* Sobe um pouco a peça para alinhar com o fundo */
-      margin-left: -12px; /* Ajuste fino para centralizar a peça com o bloco do fundo */
+    .sator-sigil {
+      position: relative;
+      width: min(248px, 46vw);
+      aspect-ratio: 1;
+      display: grid;
+      place-items: center;
       animation: logoFloat 7s ease-in-out infinite;
     }
-    @keyframes logoFloat {
-      0%,100% { transform: translateY(0);    filter: drop-shadow(0 0 10px rgba(201,168,76,0.2)); }
-      50%     { transform: translateY(-9px); filter: drop-shadow(0 0 20px rgba(201,168,76,0.5)); }
+    .sator-sigil::before {
+      content: "";
+      position: absolute;
+      inset: -18%;
+      background: radial-gradient(circle, rgba(201,168,76,0.28) 0%, rgba(201,168,76,0.08) 42%, transparent 70%);
+      pointer-events: none;
     }
-    .texto-principal {
-      width: min(600px, 95vw);
-      display: block;
-      mix-blend-mode: screen;
-      margin-top: -20px; /* Ajusta a distância em relação à peça que subiu */
+    .sator-sigil svg {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      z-index: 1;
+    }
+    @keyframes logoFloat {
+      0%,100% { transform: translateY(0); }
+      50%     { transform: translateY(-8px); }
+    }
+    .brand-title {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 0.22em 0.34em;
+      margin: 14px 0 0;
+      padding: 0 12px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .brand-metal {
+      font-family: "Cinzel Decorative", "Cinzel", serif;
+      font-size: clamp(1.85rem, 6.2vw, 3.55rem);
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      background: linear-gradient(180deg, #fff6c8 0%, #f0cc5a 26%, #d4b056 48%, #8d6f2a 76%, #f3d36a 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      filter: drop-shadow(0 1px 0 rgba(60,44,10,0.55)) drop-shadow(0 0 16px rgba(201,168,76,0.38));
+    }
+    .brand-metal--ngx {
+      font-family: "Cinzel", serif;
+      letter-spacing: 0.24em;
+    }
+    .brand-sep {
+      width: 0.42em;
+      height: 0.42em;
+      background: linear-gradient(135deg, #f8e7a4 0%, #c9a84c 45%, #8a6d28 100%);
+      transform: rotate(45deg);
+      box-shadow: 0 0 12px rgba(201,168,76,0.7);
+      flex: 0 0 auto;
+    }
+    .brand-ver {
+      font-family: "Cinzel", serif;
+      font-size: clamp(0.62rem, 1.8vw, 0.82rem);
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #f0cc5a;
+      border: 1px solid rgba(240,204,90,0.5);
+      border-radius: 2px;
+      padding: 0.38em 0.62em 0.28em;
+      background: linear-gradient(180deg, rgba(240,204,90,0.16), rgba(140,110,40,0.06));
+      box-shadow: 0 0 16px rgba(201,168,76,0.18), inset 0 0 12px rgba(201,168,76,0.06);
     }
     .logo-halo {
       display: none;
@@ -380,23 +486,106 @@
 <body>
   <div class="bg-layer"></div>
   <div class="bg-eyes" aria-hidden="true">
-    <picture>
-      <source type="image/webp" srcset="/img/login-eyes.webp"/>
-      <img src="/img/login-eyes.jpg" alt="" width="1024" height="342" decoding="async" draggable="false"/>
-    </picture>
+    <div class="bg-eyes__stage">
+      <div class="bg-eyes__art" id="bgEyesArt">
+        <picture>
+          <source type="image/webp" srcset="/img/login-eyes.webp"/>
+          <img id="bgEyesImg" src="/img/login-eyes.jpg" alt="" width="1024" height="342" decoding="async" draggable="false"/>
+        </picture>
+        <span class="bg-eyes__iris bg-eyes__iris--L"></span>
+        <span class="bg-eyes__iris bg-eyes__iris--R"></span>
+      </div>
+    </div>
   </div>
   <canvas id="constellation"></canvas>
 
+  <script>
+    /* Íris: posição em px sobre a arte (1024×342), não sobre a viewport */
+    (function () {
+      var IRIS = [
+        { sel: ".bg-eyes__iris--L", cx: 0.3155, cy: 0.529, w: 0.034, h: 0.050 },
+        { sel: ".bg-eyes__iris--R", cx: 0.7058, cy: 0.494, w: 0.032, h: 0.068 }
+      ];
+      function layoutEyeIris() {
+        var art = document.getElementById("bgEyesArt");
+        var img = document.getElementById("bgEyesImg");
+        if (!art || !img) return;
+        var w = img.offsetWidth;
+        var h = img.offsetHeight;
+        if (w < 2 || h < 2) return;
+        IRIS.forEach(function (spec) {
+          var el = art.querySelector(spec.sel);
+          if (!el) return;
+          el.style.left = spec.cx * w + "px";
+          el.style.top = spec.cy * h + "px";
+          el.style.width = spec.w * w + "px";
+          el.style.height = spec.h * h + "px";
+        });
+      }
+      window.addEventListener("resize", layoutEyeIris);
+      window.addEventListener("load", layoutEyeIris);
+      var img = document.getElementById("bgEyesImg");
+      if (img) {
+        img.addEventListener("load", layoutEyeIris);
+        if (img.complete) layoutEyeIris();
+      }
+    })();
+  </script>
+
   <main class="screen">
     <div class="logo-wrap">
-      <picture>
-        <source type="image/webp" srcset="/img/panel2_peca.webp"/>
-        <img src="/img/panel2_peca.png" class="peca-central" alt="Peça central" data-i18n-alt="alt.piece" width="482" height="327" decoding="async" draggable="false"/>
-      </picture>
-      <picture>
-        <source type="image/webp" srcset="/img/panel3_texto.webp"/>
-        <img src="/img/panel3_texto.png" class="texto-principal" alt="Sator Engine" data-i18n-alt="alt.logo" width="482" height="97" decoding="async" draggable="false"/>
-      </picture>
+      <div class="sator-sigil" role="img" data-i18n-aria="alt.piece" aria-label="Quadrado Sator">
+        <svg viewBox="0 0 260 260" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="satorGold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f8e7a4"/>
+              <stop offset="42%" stop-color="#c9a84c"/>
+              <stop offset="100%" stop-color="#7d6124"/>
+            </linearGradient>
+            <linearGradient id="satorPlate" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#16120c"/>
+              <stop offset="100%" stop-color="#08090d"/>
+            </linearGradient>
+            <filter id="satorGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.4" result="blur"/>
+              <feMerge>
+                <feMergeNode in="blur"/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+          <g transform="translate(130 130)">
+            <rect x="-80" y="-80" width="160" height="160" transform="rotate(45)"
+                  fill="url(#satorPlate)" stroke="url(#satorGold)" stroke-width="2.6" filter="url(#satorGlow)"/>
+            <rect x="-72" y="-72" width="144" height="144" transform="rotate(45)"
+                  fill="none" stroke="rgba(240,204,90,0.22)" stroke-width="0.8"/>
+          </g>
+          <g font-family="Cinzel, Times New Roman, serif" font-weight="700" font-size="17"
+             text-anchor="middle" dominant-baseline="central" fill="url(#satorGold)">
+            <!-- SATOR -->
+            <text x="82" y="82">S</text><text x="106" y="82">A</text><text x="130" y="82">T</text><text x="154" y="82">O</text><text x="178" y="82">R</text>
+            <!-- AREPO -->
+            <text x="82" y="106">A</text><text x="106" y="106">R</text><text x="130" y="106">E</text><text x="154" y="106">P</text><text x="178" y="106">O</text>
+            <!-- TENET -->
+            <text x="82" y="130">T</text><text x="106" y="130">E</text><text x="130" y="130">N</text><text x="154" y="130">E</text><text x="178" y="130">T</text>
+            <!-- OPERA -->
+            <text x="82" y="154">O</text><text x="106" y="154">P</text><text x="130" y="154">E</text><text x="154" y="154">R</text><text x="178" y="154">A</text>
+            <!-- ROTAS -->
+            <text x="82" y="178">R</text><text x="106" y="178">O</text><text x="130" y="178">T</text><text x="154" y="178">A</text><text x="178" y="178">S</text>
+          </g>
+          <g fill="none" stroke="rgba(240,204,90,0.38)" stroke-width="0.7">
+            <path d="M70 70 H190 V190 H70 Z"/>
+            <path d="M94 70 V190 M118 70 V190 M142 70 V190 M166 70 V190"/>
+            <path d="M70 94 H190 M70 118 H190 M70 142 H190 M70 166 H190"/>
+          </g>
+        </svg>
+      </div>
+      <h1 class="brand-title">
+        <span class="brand-metal">Sator</span>
+        <span class="brand-sep" aria-hidden="true"></span>
+        <span class="brand-metal brand-metal--ngx">Ngx</span>
+        <span class="brand-ver">v5</span>
+      </h1>
     </div>
 
     <div class="divider"></div>
@@ -404,14 +593,14 @@
     <nav class="menu" role="navigation" aria-label="Menu principal" data-i18n-aria="menu.aria">
       <button type="button" class="btn-menu btn-menu--primary" id="btnStartGame" data-i18n="menu.start">&#9654; &nbsp;Iniciar Partida</button>
       <a href="/chess3d.html?lobby=new" class="btn-menu" id="btnMultiplayer" data-i18n="menu.online">Jogar Online (Lobby)</a>
-      <a href="/ranking.html" class="btn-menu" data-i18n="menu.ranking">Ranking — salas online</a>
+      <a href="/matches.html" class="btn-menu" data-i18n="menu.matches">Ranking</a>
       <button type="button" class="btn-menu" id="btnRules" data-i18n="menu.rules">Regras do Xadrez</button>
       <button type="button" class="btn-menu" id="btnOptions" data-i18n="menu.options">Configurações</button>
       <button type="button" class="btn-menu" id="btnIA" data-i18n="menu.ia">IA &amp; Rede Neural</button>
     </nav>
   </main>
 
-  <footer class="footer" data-i18n="menu.footer">Sator Engine &nbsp;&middot;&nbsp; Motor híbrido V5 &nbsp;&middot;&nbsp; Three.js 3D</footer>
+  <footer class="footer" data-i18n="menu.footer">Sator Ngx v5 &nbsp;&middot;&nbsp; Motor híbrido &nbsp;&middot;&nbsp; Three.js 3D</footer>
 
   <!-- Modal: Regras -->
   <div class="overlay" id="overlayRules" role="dialog" aria-modal="true" aria-labelledby="rulesHeading">
@@ -461,7 +650,7 @@
           <ul class="ia-stats-list">
             <li><strong data-i18n="ia.updates">Updates de Treino:</strong> <span id="iaUpdates">-</span></li>
             <li><strong data-i18n="ia.tdError">Último Erro (TD-λ):</strong> <span id="iaTdError">-</span></li>
-            <li><strong data-i18n="ia.elo">Média de Ranking (Elo):</strong> <span id="iaElo">~1850</span> <em data-i18n="ia.eloRef">(Referência inicial)</em></li>
+            <li><strong data-i18n="ia.elo">Média de Ranking (Elo):</strong> <span id="iaElo">~1850</span> <em id="iaEloLabel" data-i18n="ia.eloRef">(Referência inicial)</em></li>
           </ul>
         </div>
       </div>
@@ -545,7 +734,7 @@
       const SPRING_ON = 0.0005;
       const SPRING_OFF = 0.0032;
       const R_LINE_BOOST = 190;
-      const R_CURSOR_SEG = 135;
+      const R_CURSOR_SEG = 152;
 
       window.addEventListener("mousemove", function (e) {
         mx = e.clientX;
@@ -564,7 +753,7 @@
 
       function initNodes() {
         nodes = [];
-        const count = Math.min(72, Math.floor((W * H) / 24000));
+        const count = Math.min(88, Math.floor((W * H) / 20000));
         for (let i = 0; i < count; i++) {
           const hx = Math.random() * W, hy = Math.random() * H;
           nodes.push({
@@ -607,7 +796,7 @@
           n.x = Math.max(1, Math.min(W - 1, n.x));
           n.y = Math.max(1, Math.min(H - 1, n.y));
         }
-        const maxDist = 155;
+        const maxDist = 178;
         for (let i = 0; i < nodes.length; i++) {
           for (let j = i + 1; j < nodes.length; j++) {
             const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
@@ -1078,6 +1267,15 @@
             document.getElementById("iaStatusData").style.display = "block";
             document.getElementById("iaUpdates").textContent = data.updates || 0;
             document.getElementById("iaTdError").textContent = data.lastTdError != null ? Number(data.lastTdError).toFixed(4) : (window.SatorI18n ? window.SatorI18n.t("common.nd") : "N/D");
+            // Elo estimado pela rede neural (atualizado com o aprendizado)
+            if (data.eloEstimateRounded != null && Number.isFinite(data.eloEstimateRounded)) {
+              document.getElementById("iaElo").textContent = "~" + data.eloEstimateRounded;
+              var eloLabel = document.getElementById("iaEloLabel");
+              if (eloLabel) {
+                eloLabel.removeAttribute("data-i18n");
+                eloLabel.textContent = window.SatorI18n ? window.SatorI18n.t("ia.eloEst") : "(estimado pela rede)";
+              }
+            }
           }
         })
         .catch(function(err) {

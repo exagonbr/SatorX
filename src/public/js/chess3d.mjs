@@ -5,6 +5,12 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
 import { bindLiveGame, fetchPositionBook, restoreChess } from "/js/liveGameSession.mjs?v=2";
+import {
+  logFinishedMatch,
+  resultFromChessGame,
+  playersForMatch,
+  resetMatchLogKey
+} from "/js/matchLog.mjs?v=1";
 
 function t(key, vars) {
   return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
@@ -213,6 +219,55 @@ function resetMpMatchReporting() {
 let mpOpponentReady = false;
 
 let mpIsSpectator = false;
+let mpLobbyNames = null;
+let matchStartedAt = null;
+let lastMatchLogKey = null;
+
+function markMatchStarted() {
+  if (!matchStartedAt) matchStartedAt = new Date().toISOString();
+}
+
+function resetMatchSession() {
+  matchStartedAt = null;
+  if (lastMatchLogKey) resetMatchLogKey(lastMatchLogKey);
+  lastMatchLogKey = null;
+}
+
+async function logMatchIfFinished() {
+  if (!game.isGameOver()) return;
+  const mode = getMode();
+  if (mode === "multiplayer") return;
+  const outcome = resultFromChessGame(game);
+  if (!outcome) return;
+  const sessionId = liveApi && liveApi.snapshot ? liveApi.snapshot().id : null;
+  const endedAt = new Date().toISOString();
+  const sourceKey = sessionId
+    ? "live:" + sessionId + ":" + endedAt.slice(0, 16)
+    : "local-3d:" + endedAt;
+  lastMatchLogKey = sourceKey;
+  const players = playersForMatch({
+    mode,
+    playerColor: getPlayerColor(),
+    youLabel: t("matches.you"),
+    engineName: t("matches.engine"),
+    whiteLabel: t("common.white"),
+    blackLabel: t("common.black"),
+    localOpponent: t("matches.localOpp")
+  });
+  await logFinishedMatch({
+    sourceKey,
+    mode,
+    ui: "chess3d",
+    ...players,
+    winner: outcome.winner,
+    reasonCode: outcome.reasonCode,
+    scoreWhite: outcome.scoreWhite,
+    scoreBlack: outcome.scoreBlack,
+    startedAt: matchStartedAt || endedAt,
+    endedAt,
+    sessionId: sessionId || ""
+  });
+}
 
 function closeMpGameOverOverlay() {
   const overlay = document.getElementById("gameOverOverlay");
@@ -237,6 +292,7 @@ function applyMpRematchBoard(fen) {
   updateStatus();
   updateGameOverOverlay();
   closeMpGameOverOverlay();
+  resetMatchSession();
   resetClock();
   startClock();
 }
@@ -375,6 +431,7 @@ function updateClockDisplays() {
 }
 
 function startClock() {
+  markMatchStarted();
   if (clockInterval) clearInterval(clockInterval);
   clockRunning = true;
   clockInterval = setInterval(tickClock, 1000);
@@ -703,6 +760,7 @@ function saveReplayAuto() {
       }
     })
   }).catch(() => {});
+  void logMatchIfFinished();
 }
 
 function applyLiveState(state) {
@@ -2112,6 +2170,7 @@ window.addEventListener("DOMContentLoaded", () => {
     if (!view) return;
     if (liveApi) liveApi.beginNewSession();
     game.reset();
+    resetMatchSession();
     resetClock();
     startClock();
     clearTapSelection();

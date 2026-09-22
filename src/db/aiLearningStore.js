@@ -87,6 +87,83 @@ async function initSchema() {
   return null;
 }
 
+/**
+ * Estima a constante de tempo τ do decaimento exponencial do erro TD,
+ * usada para calibrar K na fórmula de progresso de treino:
+ *   progress = updates / (updates + K)
+ *
+ * Modelo: |error(t)| ≈ e₀ × exp(−t/τ)
+ * → τ = (t₁ − t₀) / ln(|e₀| / |e₁|)
+ *
+ * Retorna um K razoável mesmo com poucos dados ou sem convergência visível.
+ */
+let _kEstimateCache = null;
+let _kEstimateCachedAt = 0;
+const K_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutos
+
+async function estimateKUpdates() {
+  const now = Date.now();
+  if (_kEstimateCache !== null && now - _kEstimateCachedAt < K_CACHE_TTL_MS) {
+    return _kEstimateCache;
+  }
+
+  const FALLBACK_K = 5000;
+  const SAMPLE = 60;
+  const ERROR_FLOOR = 0.05; // mínimo realista de erro TD
+
+  try {
+    const prisma = getPrisma();
+    const [first, last] = await Promise.all([
+      prisma.tdLearning.findMany({
+        orderBy: { updates: "asc" },
+        take: SAMPLE,
+        select: { updates: true, tdError: true }
+      }),
+      prisma.tdLearning.findMany({
+        orderBy: { updates: "desc" },
+        take: SAMPLE,
+        select: { updates: true, tdError: true }
+      })
+    ]);
+
+    if (first.length < 10 || last.length < 10) {
+      _kEstimateCache = FALLBACK_K;
+      _kEstimateCachedAt = now;
+      return FALLBACK_K;
+    }
+
+    const meanAbsErr = (rows) =>
+      rows.reduce((s, r) => s + Math.abs(r.tdError || 0), 0) / rows.length;
+
+    const e0 = Math.max(meanAbsErr(first), ERROR_FLOOR);
+    const e1 = Math.max(meanAbsErr(last), ERROR_FLOOR);
+
+    // Ponto médio de cada janela para estimar os "tempos" t0 e t1
+    const midUpdate = (rows) => rows[Math.floor(rows.length / 2)].updates || 0;
+    const t0 = midUpdate(first);
+    const t1 = midUpdate(last);
+
+    if (t1 <= t0 || e1 >= e0) {
+      // Sem melhoria detectável → K padrão
+      _kEstimateCache = FALLBACK_K;
+      _kEstimateCachedAt = now;
+      return FALLBACK_K;
+    }
+
+    // τ = Δt / ln(e₀ / e₁)
+    const tau = (t1 - t0) / Math.log(e0 / e1);
+    // Clamp: mínimo 500, máximo 100 000
+    const k = Math.max(500, Math.min(100_000, Math.round(tau)));
+
+    _kEstimateCache = k;
+    _kEstimateCachedAt = now;
+    return k;
+  } catch (err) {
+    console.warn("[aiLearningStore] estimateKUpdates:", err.message);
+    return FALLBACK_K;
+  }
+}
+
 async function closeDb() {
   if (prisma) {
     try {
@@ -104,6 +181,7 @@ module.exports = {
   recordTdStep,
   maybeRecordWeightsSnapshot,
   initSchema,
+  estimateKUpdates,
   closeDb,
   DB_PATH: null,
   SNAPSHOT_EVERY_UPDATES

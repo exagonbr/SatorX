@@ -17,6 +17,8 @@ if (!process.env.VERCEL) {
 }
 
 const { appendLobbyRanking, listLobbyRanking } = require("./db/lobbyRankingPrisma");
+const { upsertMatchLog, listAllMatches } = require("./db/matchLogStore");
+const { geoFromRequest, composeLocation } = require("./lib/requestLocation");
 const {
   usePersistedLobbies,
   loadLobby,
@@ -50,6 +52,7 @@ const masterThoughtStore = require("./db/masterThoughtStore");
 const replayStore = require("./db/replayStore");
 const { schedulePostGameTrain } = require("./db/postGameTrainScheduler");
 const { getPostgresConnectionString } = require("./db/aiLearningStore");
+const { estimateKUpdates } = require("./db/aiLearningStore");
 const liveSessionStore = require("./db/liveSessionStore");
 const gameLogStore = require("./db/gameLogStore");
 const openingStats = require("./lib/openingStats");
@@ -74,6 +77,10 @@ if (process.env.VERCEL) {
 }
 
 app.use("/api/lobby", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
+  next();
+});
+app.use("/api/matches", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store, max-age=0");
   next();
 });
@@ -295,8 +302,35 @@ app.post("/api/move-learn", (req, res) => {
   });
 });
 
-app.get("/api/nn/status", (req, res) => {
-  return res.json({ ok: true, ...getStatus() });
+app.get("/api/nn/status", async (req, res) => {
+  const status = getStatus();
+  // Estima o Elo do motor: combina V(s) na posição inicial (sinal imediato da rede)
+  // com um bônus de progresso de treino (updates × calibração do erro TD).
+  // K é estimado automaticamente a partir do historial de erros TD no banco de dados.
+  let eloEstimate = null;
+  let eloEstimateRounded = null;
+  try {
+    const refRaw = parseInt(process.env.SATOR_NN_REFERENCE_ELO || String(DEFAULT_REFERENCE_ELO), 10);
+    const ref = Number.isFinite(refRaw) ? refRaw : DEFAULT_REFERENCE_ELO;
+
+    // V(s) na posição inicial → Elo base pela curva logística (perspectiva de brancas)
+    const chessInit = new Chess();
+    const vMover = forward(toFeatureVector(chessInit));
+    const predW = classicalRatingPredictive(chessInit, vMover, "w", ref);
+    const vBasedElo = predW.ratingPredictive;
+
+    // K estimado automaticamente pelo decaimento exponencial do erro TD histórico
+    const K_UPDATES = await estimateKUpdates();
+    const progress = status.updates > 0 ? status.updates / (status.updates + K_UPDATES) : 0;
+    const errAbs = status.lastTdError != null ? Math.abs(status.lastTdError) : 1;
+    const calibration = Math.exp(-errAbs * 0.5); // 0→1 conforme erro diminui
+    const trainingBonus = 400 * progress * calibration; // até +400 Elo com treino completo
+
+    eloEstimate = vBasedElo + trainingBonus;
+    // Arredonda para múltiplo de 25 para evitar falsa precisão
+    eloEstimateRounded = Math.round(eloEstimate / 25) * 25;
+  } catch (_) { /* não bloqueia o status em caso de erro */ }
+  return res.json({ ok: true, ...status, eloEstimate, eloEstimateRounded });
 });
 
 /** Elo clássico preditivo (heurístico) a partir de V(s) da rede, vs oponente de referência. */
@@ -481,7 +515,7 @@ function lobbyClaimMsLeft(lobby, seat) {
   return Math.max(0, DISCONNECT_AWARD_MS - (Date.now() - d));
 }
 
-async function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
+async function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel, extras = {}) {
   const lobby = await loadLobby(memoryLobbies, lobbyId);
   if (!lobby || lobby.finished) return false;
   lobby.finished = true;
@@ -501,20 +535,41 @@ async function finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel) {
     scoreW = 0;
     scoreB = 1;
   }
+  const startedIso = new Date(started).toISOString();
+  const endedIso = new Date(lobby.endedAt).toISOString();
+  const whiteName = names.white || "Brancas";
+  const blackName = names.black || "Pretas";
   void appendLobbyRanking({
     lobbyId,
-    whiteName: names.white || "Brancas",
-    blackName: names.black || "Pretas",
+    whiteName,
+    blackName,
     winner,
     reasonCode,
     reasonLabel,
     scoreWhite: scoreW,
     scoreBlack: scoreB,
     durationSec,
-    startedAt: new Date(started).toISOString(),
-    endedAt: new Date(lobby.endedAt).toISOString(),
+    startedAt: startedIso,
+    endedAt: endedIso,
     recordedAt: new Date().toISOString()
   }).catch((e) => console.error("[lobby/ranking] Prisma:", e.message));
+  void upsertMatchLog({
+    sourceKey: "lobby:" + lobbyId + ":" + startedIso,
+    mode: "multiplayer",
+    ui: extras.ui || null,
+    whiteName,
+    blackName,
+    opponent: whiteName + " vs " + blackName,
+    location: extras.location || lobby.location || composeLocation({ venue: "Online" }),
+    winner,
+    reasonCode,
+    reasonLabel,
+    scoreWhite: scoreW,
+    scoreBlack: scoreB,
+    startedAt: startedIso,
+    endedAt: endedIso,
+    lobbyId
+  }).catch((e) => console.error("[matches/log] Prisma:", e.message));
   await persistLobby(memoryLobbies, lobbyId, lobby);
   try {
     lobbyBroadcastToLobby(lobbyId, {
@@ -675,6 +730,7 @@ function lobbyMutateRematch(lobby, password) {
   lobby.disconnectStartedAt = { w: null, b: null };
   lobby.bothOfflineSince = null;
   lobby.everHadWs = lobby.everHadWs || { w: false, b: false };
+  lobby.startedAt = Date.now();
   return null;
 }
 
@@ -701,6 +757,7 @@ app.post("/api/lobby/create", async (req, res) => {
       disconnectStartedAt: { w: null, b: null },
       everHadWs: { w: false, b: false },
       bothOfflineSince: null,
+      location: composeLocation({ geo: geoFromRequest(req), venue: "Online" }) || "Online",
       names: {
         white: playerName || null,
         black: null,
@@ -1083,6 +1140,65 @@ app.get("/api/lobby/ranking", async (req, res) => {
   }
 });
 
+function clipMatchField(v, n) {
+  if (v == null) return "";
+  return String(v).trim().slice(0, n || 80);
+}
+
+app.get("/api/matches", async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 80;
+  try {
+    const entries = await listAllMatches(limit);
+    return res.json({ ok: true, entries });
+  } catch (e) {
+    console.error("[matches]", e.message);
+    return res.status(500).json({ ok: false, error: "Falha ao ler o registro de partidas (corra: npx prisma migrate deploy)" });
+  }
+});
+
+app.post("/api/matches/log", async (req, res) => {
+  const body = req.body || {};
+  const mode = clipMatchField(body.mode, 32) || "unknown";
+  const winner = clipMatchField(body.winner, 16) || "draw";
+  if (!["w", "b", "draw", "white", "black"].includes(winner)) {
+    return res.status(400).json({ ok: false, error: "Dados inválidos." });
+  }
+  const winnerNorm = winner === "white" ? "w" : winner === "black" ? "b" : winner;
+  const sourceKey =
+    clipMatchField(body.sourceKey, 160) ||
+    (body.sessionId ? "live:" + clipMatchField(body.sessionId, 80) : "") ||
+    "anon:" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8);
+  const location = composeLocation({
+    geo: geoFromRequest(req),
+    timezone: clipMatchField(body.timezone, 80),
+    clientLocation: clipMatchField(body.location, 160)
+  });
+  try {
+    await upsertMatchLog({
+      sourceKey,
+      mode,
+      ui: clipMatchField(body.ui, 32),
+      whiteName: clipMatchField(body.whiteName, 80),
+      blackName: clipMatchField(body.blackName, 80),
+      opponent: clipMatchField(body.opponent, 80),
+      location,
+      winner: winnerNorm,
+      reasonCode: clipMatchField(body.reasonCode, 48) || "unknown",
+      reasonLabel: clipMatchField(body.reasonLabel, 200),
+      scoreWhite: body.scoreWhite,
+      scoreBlack: body.scoreBlack,
+      startedAt: body.startedAt,
+      endedAt: body.endedAt,
+      lobbyId: clipMatchField(body.lobbyId, 64),
+      sessionId: clipMatchField(body.sessionId, 80)
+    });
+    return res.json({ ok: true });
+  } catch (e) {
+    console.error("[matches/log]", e.message);
+    return res.status(500).json({ ok: false, error: "Falha ao gravar o registro da partida." });
+  }
+});
+
 app.post("/api/lobby/finish", async (req, res) => {
   const { lobbyId, fen } = req.body || {};
   try {
@@ -1116,7 +1232,9 @@ app.post("/api/lobby/finish", async (req, res) => {
       reasonCode = "fifty";
       reasonLabel = "Regra dos 50 lances — empate.";
     }
-    await finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel);
+    await finalizeLobbyMatch(lobbyId, winner, reasonCode, reasonLabel, {
+      location: composeLocation({ geo: geoFromRequest(req), venue: "Online" }) || "Online"
+    });
     return res.json({ ok: true });
   } catch (e) {
     console.error("[lobby/finish]", e.message);

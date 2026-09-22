@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#04060a"/>
+  <script src="/js/i18n.js"></script>
+  <title data-i18n="meta.matches.title">Registro de partidas | SatorX</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg: #04060a;
+      --text: #e8e0d0;
+      --muted: #8a909c;
+      --gold: #c9a84c;
+      --gold-bright: #f0cc5a;
+      --border: rgba(201, 168, 76, 0.22);
+      --row: rgba(201, 168, 76, 0.06);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Source Sans 3", system-ui, sans-serif;
+      line-height: 1.5;
+      padding: max(20px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+        max(28px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+    }
+    header {
+      max-width: 1180px;
+      margin: 0 auto 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      padding-right: 108px;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      letter-spacing: 0.04em;
+    }
+    .sub {
+      margin-top: 6px;
+      font-size: 0.9rem;
+      color: var(--muted);
+      max-width: 52rem;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+    a.btn, button.btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(201, 168, 76, 0.12);
+      color: var(--gold-bright);
+      font-weight: 600;
+      font-size: 0.88rem;
+      text-decoration: none;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    a.btn:hover, button.btn:hover {
+      background: rgba(201, 168, 76, 0.2);
+    }
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .wrap {
+      max-width: 1180px;
+      margin: 0 auto;
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    tbody tr:nth-child(even) { background: var(--row); }
+    .score { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--gold-bright); }
+    .type-mp { color: #8ec5ff; font-weight: 600; }
+    .type-engine { color: var(--gold-bright); font-weight: 600; }
+    .type-human { color: #b8d4a8; font-weight: 600; }
+    .winner-w { color: #e8e0d0; }
+    .winner-b { color: #c9b896; }
+    .winner-draw { color: var(--muted); }
+    .err {
+      color: #e07070;
+      padding: 16px;
+      border: 1px solid rgba(224, 112, 112, 0.35);
+      border-radius: 10px;
+      margin-top: 16px;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 28px 12px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 data-i18n="matches.title">Ranking</h1>
+    <p class="sub" data-i18n="matches.sub">
+      Todas as partidas (local, contra a IA e online) com data de início e fim, placar, oponente e localização.
+    </p>
+    <div class="toolbar">
+      <a class="btn" href="/" data-i18n="common.menuHome">← Menu inicial</a>
+      <button type="button" class="btn" id="btnRefresh" data-i18n="common.refresh">Atualizar</button>
+      <span class="hint" id="loadState"></span>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th data-i18n="matches.type">Tipo</th>
+          <th data-i18n="matches.start">Início</th>
+          <th data-i18n="matches.end">Fim</th>
+          <th data-i18n="matches.score">Placar</th>
+          <th data-i18n="matches.versus">Contra quem</th>
+          <th data-i18n="matches.location">Localização</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    <p class="empty" id="empty" hidden data-i18n="matches.empty">Nenhuma partida registada ainda. Jogue no 2D, no 3D ou online e o histórico aparece aqui.</p>
+    <p class="err" id="err" hidden></p>
+  </div>
+
+  <script>
+    function t(key, vars) {
+      return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+    }
+
+    function fmtWhen(iso) {
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        const loc = window.SatorI18n ? window.SatorI18n.locale() : "pt-BR";
+        return d.toLocaleString(loc, {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        });
+      } catch {
+        return iso;
+      }
+    }
+
+    function fmtScore(e) {
+      const w = e.scoreWhite;
+      const b = e.scoreBlack;
+      if (w == null && b == null) return "—";
+      function n(v) {
+        if (v === 0.5) return "½";
+        return String(v);
+      }
+      return n(w != null ? w : "—") + " – " + n(b != null ? b : "—");
+    }
+
+    function typeLabel(e) {
+      return window.SatorI18n ? window.SatorI18n.matchTypeLabel(e) : (e.matchType || "");
+    }
+
+    function typeClass(e) {
+      const code = e.matchType || "";
+      if (code === "multiplayer") return "type-mp";
+      if (code === "human") return "type-human";
+      return "type-engine";
+    }
+
+    function locationLabel(e) {
+      return window.SatorI18n ? window.SatorI18n.matchLocationLabel(e) : (e.location || "—");
+    }
+
+    function versusLabel(e) {
+      const white = e.whiteName || t("common.white");
+      const black = e.blackName || t("common.black");
+      if (e.matchType === "engine" && e.opponent) return e.opponent;
+      if (e.matchType === "human") {
+        return white + " vs " + black;
+      }
+      if (e.opponent && e.opponent.indexOf(" vs ") !== -1) return e.opponent;
+      return white + " vs " + black;
+    }
+
+    async function loadMatches() {
+      const tbody = document.getElementById("tbody");
+      const empty = document.getElementById("empty");
+      const errEl = document.getElementById("err");
+      const loadState = document.getElementById("loadState");
+      errEl.hidden = true;
+      loadState.textContent = t("matches.loading");
+      try {
+        const r = await fetch("/api/matches?limit=200");
+        const data = await r.json();
+        if (!r.ok || !data.ok) {
+          throw new Error(data.error || t("matches.bad"));
+        }
+        const rows = data.entries || [];
+        tbody.textContent = "";
+        if (rows.length === 0) {
+          empty.hidden = false;
+          document.getElementById("tbl").hidden = true;
+        } else {
+          empty.hidden = true;
+          document.getElementById("tbl").hidden = false;
+          for (const e of rows) {
+            const tr = document.createElement("tr");
+            function addCell(text, cls) {
+              const d = document.createElement("td");
+              if (cls) d.className = cls;
+              d.textContent = text;
+              tr.appendChild(d);
+            }
+            addCell(typeLabel(e), typeClass(e));
+            addCell(fmtWhen(e.startedAt));
+            addCell(fmtWhen(e.endedAt || e.recordedAt));
+            addCell(fmtScore(e), "score");
+            addCell(versusLabel(e));
+            addCell(locationLabel(e));
+            tbody.appendChild(tr);
+          }
+        }
+        loadState.textContent =
+          rows.length === 1
+            ? t("matches.records", { n: rows.length })
+            : t("matches.recordsPlural", { n: rows.length });
+      } catch (e) {
+        loadState.textContent = "";
+        errEl.textContent = t("matches.err", { msg: e.message || "" });
+        errEl.hidden = false;
+        document.getElementById("tbl").hidden = true;
+        empty.hidden = true;
+      }
+    }
+
+    document.getElementById("btnRefresh").addEventListener("click", loadMatches);
+    window.addEventListener("sator:langchange", loadMatches);
+    loadMatches();
+  </script>
+</body>
+</html>

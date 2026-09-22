@@ -86,6 +86,32 @@ model LobbyRanking {
   @@map("lobby_rankings")
 }
 
+/// Registro de todas as partidas (local, vs IA e online).
+model MatchLog {
+  id          String  @id @default(cuid())
+  sourceKey   String  @unique @map("source_key")
+  mode        String
+  ui          String?
+  whiteName   String? @map("white_name")
+  blackName   String? @map("black_name")
+  opponent    String?
+  location    String?
+  winner      String
+  reasonCode  String  @map("reason_code")
+  reasonLabel String? @map("reason_label")
+  scoreWhite  Float   @map("score_white")
+  scoreBlack  Float   @map("score_black")
+  startedAt   String  @map("started_at")
+  endedAt     String  @map("ended_at")
+  recordedAt  String  @map("recorded_at")
+  lobbyId     String? @map("lobby_id")
+  sessionId   String? @map("session_id")
+
+  @@index([endedAt], map: "idx_match_logs_ended")
+  @@index([recordedAt], map: "idx_match_logs_recorded")
+  @@map("match_logs")
+}
+
 /// Estado em curso do lobby (multijogador) — necessário em Vercel (sem memória partilhada).
 model LobbySession {
   id        String   @id
