@@ -86,6 +86,11 @@ app.use("/api/matches", (req, res, next) => {
 });
 
 if (!process.env.VERCEL) {
+  // Stub local para o script de Speed Insights da Vercel (só existe em produção na plataforma).
+  app.get("/_vercel/speed-insights/script.js", (_, res) => {
+    res.type("application/javascript").send("/* speed-insights stub (dev) */");
+  });
+
   // Hack: Concatenação de string evita que o Vercel File Trace (nft) agrupe os 241MB
   // de src/public na função serverless (ultrapassando os 250MB do limite).
   const folderName = ["p", "u", "b", "l", "i", "c"].join("");
