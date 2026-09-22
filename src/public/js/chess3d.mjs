@@ -67,8 +67,23 @@ let cameraRef = null;
 let controlsRef = null;
 let rendererRef = null;
 let composerRef = null;
-/** @type {{ fireLight: THREE.PointLight | null, firePhase: number }} */
-const libraryAnim = { fireLight: null, firePhase: 0 };
+/** @type {{
+ *   fireLight: THREE.PointLight | null, firePhase: number,
+ *   bgFar: THREE.Mesh | null, bgNear: THREE.Mesh | null,
+ *   candleLights: THREE.PointLight[], chandelierPhase: number,
+ *   moonLight: THREE.PointLight | null,
+ *   dust: { points: THREE.Points, positions: Float32Array, phases: Float32Array, speeds: Float32Array } | null
+ * }} */
+const libraryAnim = {
+  fireLight: null,
+  firePhase: 0,
+  bgFar: null,
+  bgNear: null,
+  candleLights: [],
+  chandelierPhase: 0,
+  moonLight: null,
+  dust: null
+};
 let pieceNodes = [];
 let busy = false;
 let liveApi = null;
@@ -1732,6 +1747,306 @@ function createBloomComposer(renderer, scene, camera, w, h) {
   return composer;
 }
 
+// ── Utilitários de geração procedural (PRNG determinístico + texturas canvas) ────────────
+function makeSeededRandom(seed) {
+  let s = seed >>> 0;
+  return function () {
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let out = Math.imul(s ^ (s >>> 15), 1 | s);
+    out = (out + Math.imul(out ^ (out >>> 7), 61 | out)) ^ out;
+    return ((out ^ (out >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function makeCanvasTexture(draw, w, h) {
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  draw(ctx, w, h);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function makeFloorTexture() {
+  const rnd = makeSeededRandom(7);
+  return makeCanvasTexture((ctx, w, h) => {
+    ctx.fillStyle = "#241811";
+    ctx.fillRect(0, 0, w, h);
+    const rows = 8;
+    const cols = 6;
+    const ph = h / rows;
+    const pw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      const offset = (r % 2) * pw * 0.5;
+      for (let c = -1; c <= cols; c++) {
+        const shade = 26 + Math.floor(rnd() * 22);
+        ctx.fillStyle = `rgb(${shade + 46}, ${shade + 27}, ${shade + 16})`;
+        ctx.fillRect(c * pw + offset, r * ph, pw - 3, ph - 3);
+      }
+      ctx.strokeStyle = "rgba(8,5,3,0.65)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, r * ph);
+      ctx.lineTo(w, r * ph);
+      ctx.stroke();
+    }
+    for (let c = 0; c <= cols; c++) {
+      ctx.strokeStyle = "rgba(8,5,3,0.5)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(c * pw, 0);
+      ctx.lineTo(c * pw, h);
+      ctx.stroke();
+    }
+  }, 1024, 1024);
+}
+
+function makeStoneWallTexture() {
+  const rnd = makeSeededRandom(21);
+  return makeCanvasTexture((ctx, w, h) => {
+    ctx.fillStyle = "#4b463f";
+    ctx.fillRect(0, 0, w, h);
+    const rows = 10;
+    const cols = 6;
+    const ph = h / rows;
+    const pw = w / cols;
+    for (let r = 0; r < rows; r++) {
+      const offset = (r % 2) * pw * 0.5;
+      for (let c = -1; c <= cols; c++) {
+        const shade = 58 + Math.floor(rnd() * 26);
+        ctx.fillStyle = `rgb(${shade}, ${shade - 6}, ${shade - 14})`;
+        ctx.fillRect(c * pw + offset + 2, r * ph + 2, pw - 4, ph - 4);
+      }
+    }
+    ctx.strokeStyle = "rgba(20,16,12,0.55)";
+    ctx.lineWidth = 2;
+    for (let r = 0; r <= rows; r++) {
+      ctx.beginPath();
+      ctx.moveTo(0, r * ph);
+      ctx.lineTo(w, r * ph);
+      ctx.stroke();
+    }
+  }, 1024, 1024);
+}
+
+function makeRugTexture() {
+  return makeCanvasTexture((ctx, w, h) => {
+    ctx.fillStyle = "#3a1a1a";
+    ctx.fillRect(0, 0, w, h);
+    const cx = w / 2;
+    const cy = h / 2;
+    for (let r = Math.min(w, h) / 2; r > 10; r -= 26) {
+      ctx.strokeStyle = Math.round(r / 26) % 2 === 0 ? "#7a2e22" : "#c99a4a";
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, r, r * 0.74, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }, 512, 512);
+}
+
+function makeSoftGlowTexture() {
+  return makeCanvasTexture((ctx, w, h) => {
+    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    g.addColorStop(0, "rgba(255,232,190,0.9)");
+    g.addColorStop(1, "rgba(255,232,190,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  }, 64, 64);
+}
+
+// ── Poltrona de couro estilo "wingback" (procedural, sem modelo externo) ─────────────────
+function buildArmchair(seatColor) {
+  const wood = new THREE.MeshStandardMaterial({ color: 0x1a120e, roughness: 0.68, metalness: 0.08 });
+  const leather = new THREE.MeshStandardMaterial({ color: seatColor, roughness: 0.42, metalness: 0.08 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xc9a050, roughness: 0.3, metalness: 0.75 });
+
+  const chair = new THREE.Group();
+
+  for (const [lx, lz] of [[-0.5, 0.42], [0.5, 0.42], [-0.5, -0.4], [0.5, -0.4]]) {
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, 0.46, 10), wood);
+    leg.position.set(lx, 0.23, lz);
+    leg.castShadow = true;
+    chair.add(leg);
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), brass);
+    foot.position.set(lx, 0.01, lz);
+    chair.add(foot);
+  }
+
+  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.15, 0.22, 1.0), leather);
+  seat.position.set(0, 0.57, 0);
+  seat.castShadow = true;
+  seat.receiveShadow = true;
+  chair.add(seat);
+  const seatCushion = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.58, 0.14, 16), leather);
+  seatCushion.position.set(0, 0.72, 0);
+  seatCushion.castShadow = true;
+  chair.add(seatCushion);
+
+  const backCenter = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.5, 0.22), leather);
+  backCenter.position.set(0, 1.35, -0.44);
+  backCenter.rotation.x = -0.08;
+  backCenter.castShadow = true;
+  chair.add(backCenter);
+
+  for (const side of [-1, 1]) {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.15, 0.62), leather);
+    wing.position.set(side * 0.56, 1.28, -0.16);
+    wing.rotation.y = side * 0.55;
+    wing.castShadow = true;
+    chair.add(wing);
+  }
+
+  const backCap = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.22, 12, 1, false, 0, Math.PI), leather);
+  backCap.rotation.z = Math.PI / 2;
+  backCap.rotation.y = Math.PI / 2;
+  backCap.position.set(0, 2.12, -0.46);
+  chair.add(backCap);
+
+  for (const side of [-1, 1]) {
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.16, 0.82), leather);
+    arm.position.set(side * 0.62, 0.86, 0.02);
+    arm.castShadow = true;
+    chair.add(arm);
+    const armRoll = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), leather);
+    armRoll.scale.set(1, 0.9, 1);
+    armRoll.position.set(side * 0.62, 0.86, 0.44);
+    chair.add(armRoll);
+    const armPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.42, 8), wood);
+    armPost.position.set(side * 0.62, 0.6, 0.36);
+    chair.add(armPost);
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), brass);
+    stud.position.set(-0.4 + i * 0.2, 2.02, -0.34);
+    chair.add(stud);
+  }
+
+  return chair;
+}
+
+// ── Lustre de ferro com velas (8 chamas + 8 luzes suaves) ─────────────────────────────────
+function buildChandelier(parent, atY, atZ) {
+  const chandelier = new THREE.Group();
+  chandelier.position.set(0, atY, atZ);
+  parent.add(chandelier);
+
+  const chainMat = new THREE.MeshStandardMaterial({ color: 0x2a2018, roughness: 0.4, metalness: 0.6 });
+  const chain = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.9, 6), chainMat);
+  chain.position.y = 0.45;
+  chandelier.add(chain);
+
+  const ironMat = new THREE.MeshStandardMaterial({ color: 0x0e0c0a, roughness: 0.55, metalness: 0.55 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.05, 8, 24), ironMat);
+  ring.rotation.x = Math.PI / 2;
+  chandelier.add(ring);
+
+  const candleCount = 8;
+  const candleLights = [];
+  for (let i = 0; i < candleCount; i++) {
+    const a = (i / candleCount) * Math.PI * 2;
+    const cx = Math.cos(a) * 0.85;
+    const cz = Math.sin(a) * 0.85;
+
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.02, 0.4, 6), ironMat);
+    arm.position.set(cx * 0.5, -0.12, cz * 0.5);
+    arm.rotation.z = Math.atan2(cx, 0.4);
+    chandelier.add(arm);
+
+    const candle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.032, 0.22, 8),
+      new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.7 })
+    );
+    candle.position.set(cx, 0.11, cz);
+    chandelier.add(candle);
+
+    const flame = new THREE.Mesh(
+      new THREE.ConeGeometry(0.028, 0.09, 8),
+      new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9922, emissiveIntensity: 2.6, roughness: 1 })
+    );
+    flame.position.set(cx, 0.24, cz);
+    chandelier.add(flame);
+
+    const light = new THREE.PointLight(0xffcc77, 0.55, 7.5, 2.2);
+    light.position.set(cx, 0.2, cz);
+    light.castShadow = false;
+    chandelier.add(light);
+    candleLights.push(light);
+  }
+
+  return candleLights;
+}
+
+// ── Janela gótica com luar frio entrando (arco ogival procedural) ────────────────────────
+function makeGothicArchShape(width, height) {
+  const w = width / 2;
+  const shape = new THREE.Shape();
+  shape.moveTo(-w, 0);
+  shape.lineTo(-w, height * 0.58);
+  shape.quadraticCurveTo(-w, height, 0, height);
+  shape.quadraticCurveTo(w, height, w, height * 0.58);
+  shape.lineTo(w, 0);
+  shape.lineTo(-w, 0);
+  return shape;
+}
+
+function buildGothicWindow(parent, wx, wy, wz) {
+  const width = 2.2;
+  const height = 4.0;
+
+  const frame = new THREE.Mesh(
+    new THREE.ExtrudeGeometry(makeGothicArchShape(width, height), { depth: 0.5, bevelEnabled: false }),
+    new THREE.MeshStandardMaterial({ color: 0x3a332a, roughness: 0.75 })
+  );
+  frame.position.set(wx, wy, wz - 0.4);
+  frame.castShadow = true;
+  parent.add(frame);
+
+  const glass = new THREE.Mesh(
+    new THREE.ShapeGeometry(makeGothicArchShape(width * 0.76, height * 0.86)),
+    new THREE.MeshStandardMaterial({
+      color: 0x9fc2e8,
+      emissive: 0x3a5c8c,
+      emissiveIntensity: 1.5,
+      roughness: 0.15,
+      transparent: true,
+      opacity: 0.78,
+      side: THREE.DoubleSide
+    })
+  );
+  glass.position.set(wx, wy, wz - 0.15);
+  parent.add(glass);
+
+  const traceryMat = new THREE.MeshStandardMaterial({ color: 0x22190f, roughness: 0.6 });
+  for (let i = 0; i < 2; i++) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.05, height * 0.72, 0.15), traceryMat);
+    bar.position.set(wx - width * 0.19 + i * width * 0.38, wy, wz - 0.15);
+    parent.add(bar);
+  }
+  const hbar = new THREE.Mesh(new THREE.BoxGeometry(width * 0.7, 0.05, 0.15), traceryMat);
+  hbar.position.set(wx, wy, wz - 0.15);
+  parent.add(hbar);
+
+  const moonLight = new THREE.PointLight(0x4d6fb0, 3.2, 20, 2);
+  moonLight.position.set(wx, wy + 0.7, wz - 2.4);
+  moonLight.castShadow = false;
+  parent.add(moonLight);
+
+  return moonLight;
+}
+
+const ROOM_HALF_X = 9.6;
+const ROOM_Z_BACK = -13.0;
+const ROOM_Z_FRONT = 9.4;
+const ROOM_HEIGHT = 7.2;
+const FLOOR_Y = -0.55;
+
 function addProceduralLibraryRoom(parent) {
   const stone = new THREE.MeshStandardMaterial({
     color: 0x6a635c,
@@ -1743,18 +2058,93 @@ function addProceduralLibraryRoom(parent) {
     roughness: 0.72,
     metalness: 0.06
   });
-  const leather = new THREE.MeshStandardMaterial({
-    color: 0x3d2618,
-    roughness: 0.4,
-    metalness: 0.1
-  });
   const brass = new THREE.MeshStandardMaterial({
     color: 0xc9a050,
     roughness: 0.32,
     metalness: 0.72
   });
 
-  // Lareira (fundo, eixo -Z)
+  // ── Piso: parquê procedural (textura canvas) ────────────────────────────────────────────
+  const floorTex = makeFloorTexture();
+  floorTex.repeat.set(4, 5);
+  const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_HALF_X * 2, ROOM_Z_FRONT - ROOM_Z_BACK),
+    new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.6, metalness: 0.08 })
+  );
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.set(0, FLOOR_Y, (ROOM_Z_FRONT + ROOM_Z_BACK) / 2);
+  floor.receiveShadow = true;
+  parent.add(floor);
+
+  // Tapete central sob a mesa de jogo
+  const rug = new THREE.Mesh(
+    new THREE.PlaneGeometry(9, 7.4),
+    new THREE.MeshStandardMaterial({ map: makeRugTexture(), roughness: 0.95 })
+  );
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(0, FLOOR_Y + 0.01, 0);
+  rug.receiveShadow = true;
+  parent.add(rug);
+
+  // ── Paredes: lambri de madeira + estuque de pedra ───────────────────────────────────────
+  const stoneTex = makeStoneWallTexture();
+  stoneTex.repeat.set(3, 2);
+  const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.92, metalness: 0.02 });
+  const wainscotMat = new THREE.MeshStandardMaterial({ color: 0x1d140f, roughness: 0.6, metalness: 0.05 });
+  const trimMat = new THREE.MeshStandardMaterial({ color: 0x0f0a06, roughness: 0.5, metalness: 0.15 });
+  const wainscotH = 2.6;
+
+  function addWallSlab(width, height, depth, cx, cy, cz, mat) {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), mat);
+    wall.position.set(cx, cy, cz);
+    wall.receiveShadow = true;
+    parent.add(wall);
+    return wall;
+  }
+
+  // Parede de fundo (atrás da lareira) e parede frontal
+  for (const z of [ROOM_Z_BACK, ROOM_Z_FRONT]) {
+    addWallSlab(ROOM_HALF_X * 2, wainscotH, 0.3, 0, FLOOR_Y + wainscotH / 2, z, wainscotMat);
+    addWallSlab(ROOM_HALF_X * 2, ROOM_HEIGHT - wainscotH, 0.3, 0, FLOOR_Y + wainscotH + (ROOM_HEIGHT - wainscotH) / 2, z, stoneMat);
+    addWallSlab(ROOM_HALF_X * 2, 0.12, 0.34, 0, FLOOR_Y + wainscotH, z, trimMat);
+  }
+  // Paredes laterais
+  const runZ = ROOM_Z_FRONT - ROOM_Z_BACK;
+  const midZ = (ROOM_Z_FRONT + ROOM_Z_BACK) / 2;
+  for (const side of [-1, 1]) {
+    const x = side * ROOM_HALF_X;
+    addWallSlab(0.3, wainscotH, runZ, x, FLOOR_Y + wainscotH / 2, midZ, wainscotMat);
+    addWallSlab(0.3, ROOM_HEIGHT - wainscotH, runZ, x, FLOOR_Y + wainscotH + (ROOM_HEIGHT - wainscotH) / 2, midZ, stoneMat);
+    addWallSlab(0.34, 0.12, runZ, x, FLOOR_Y + wainscotH, midZ, trimMat);
+  }
+
+  // ── Teto com vigas (coffered) ───────────────────────────────────────────────────────────
+  const ceiling = new THREE.Mesh(
+    new THREE.PlaneGeometry(ROOM_HALF_X * 2, runZ),
+    new THREE.MeshStandardMaterial({ color: 0x140f0a, roughness: 0.88 })
+  );
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.set(0, FLOOR_Y + ROOM_HEIGHT, midZ);
+  parent.add(ceiling);
+
+  const beamMat = new THREE.MeshStandardMaterial({ color: 0x120b07, roughness: 0.7 });
+  const beamCountZ = 7;
+  for (let i = 0; i <= beamCountZ; i++) {
+    const z = ROOM_Z_BACK + (i / beamCountZ) * runZ;
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(ROOM_HALF_X * 2 - 0.2, 0.28, 0.34), beamMat);
+    beam.position.set(0, FLOOR_Y + ROOM_HEIGHT - 0.16, z);
+    beam.castShadow = true;
+    parent.add(beam);
+  }
+  const beamCountX = 3;
+  for (let i = 0; i <= beamCountX; i++) {
+    const x = -ROOM_HALF_X + 0.4 + (i / beamCountX) * (ROOM_HALF_X * 2 - 0.8);
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.24, runZ - 0.2), beamMat);
+    beam.position.set(x, FLOOR_Y + ROOM_HEIGHT - 0.28, midZ);
+    parent.add(beam);
+  }
+
+  // ── Lareira (fundo, eixo -Z) — soleira, brasas, quadro e velas ─────────────────────────
   const fireplace = new THREE.Group();
   fireplace.position.set(0, 0, -11.2);
   const hearth = new THREE.Mesh(new THREE.BoxGeometry(5.8, 3.4, 1.5), stone);
@@ -1782,6 +2172,20 @@ function addProceduralLibraryRoom(parent) {
   );
   fireGlow.position.set(0, 1.28, 0.72);
   fireplace.add(fireGlow);
+  const emberRnd = makeSeededRandom(55);
+  const embersMat = new THREE.MeshStandardMaterial({ color: 0xff7a1a, emissive: 0xff5500, emissiveIntensity: 3, roughness: 1 });
+  for (let i = 0; i < 6; i++) {
+    const ember = new THREE.Mesh(new THREE.SphereGeometry(0.05 + emberRnd() * 0.04, 6, 5), embersMat);
+    ember.position.set((emberRnd() - 0.5) * 1.6, 0.1 + emberRnd() * 0.15, 0.55 + emberRnd() * 0.2);
+    fireplace.add(ember);
+  }
+  const grateMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4, metalness: 0.7 });
+  for (let i = 0; i < 5; i++) {
+    const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.7, 6), grateMat);
+    bar.rotation.z = Math.PI / 2;
+    bar.position.set(-0.8 + i * 0.4, 0.04, 0.62);
+    fireplace.add(bar);
+  }
   const mantel = new THREE.Mesh(new THREE.BoxGeometry(6, 0.18, 0.65), darkWood);
   mantel.position.set(0, 3.22, 0.25);
   mantel.castShadow = true;
@@ -1792,74 +2196,99 @@ function addProceduralLibraryRoom(parent) {
   const mantleDecoR = mantleDecoL.clone();
   mantleDecoR.position.x = 1.1;
   fireplace.add(mantleDecoR);
+  const candleFlameGeo = new THREE.ConeGeometry(0.045, 0.14, 8);
+  const candleFlameMat = new THREE.MeshStandardMaterial({ color: 0xffb347, emissive: 0xff9922, emissiveIntensity: 2.4, roughness: 1 });
+  const flameL = new THREE.Mesh(candleFlameGeo, candleFlameMat);
+  flameL.position.set(-1.1, 3.68, 0.35);
+  fireplace.add(flameL);
+  const flameR = flameL.clone();
+  flameR.position.x = 1.1;
+  fireplace.add(flameR);
+  const frameArt = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.0, 0.08), darkWood);
+  frameArt.position.set(0, 4.55, 0.1);
+  fireplace.add(frameArt);
+  const canvasArt = new THREE.Mesh(
+    new THREE.PlaneGeometry(1.35, 1.75),
+    new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.85 })
+  );
+  canvasArt.position.set(0, 4.55, 0.15);
+  fireplace.add(canvasArt);
   parent.add(fireplace);
 
-  // Cadeira (lado do adversário)
-  const chair = new THREE.Group();
-  chair.position.set(0, 0, -3.95);
-  const legGeom = new THREE.CylinderGeometry(0.06, 0.05, 0.42, 8);
-  for (const [lx, lz] of [[-0.48, 0.42], [0.48, 0.42], [-0.48, -0.38], [0.48, -0.38]]) {
-    const leg = new THREE.Mesh(legGeom, darkWood);
-    leg.position.set(lx, 0.21, lz);
-    leg.castShadow = true;
-    chair.add(leg);
-  }
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.2, 1.05), leather);
-  seat.position.set(0, 0.52, 0);
-  seat.castShadow = true;
-  seat.receiveShadow = true;
-  chair.add(seat);
-  const back = new THREE.Mesh(new THREE.BoxGeometry(1.15, 1.35, 0.22), leather);
-  back.position.set(0, 1.2, -0.48);
-  back.castShadow = true;
-  chair.add(back);
-  const studRow = new THREE.Group();
-  for (let i = 0; i < 5; i++) {
-    const stud = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), brass);
-    stud.position.set(-0.42 + i * 0.21, 0.85, -0.58);
-    studRow.add(stud);
-  }
-  chair.add(studRow);
-  parent.add(chair);
+  // ── Poltronas (brancas e pretas) frente a frente sobre o tapete ────────────────────────
+  const chairBlack = buildArmchair(0x4a1520);
+  chairBlack.position.set(0, 0, -3.95);
+  parent.add(chairBlack);
 
-  // Estantes laterais simplificadas
-  function bookWall(side) {
-    const x = side * 9.2;
-    const shell = new THREE.Mesh(new THREE.BoxGeometry(2.6, 7.2, 0.5), darkWood);
-    shell.position.set(x, 3.6, -6.5);
-    shell.castShadow = true;
-    shell.receiveShadow = true;
-    parent.add(shell);
-    const shelfMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1810,
-      roughness: 0.55,
-      metalness: 0.05
-    });
-    for (let s = 0; s < 4; s++) {
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.08, 0.42), shelfMat);
-      slab.position.set(x, 1.15 + s * 1.45, -6.28);
+  const chairWhite = buildArmchair(0x5a2a18);
+  chairWhite.position.set(0, 0, 3.95);
+  chairWhite.rotation.y = Math.PI;
+  parent.add(chairWhite);
+
+  // ── Estantes do chão ao teto (livros via InstancedMesh — leve, um draw call por lado) ──
+  function buildBookshelfWall(x, faceDir) {
+    const zStart = ROOM_Z_BACK + 1.0;
+    const zEnd = ROOM_Z_FRONT - 1.0;
+    const runLength = zEnd - zStart;
+    const shelfCount = 5;
+
+    const backing = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 6.3, runLength),
+      new THREE.MeshStandardMaterial({ color: 0x160f0a, roughness: 0.75 })
+    );
+    backing.position.set(x, FLOOR_Y + 0.3 + 3.15, zStart + runLength / 2);
+    backing.receiveShadow = true;
+    parent.add(backing);
+
+    const shelfMat = new THREE.MeshStandardMaterial({ color: 0x241811, roughness: 0.55 });
+    const faceX = x - faceDir * 0.34;
+    for (let s = 0; s < shelfCount; s++) {
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.07, runLength), shelfMat);
+      slab.position.set(x - faceDir * 0.02, FLOOR_Y + 0.75 + s * 1.25, zStart + runLength / 2);
       slab.castShadow = true;
       parent.add(slab);
-      for (let b = 0; b < 7; b++) {
-        const hue = 0.08 + (b % 4) * 0.04;
-        const book = new THREE.Mesh(
-          new THREE.BoxGeometry(0.22, 0.52 + (b % 3) * 0.07, 0.32),
-          new THREE.MeshStandardMaterial({
-            color: new THREE.Color().setHSL(hue, 0.35, 0.22 + (b % 5) * 0.06),
-            roughness: 0.85
-          })
-        );
-        book.position.set(x + (b - 3) * 0.28, 1.44 + s * 1.45, -6.42);
-        book.rotation.z = (b % 3) * 0.06 - 0.06;
-        book.castShadow = true;
-        parent.add(book);
+    }
+
+    const bookGeo = new THREE.BoxGeometry(0.16, 1.0, 0.34);
+    const perShelf = Math.floor(runLength / 0.19);
+    const total = perShelf * shelfCount;
+    const bookMat = new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0.02 });
+    const books = new THREE.InstancedMesh(bookGeo, bookMat, total);
+    books.castShadow = true;
+    const rnd = makeSeededRandom(Math.round(x * 100) + 3);
+    const dummy = new THREE.Object3D();
+    const color = new THREE.Color();
+    let idx = 0;
+    for (let s = 0; s < shelfCount; s++) {
+      const shelfTopY = FLOOR_Y + 0.75 + s * 1.25 + 0.035;
+      for (let i = 0; i < perShelf; i++) {
+        const z = zStart + 0.12 + i * 0.19 + (rnd() - 0.5) * 0.02;
+        const h = 0.78 + rnd() * 0.36;
+        dummy.position.set(faceX, shelfTopY + h / 2, z);
+        dummy.rotation.set(0, (rnd() - 0.5) * 0.06, (rnd() - 0.5) * 0.05);
+        dummy.scale.set(0.9 + rnd() * 0.3, h, 0.85 + rnd() * 0.25);
+        dummy.updateMatrix();
+        books.setMatrixAt(idx, dummy.matrix);
+        const hue = 0.02 + rnd() * 0.09;
+        color.setHSL(hue, 0.4 + rnd() * 0.25, 0.16 + rnd() * 0.16);
+        books.setColorAt(idx, color);
+        idx++;
       }
     }
+    books.instanceMatrix.needsUpdate = true;
+    if (books.instanceColor) books.instanceColor.needsUpdate = true;
+    parent.add(books);
   }
-  bookWall(-1);
-  bookWall(1);
+  buildBookshelfWall(-ROOM_HALF_X + 0.35, -1);
+  buildBookshelfWall(ROOM_HALF_X - 0.35, 1);
 
-  // Mesa larga sob o tabuleiro (apenas borda visual)
+  // ── Lustre central com velas ────────────────────────────────────────────────────────────
+  const candleLights = buildChandelier(parent, FLOOR_Y + ROOM_HEIGHT - 0.9, 1.0);
+
+  // ── Janela gótica com luar (parede frontal, longe do tabuleiro) ────────────────────────
+  const moonLight = buildGothicWindow(parent, 3.0, FLOOR_Y + 2.65, ROOM_Z_FRONT);
+
+  // ── Mesa larga sob o tabuleiro (apenas borda visual) ────────────────────────────────────
   const tableTop = new THREE.Mesh(
     new THREE.BoxGeometry(12, 0.08, 10),
     new THREE.MeshStandardMaterial({
@@ -1871,6 +2300,40 @@ function addProceduralLibraryRoom(parent) {
   tableTop.position.set(0, -0.26, 0);
   tableTop.receiveShadow = true;
   parent.add(tableTop);
+
+  return { candleLights, moonLight };
+}
+
+// ── Poeira flutuante (motas de pó iluminadas — profundidade e imersão) ───────────────────
+function addDustParticles(scene) {
+  const count = 140;
+  const positions = new Float32Array(count * 3);
+  const phases = new Float32Array(count);
+  const speeds = new Float32Array(count);
+  const rnd = makeSeededRandom(99);
+  for (let i = 0; i < count; i++) {
+    positions[i * 3] = (rnd() - 0.5) * 17;
+    positions[i * 3 + 1] = 0.2 + rnd() * 6.4;
+    positions[i * 3 + 2] = ROOM_Z_BACK + 1 + rnd() * (ROOM_Z_FRONT - ROOM_Z_BACK - 2);
+    phases[i] = rnd() * Math.PI * 2;
+    speeds[i] = 0.08 + rnd() * 0.16;
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const mat = new THREE.PointsMaterial({
+    size: 0.05,
+    map: makeSoftGlowTexture(),
+    transparent: true,
+    opacity: 0.4,
+    depthWrite: false,
+    sizeAttenuation: true,
+    blending: THREE.AdditiveBlending
+  });
+  const points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  libraryAnim.dust = { points, positions, phases, speeds };
 }
 
 function installLibraryEnvironment(scene) {
@@ -1878,13 +2341,19 @@ function installLibraryEnvironment(scene) {
   root.name = "libraryFurniture";
   scene.add(root);
 
+  scene.fog = new THREE.FogExp2(0x0e0b08, 0.038);
+
   const fireLight = new THREE.PointLight(0xff6620, 9, 24, 2.2);
   fireLight.position.set(0, 1.28, -10.5);
   fireLight.castShadow = false;
   scene.add(fireLight);
   libraryAnim.fireLight = fireLight;
 
-  addProceduralLibraryRoom(root);
+  const { candleLights, moonLight } = addProceduralLibraryRoom(root);
+  libraryAnim.candleLights = candleLights;
+  libraryAnim.moonLight = moonLight;
+
+  addDustParticles(scene);
 }
 
 // ── Iniciação Three.js ───────────────────────────────────────────────────────────────────
@@ -1917,12 +2386,14 @@ function createScene() {
     const matFar = new THREE.MeshBasicMaterial({
       map: texFar,
       side: THREE.BackSide,
-      depthWrite: false
+      depthWrite: false,
+      fog: false
     });
     const meshFar = new THREE.Mesh(geoFar, matFar);
     meshFar.renderOrder = -2;
     meshFar.position.y = 5;
     scene.add(meshFar);
+    libraryAnim.bgFar = meshFar;
   });
 
   texLoader.load("/img/library-bg.webp", (texNear) => {
@@ -1933,12 +2404,14 @@ function createScene() {
       map: texNear,
       side: THREE.BackSide,
       transparent: true,
-      depthWrite: false
+      depthWrite: false,
+      fog: false
     });
     const meshNear = new THREE.Mesh(geoNear, matNear);
     meshNear.renderOrder = -1;
     meshNear.position.y = 5;
     scene.add(meshNear);
+    libraryAnim.bgNear = meshNear;
   });
 
   const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -2125,6 +2598,29 @@ function createScene() {
       libraryAnim.firePhase += dt * 10;
       const f = libraryAnim.firePhase;
       libraryAnim.fireLight.intensity = 9 + Math.sin(f) * 1.4 + Math.sin(f * 2.7) * 0.9;
+    }
+    // Paralaxe sutil: rotação muito lenta dos cilindros de fundo (sensação de profundidade)
+    if (libraryAnim.bgFar) libraryAnim.bgFar.rotation.y += dt * 0.004;
+    if (libraryAnim.bgNear) libraryAnim.bgNear.rotation.y -= dt * 0.007;
+    // Velas do lustre: tremular independente por vela
+    if (libraryAnim.candleLights && libraryAnim.candleLights.length) {
+      libraryAnim.chandelierPhase += dt * 6;
+      const cp = libraryAnim.chandelierPhase;
+      for (let i = 0; i < libraryAnim.candleLights.length; i++) {
+        libraryAnim.candleLights[i].intensity =
+          0.5 + Math.sin(cp + i * 1.3) * 0.08 + Math.sin(cp * 2.1 + i) * 0.05;
+      }
+    }
+    // Poeira flutuante: deriva lenta para cima com leve oscilação lateral
+    if (libraryAnim.dust) {
+      const { points, positions, phases, speeds } = libraryAnim.dust;
+      for (let i = 0; i < phases.length; i++) {
+        phases[i] += dt * speeds[i];
+        positions[i * 3 + 1] += dt * 0.05;
+        if (positions[i * 3 + 1] > FLOOR_Y + ROOM_HEIGHT - 0.4) positions[i * 3 + 1] = FLOOR_Y + 0.2;
+        positions[i * 3] += Math.sin(phases[i]) * dt * 0.03;
+      }
+      points.geometry.attributes.position.needsUpdate = true;
     }
     if (composerRef) composerRef.render();
     else renderer.render(scene, camera);
