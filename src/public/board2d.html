@@ -147,15 +147,21 @@
       margin-bottom: 18px;
     }
     .board-stack {
-      flex: 1 1 0;
-      min-width: 0;
-      /* Limita o board à altura útil da janela para mantê-lo quadrado */
-      max-width: min(calc(100vh - 180px), 100%);
+      flex: 0 0 auto;
+      min-width: 260px;
+      /*
+        Largura do tabuleiro = mínimo entre:
+          a) altura da janela - header/footer (mantém o board quadrado)
+          b) espaço disponível menos a sidebar mínima (280px) + gap (18px)
+        Assim em monitores grandes o board cresce mas a sidebar sempre tem espaço.
+      */
+      width: min(calc(100vh - 180px), calc(100% - 298px));
     }
     /* Coluna lateral: histórico + pensamento empilhados */
     .side-col {
-      flex: 0 0 300px;
-      width: 300px;
+      flex: 1 1 280px;   /* cresce para preencher o espaço restante */
+      min-width: 280px;
+      max-width: 560px;  /* evita sidebar excessivamente larga */
       display: flex;
       flex-direction: column;
       gap: 14px;
@@ -810,8 +816,8 @@
     }
 
     @media (max-width: 1100px) {
-      .side-col { flex: 0 0 260px; width: 260px; }
-      .board-stack { max-width: min(calc(100vh - 180px), 100%); }
+      /* em telas médias a sidebar tem um cap menor */
+      .side-col { max-width: 380px; }
     }
 
     @media (max-width: 860px) {
@@ -821,11 +827,12 @@
         align-items: stretch;
       }
       .board-stack {
-        max-width: none;
         width: 100%;
+        max-width: none;
       }
       .side-col {
         flex: 1 1 auto;
+        max-width: none;
         width: 100%;
         flex-direction: row;  /* no mobile, histórico e pensamento ficam lado a lado */
       }
@@ -886,8 +893,8 @@
 
     @media (max-width: 860px) and (orientation: landscape) {
       .top-area { flex-direction: row; align-items: stretch; }
-      .board-stack { flex: 1 1 0; max-width: calc(100vh - 120px); }
-      .side-col { flex: 0 0 240px; width: 240px; flex-direction: column; }
+      .board-stack { width: min(calc(100vh - 120px), calc(100% - 258px)); max-width: none; }
+      .side-col { flex: 1 1 220px; max-width: 380px; flex-direction: column; }
       .history-panel { max-height: none; }
       .thought-panel { max-height: none; }
     }

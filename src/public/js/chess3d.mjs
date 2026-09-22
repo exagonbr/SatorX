@@ -1850,6 +1850,29 @@ function makeRugTexture() {
   }, 512, 512);
 }
 
+function makeWoodTileTexture(base, grain, seed) {
+  const rnd = makeSeededRandom(seed);
+  return makeCanvasTexture((ctx, w, h) => {
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 46; i++) {
+      const y = rnd() * h;
+      const amp = 3 + rnd() * 9;
+      const freq = 0.015 + rnd() * 0.02;
+      ctx.strokeStyle = grain;
+      ctx.globalAlpha = 0.1 + rnd() * 0.16;
+      ctx.lineWidth = 1 + rnd() * 2;
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x <= w; x += w / 16) {
+        ctx.lineTo(x, y + Math.sin(x * freq + i) * amp);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }, 256, 256);
+}
+
 function makeSoftGlowTexture() {
   return makeCanvasTexture((ctx, w, h) => {
     const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
@@ -2215,13 +2238,16 @@ function addProceduralLibraryRoom(parent) {
   fireplace.add(canvasArt);
   parent.add(fireplace);
 
-  // ── Poltronas (brancas e pretas) frente a frente sobre o tapete ────────────────────────
+  // ── Poltronas (brancas e pretas) — encostadas na mesa, fora da área do tabuleiro ───────
+  // Mesa: z ±5 (tampo 10 de profundidade). Cadeira fica atrás da borda, com folga para os
+  // joelhos por baixo da mesa, e não deve invadir o tabuleiro (z ±4) nem a câmera do jogador.
+  const CHAIR_Z = 6.35;
   const chairBlack = buildArmchair(0x4a1520);
-  chairBlack.position.set(0, 0, -3.95);
+  chairBlack.position.set(0, 0, -CHAIR_Z);
   parent.add(chairBlack);
 
   const chairWhite = buildArmchair(0x5a2a18);
-  chairWhite.position.set(0, 0, 3.95);
+  chairWhite.position.set(0, 0, CHAIR_Z);
   chairWhite.rotation.y = Math.PI;
   parent.add(chairWhite);
 
@@ -2444,8 +2470,12 @@ function createScene() {
   scene.add(boardGroup);
   
   const boardGeo = new THREE.BoxGeometry(8, 0.1, 8);
-  const boardMatWhite = new THREE.MeshStandardMaterial({ color: 0xddddcc, roughness: 0.2 });
-  const boardMatBlack = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.2 });
+  // Madeira quente (bordo claro + nogueira escura) — bem mais clara que as peças pretas
+  // (0x24212b), garantindo contraste alto e boa leitura das peças no tabuleiro.
+  const lightWoodTex = makeWoodTileTexture("#e8c99a", "#c9a066", 301);
+  const darkWoodTex = makeWoodTileTexture("#8a5a30", "#6a3f22", 302);
+  const boardMatWhite = new THREE.MeshStandardMaterial({ map: lightWoodTex, roughness: 0.42, metalness: 0.04 });
+  const boardMatBlack = new THREE.MeshStandardMaterial({ map: darkWoodTex, roughness: 0.4, metalness: 0.04 });
   
   // Quadrados individuais (ajustado para ser suavemente elevado)
   for (let r = 0; r < 8; r++) {
