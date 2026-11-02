@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v18";
+const CACHE_VERSION = "v19";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 

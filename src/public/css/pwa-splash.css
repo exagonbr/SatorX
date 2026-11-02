@@ -8,6 +8,7 @@
   background: #000;
 }
 
+/* Páginas internas: arte portrait + barra sobreposta */
 .pwa-splash__art {
   position: relative;
   width: min(100%, calc(100vh * 576 / 1024));
@@ -20,31 +21,6 @@
   display: block;
   width: 100%;
   height: 100%;
-}
-
-/* Index: landscape full-bleed, mesmo cenário do menu */
-#pwa-splash.pwa-splash--index {
-  align-items: stretch;
-  justify-content: stretch;
-}
-
-#pwa-splash.pwa-splash--index .pwa-splash__art {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-height: none;
-  aspect-ratio: auto;
-  overflow: hidden;
-}
-
-#pwa-splash.pwa-splash--index .pwa-splash__art img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center 28%;
 }
 
 .pwa-splash__track {
@@ -63,18 +39,6 @@
   overflow: hidden;
 }
 
-#pwa-splash.pwa-splash--index .pwa-splash__track {
-  /* posição default; JS corrige via object-fit cover */
-  left: 28.5%;
-  top: 82.5%;
-  width: 43%;
-  height: 2.4%;
-  border-color: rgba(240, 184, 72, 0.98);
-  box-shadow:
-    0 0 18px rgba(240, 184, 72, 0.42),
-    inset 0 0 6px rgba(0, 0, 0, 0.9);
-}
-
 .pwa-splash__fill {
   display: block;
   height: 100%;
@@ -89,6 +53,199 @@
     #e6b348 100%
   );
   box-shadow: 0 0 16px 2px rgba(255, 204, 90, 0.85);
+}
+
+/* Index: composição responsiva sobre o mesmo fundo do menu */
+#pwa-splash.pwa-splash--index {
+  background: transparent;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vh, 40px) clamp(16px, 4vw, 40px);
+}
+
+body.pwa-booting .screen,
+body.pwa-booting .footer,
+body.pwa-booting .lang-switch {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+body.pwa-booting .bg-eyes__art img {
+  opacity: 0.55;
+}
+
+body.pwa-booting .bg-eyes__stage {
+  top: 20%;
+  width: min(130vw, 1600px);
+}
+
+.pwa-splash__stage {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(10px, 1.8vh, 18px);
+}
+
+.pwa-splash__sigil {
+  width: min(168px, 34vw, 28vh);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  position: relative;
+  filter: drop-shadow(0 0 18px rgba(201, 168, 76, 0.35));
+}
+
+.pwa-splash__sigil::before {
+  content: "";
+  position: absolute;
+  inset: -22%;
+  background: radial-gradient(circle, rgba(201, 168, 76, 0.3) 0%, rgba(201, 168, 76, 0.08) 45%, transparent 72%);
+  pointer-events: none;
+}
+
+.pwa-splash__sigil svg {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+.pwa-splash__brand {
+  margin: 0;
+  font-family: "Cinzel Decorative", "Cinzel", serif;
+  font-size: clamp(2rem, 7.2vw, 3.6rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff6c8 0%, #f0cc5a 26%, #d4b056 48%, #8d6f2a 76%, #f3d36a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(60, 44, 10, 0.55)) drop-shadow(0 0 16px rgba(201, 168, 76, 0.38));
+}
+
+.pwa-splash__marks {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 3vw, 28px);
+  width: min(280px, 70vw);
+  margin-top: 2px;
+}
+
+.pwa-splash__marks::before,
+.pwa-splash__marks::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(240, 204, 90, 0.85), transparent);
+  box-shadow: 0 0 8px rgba(201, 168, 76, 0.55);
+}
+
+.pwa-splash__mark {
+  width: clamp(22px, 4.5vw, 30px);
+  height: clamp(22px, 4.5vw, 30px);
+  color: #f0cc5a;
+  filter: drop-shadow(0 0 8px rgba(240, 204, 90, 0.55));
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+}
+
+.pwa-splash__mark--king {
+  font-size: clamp(1.35rem, 3.8vw, 1.7rem);
+  line-height: 1;
+}
+
+.pwa-splash__mark svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.pwa-splash__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff6c8, #f0cc5a 45%, #8d6f2a);
+  box-shadow: 0 0 12px rgba(240, 204, 90, 0.9);
+  flex: 0 0 auto;
+}
+
+.pwa-splash__blurb {
+  margin: clamp(4px, 1vh, 10px) 0 0;
+  max-width: 34em;
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-size: clamp(0.72rem, 1.7vw, 0.95rem);
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  color: rgba(232, 224, 208, 0.88);
+  text-wrap: balance;
+}
+
+.pwa-splash__status {
+  margin: 0;
+  font-family: "Cinzel", "Times New Roman", serif;
+  font-style: italic;
+  font-size: clamp(0.78rem, 1.8vw, 1rem);
+  letter-spacing: 0.04em;
+  color: #e2b04e;
+  text-shadow: 0 0 14px rgba(226, 176, 78, 0.45);
+}
+
+#pwa-splash.pwa-splash--index .pwa-splash__track {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: min(420px, 72vw);
+  height: clamp(10px, 1.5vh, 14px);
+  margin-top: clamp(6px, 1.4vh, 14px);
+  border-color: rgba(240, 184, 72, 0.98);
+  box-shadow:
+    0 0 18px rgba(240, 184, 72, 0.42),
+    inset 0 0 6px rgba(0, 0, 0, 0.9);
+}
+
+.pwa-splash__ornament {
+  width: min(120px, 28vw);
+  height: 42px;
+  margin-top: 2px;
+  opacity: 0.85;
+  color: #d4af37;
+}
+
+.pwa-splash__ornament svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+@media (max-width: 640px), (max-height: 700px) {
+  .pwa-splash__sigil {
+    width: min(132px, 38vw, 24vh);
+  }
+  .pwa-splash__blurb {
+    max-width: 28em;
+    font-size: clamp(0.68rem, 3.2vw, 0.84rem);
+  }
+}
+
+@media (max-height: 560px) {
+  .pwa-splash__stage {
+    gap: 6px;
+  }
+  .pwa-splash__blurb {
+    display: none;
+  }
+  .pwa-splash__ornament {
+    display: none;
+  }
 }
 
 #pwa-splash.pwa-splash--out {
