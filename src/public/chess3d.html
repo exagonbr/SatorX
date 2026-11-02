@@ -20,7 +20,7 @@
     }
   })();
   </script>
-<script src="/js/i18n.js?v=8"></script>
+<script src="/js/i18n.js?v=9"></script>
   <meta name="description" data-i18n-content="meta.3d.desc" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -900,9 +900,7 @@
             <label><span data-i18n="chess3d.ms">ms</span> <input id="timeMs" type="number" value="2500" min="200" max="20000"/></label>
           </div>
         </details>
-        <div class="row">
-          <label class="toggle"><input type="checkbox" id="trainOnline" checked/> <span data-i18n="chess3d.trainTd">Treino TD online</span></label>
-        </div>
+        <p class="metrics-hint" style="margin:8px 0 0;font-size:0.78rem;opacity:0.72;line-height:1.35;" data-i18n="chess3d.trainTd">A rede TD atualiza sozinha a cada lance.</p>
         <div class="metrics" id="metrics" data-i18n="chess3d.net">Rede: —</div>
         <p class="metrics-hint" style="margin:6px 0 0;font-size:0.78rem;opacity:0.72;line-height:1.35;" data-i18n="chess3d.metricsHint">
           O rating preditivo é uma estimativa a partir da rede de valor (não é Elo oficial).
@@ -951,7 +949,7 @@
     </div>
   </div>
 
-  <script type="module" src="js/chess3d.mjs?v=4"></script>
+  <script type="module" src="js/chess3d.mjs?v=5"></script>
 
   <!-- Ambiente sonoro leve: ar da sala + fogo muito suave (Web Audio API) -->
   <script>

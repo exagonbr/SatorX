@@ -255,35 +255,48 @@ function normFenCore(fen) {
   return parts.slice(0, 4).join(" ");
 }
 
-/** TD(0) online após lance válido; invalida TT do motor. */
-app.post("/api/move-learn", (req, res) => {
-  const { fenBefore, fenAfter, san, enabled = true } = req.body || {};
-  if (enabled === false) {
-    return res.json({ ok: true, skipped: true });
-  }
-  if (!fenBefore || !fenAfter || !san) {
-    return res.status(400).json({ error: "Envie fenBefore, fenAfter e san" });
-  }
-
+/**
+ * TD(0) de um lance legal. Sempre aplicado: o cliente não pode desligar o passo.
+ * @returns {{ ok: true, terminal: boolean, outcomeForMover: number } & object}
+ */
+function applyAutomaticTdStep(fenBefore, fenAfter, san) {
   const before = new Chess();
-  if (!safeLoad(before, fenBefore)) return res.status(400).json({ error: "fenBefore inválido" });
+  if (!safeLoad(before, fenBefore)) {
+    const err = new Error("fenBefore inválido");
+    err.status = 400;
+    throw err;
+  }
 
   const trial = new Chess();
-  if (!safeLoad(trial, fenBefore)) return res.status(400).json({ error: "fenBefore inválido" });
+  if (!safeLoad(trial, fenBefore)) {
+    const err = new Error("fenBefore inválido");
+    err.status = 400;
+    throw err;
+  }
   let mv;
   try {
     mv = trial.move(san, { sloppy: true });
   } catch {
     mv = null;
   }
-  if (!mv) return res.status(400).json({ error: "Lance ilegal para fenBefore" });
+  if (!mv) {
+    const err = new Error("Lance ilegal para fenBefore");
+    err.status = 400;
+    throw err;
+  }
 
   if (normFenCore(trial.fen()) !== normFenCore(fenAfter)) {
-    return res.status(400).json({ error: "fenAfter não corresponde ao lance" });
+    const err = new Error("fenAfter não corresponde ao lance");
+    err.status = 400;
+    throw err;
   }
 
   const after = new Chess();
-  if (!safeLoad(after, fenAfter)) return res.status(400).json({ error: "fenAfter inválido" });
+  if (!safeLoad(after, fenAfter)) {
+    const err = new Error("fenAfter inválido");
+    err.status = 400;
+    throw err;
+  }
 
   const x0 = toFeatureVector(before);
   const x1 = toFeatureVector(after);
@@ -302,13 +315,22 @@ app.post("/api/move-learn", (req, res) => {
     heuristicBefore
   });
   clearTranspositionTable();
+  return { ok: true, terminal, outcomeForMover, ...out };
+}
 
-  return res.json({
-    ok: true,
-    terminal,
-    outcomeForMover,
-    ...out
-  });
+/** TD(0) online após cada lance válido; invalida TT do motor. */
+app.post("/api/move-learn", (req, res) => {
+  const { fenBefore, fenAfter, san } = req.body || {};
+  if (!fenBefore || !fenAfter || !san) {
+    return res.status(400).json({ error: "Envie fenBefore, fenAfter e san" });
+  }
+
+  try {
+    return res.json(applyAutomaticTdStep(fenBefore, fenAfter, san));
+  } catch (e) {
+    const status = e.status || 500;
+    return res.status(status).json({ error: e.message || "Falha no passo TD" });
+  }
 });
 
 app.get("/api/nn/status", async (req, res) => {

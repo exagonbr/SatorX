@@ -405,8 +405,6 @@ let chessClockRootRef = null;
 function getMode() { return document.getElementById("mode").value; }
 function getPlayerColor() { return document.getElementById("playerColor").value; }
 function getCameraView() { const el = document.getElementById("cameraView"); return el ? el.value : "player"; }
-function trainEnabled() { return document.getElementById("trainOnline").checked; }
-
 function fmtClock(secs) {
   const s = Math.max(0, Math.floor(secs));
   const m = Math.floor(s / 60);
@@ -759,6 +757,7 @@ function refreshBookLine3d() {
 }
 
 async function sendMoveLearn(fenBefore, fenAfter, san) {
+  if (!fenBefore || !fenAfter || !san) return;
   try {
     await fetch("/api/move-learn", {
       method: "POST",
