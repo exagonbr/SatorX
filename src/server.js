@@ -114,8 +114,8 @@ if (!process.env.VERCEL) {
   );
 
   app.get("/favicon.ico", (req, res) => {
-    res.type("image/svg+xml");
-    res.sendFile(path.join(__dirname, folderName, "favicon.svg"));
+    res.type("image/x-icon");
+    res.sendFile(path.join(__dirname, folderName, "favicon.ico"));
   });
 }
 

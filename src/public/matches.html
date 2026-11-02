@@ -3,7 +3,11 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="theme-color" content="#04060a"/>
+  <meta name="theme-color" content="#000000"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Sator"/>
     <script>
   (function () {
     var lang = "";
@@ -20,7 +24,13 @@
   </script>
 <script src="/js/i18n.js?v=8"></script>
   <title data-i18n="meta.matches.title">Ranking | SatorX</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
+  <link rel="manifest" href="/manifest.webmanifest" crossorigin="use-credentials"/>
+  <link rel="icon" href="/favicon.ico" sizes="48x48"/>
+  <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192"/>
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
+  <link rel="apple-touch-startup-image" href="/img/pwa-splash.jpg" media="(orientation: portrait)"/>
+  <link rel="preload" href="/img/pwa-splash.jpg" as="image" fetchpriority="high"/>
+  <link rel="stylesheet" href="/css/pwa-splash.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
@@ -141,6 +151,10 @@
   </style>
 </head>
 <body>
+  <div id="pwa-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine">
+    <img src="/img/pwa-splash.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
+  </div>
+  <script src="/js/pwa-splash.js"></script>
   <header>
     <h1 data-i18n="matches.title">Ranking</h1>
     <p class="sub" data-i18n="matches.sub">
@@ -317,5 +331,6 @@
     window.addEventListener("sator:langchange", loadMatches);
     loadMatches();
   </script>
+  <script src="/js/pwa-register.js" defer></script>
 </body>
 </html>
