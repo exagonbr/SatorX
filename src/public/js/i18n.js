@@ -1,11 +1,53 @@
 /**
  * SatorX i18n — Português (Brasil) e English.
- * Persistência: localStorage["satorx_lang"]
+ * Arranque: pt-BR. A escolha fica em localStorage, sessionStorage e cookie "satorx_lang".
  */
 (function (global) {
   var LS_KEY = "satorx_lang";
   var DEFAULT_LANG = "pt-BR";
   var SUPPORTED = { "pt-BR": true, en: true };
+
+  function normalizeLang(v) {
+    if (!v) return "";
+    v = String(v).trim();
+    if (/^pt([-_]br)?$/i.test(v)) return "pt-BR";
+    if (/^en(-[a-z]+)?$/i.test(v)) return "en";
+    return "";
+  }
+
+  function readCookieLang() {
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)satorx_lang=([^;]*)/);
+      return m ? decodeURIComponent(m[1]) : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function persistLang(lang) {
+    global.__SATOR_LANG = lang;
+    try { localStorage.setItem(LS_KEY, lang); } catch (_) {}
+    try { sessionStorage.setItem(LS_KEY, lang); } catch (_) {}
+    try {
+      var secure = location.protocol === "https:" ? "; Secure" : "";
+      document.cookie = LS_KEY + "=" + encodeURIComponent(lang) +
+        "; Path=/; Max-Age=31536000; SameSite=Lax" + secure;
+    } catch (_) {}
+  }
+
+  function readStored() {
+    var boot = normalizeLang(global.__SATOR_LANG);
+    if (boot) return boot;
+    var sources = [];
+    try { sources.push(localStorage.getItem(LS_KEY)); } catch (_) {}
+    sources.push(readCookieLang());
+    try { sources.push(sessionStorage.getItem(LS_KEY)); } catch (_) {}
+    for (var i = 0; i < sources.length; i++) {
+      var n = normalizeLang(sources[i]);
+      if (n) return n;
+    }
+    return DEFAULT_LANG;
+  }
 
   var FLAG_EN =
     '<svg viewBox="0 0 28 20" aria-hidden="true"><rect width="28" height="20" fill="#bf0a30"/>' +
@@ -1341,15 +1383,8 @@
     "Vitória das pretas — oponente ausente (tempo real) por 2+ minutos.": "reason.disconnect_timeout.b"
   };
 
-  function readStored() {
-    try {
-      var v = localStorage.getItem(LS_KEY);
-      if (v && SUPPORTED[v]) return v;
-    } catch (_) {}
-    return DEFAULT_LANG;
-  }
-
   var current = readStored();
+  persistLang(current);
 
   function htmlLang() {
     return current === "en" ? "en" : "pt-BR";
@@ -1522,17 +1557,13 @@
   }
 
   function setLang(lang) {
-    if (!SUPPORTED[lang] || lang === current) {
-      if (SUPPORTED[lang]) {
-        current = lang;
-        try { localStorage.setItem(LS_KEY, lang); } catch (_) {}
-      }
-      apply();
-      return;
-    }
+    lang = normalizeLang(lang);
+    if (!lang) return;
+    var changed = lang !== current;
     current = lang;
-    try { localStorage.setItem(LS_KEY, lang); } catch (_) {}
+    persistLang(lang);
     apply();
+    if (!changed) return;
     try {
       global.dispatchEvent(new CustomEvent("sator:langchange", { detail: { lang: current } }));
     } catch (_) {}
@@ -1556,6 +1587,10 @@
   } else {
     boot();
   }
+  global.addEventListener("pageshow", function () {
+    current = readStored();
+    if (document.body) boot();
+  });
 
   global.SatorI18n = {
     t: t,
