@@ -47,7 +47,7 @@ const { toFeatureVector } = require("./eval/featureVector");
 const { tdStep, getStatus, forward } = require("./eval/valueNet");
 const { classicalRatingPredictive, DEFAULT_REFERENCE_ELO } = require("./utils/nnRatingPredict");
 const { evaluateHeuristicOnly } = require("./eval/weights");
-const { runMasterSeedBurst } = require("./lib/masterStyleSeed");
+const { scheduleMasterContinuousSeed, getMasterSeedStatus } = require("./db/masterSeedScheduler");
 const masterThoughtStore = require("./db/masterThoughtStore");
 const replayStore = require("./db/replayStore");
 const { schedulePostGameTrain } = require("./db/postGameTrainScheduler");
@@ -56,7 +56,11 @@ const { estimateKUpdates } = require("./db/aiLearningStore");
 const liveSessionStore = require("./db/liveSessionStore");
 const gameLogStore = require("./db/gameLogStore");
 const openingStats = require("./lib/openingStats");
-const { scheduleContinuousLearn } = require("./lib/continuousLearn");
+const {
+  scheduleContinuousLearn,
+  startContinuousLearnBackground,
+  getContinuousLearnStatus
+} = require("./lib/continuousLearn");
 
 const app = express();
 app.use(cors());
@@ -427,9 +431,21 @@ app.get("/api/search/games", async (req, res) => {
 app.get("/api/learn/status", async (req, res) => {
   try {
     const logs = await gameLogStore.recentMoveLogs(8);
-    return res.json({ ok: true, nn: getStatus(), recentMoves: logs.length });
+    return res.json({
+      ok: true,
+      nn: getStatus(),
+      recentMoves: logs.length,
+      masterSeed: getMasterSeedStatus(),
+      continuousLearn: getContinuousLearnStatus()
+    });
   } catch (e) {
-    return res.json({ ok: true, nn: getStatus(), recentMoves: 0 });
+    return res.json({
+      ok: true,
+      nn: getStatus(),
+      recentMoves: 0,
+      masterSeed: getMasterSeedStatus(),
+      continuousLearn: getContinuousLearnStatus()
+    });
   }
 });
 
@@ -1314,26 +1330,10 @@ const HTTPS_ENABLED =
 const SSL_KEY_PATH = process.env.SSL_KEY_PATH || path.join(CERT_DIR, "selfsigned.key");
 const SSL_CERT_PATH = process.env.SSL_CERT_PATH || path.join(CERT_DIR, "selfsigned.crt");
 
-/** Aprendizado contínuo na subida: replays sintéticos (Kasparov, Carlsen, Polgár, Belenkaya) + TD(0) na value net. */
-function scheduleMasterContinuousSeed() {
-  if (process.env.SATOR_DISABLE_MASTER_SEED === "1") return;
-  const gamesPerMaster = parseInt(process.env.SATOR_MASTER_SEED_GAMES || "1", 10);
-  const maxPlies = parseInt(process.env.SATOR_MASTER_SEED_PLIES || "48", 10);
-  if (gamesPerMaster <= 0) return;
-  setImmediate(() => {
-    try {
-      const r = runMasterSeedBurst({
-        gamesPerMaster,
-        maxPlies,
-        saveReplays: true,
-        feedNN: true
-      });
-      console.log("[Sator] Aprendizado contínuo (mestres):", JSON.stringify(r));
-    } catch (e) {
-      console.error("[Sator] Seed de mestres falhou:", e.message);
-    }
-    scheduleContinuousLearn("boot");
-  });
+/** Seeds dos mestres e livro do motor, em processo/ciclo de fundo, enquanto o servidor escuta. */
+function startBackgroundLearning() {
+  scheduleMasterContinuousSeed();
+  startContinuousLearnBackground();
 }
 
 function listenHttp() {
@@ -1349,7 +1349,7 @@ function listenHttp() {
     setInterval(() => {
       void tickLobbyDisconnectAwards();
     }, 10000);
-    scheduleMasterContinuousSeed();
+    startBackgroundLearning();
   });
 }
 
@@ -1380,7 +1380,7 @@ function listenHttps() {
     setInterval(() => {
       void tickLobbyDisconnectAwards();
     }, 10000);
-    scheduleMasterContinuousSeed();
+    startBackgroundLearning();
   });
 }
 
