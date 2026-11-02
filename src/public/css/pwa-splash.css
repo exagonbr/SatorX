@@ -8,11 +8,50 @@
   background: #000;
 }
 
-#pwa-splash img {
+.pwa-splash__art {
+  position: relative;
+  width: min(100%, calc(100vh * 576 / 1024));
+  width: min(100%, calc(100dvh * 576 / 1024));
+  aspect-ratio: 576 / 1024;
+  max-height: 100%;
+}
+
+.pwa-splash__art img {
+  display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
+}
+
+.pwa-splash__track {
+  position: absolute;
+  left: 22.22%;
+  top: 78.55%;
+  width: 55.38%;
+  height: 1.85%;
+  box-sizing: border-box;
+  border-radius: 999px;
+  border: 1px solid rgba(226, 176, 78, 0.95);
+  background: rgba(8, 6, 4, 0.72);
+  box-shadow:
+    0 0 12px rgba(226, 176, 78, 0.32),
+    inset 0 0 5px rgba(0, 0, 0, 0.85);
+  overflow: hidden;
+}
+
+.pwa-splash__fill {
+  display: block;
+  height: 100%;
+  width: calc(100% * var(--p, 0));
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    #6e420c 0%,
+    #c88828 24%,
+    #f0c45a 70%,
+    #fff6d0 90%,
+    #e6b348 100%
+  );
+  box-shadow: 0 0 16px 2px rgba(255, 204, 90, 0.85);
 }
 
 #pwa-splash.pwa-splash--out {

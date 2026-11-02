@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v15";
+const CACHE_VERSION = "v16";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 
@@ -15,6 +15,7 @@ const PRECACHE_URLS = [
   "/js/pwa-splash.js",
   "/css/pwa-splash.css",
   "/img/pwa-splash.jpg",
+  "/img/pwa-splash-live.jpg",
   "/js/chess3d.mjs",
   "/icons/icon-192.png",
   "/icons/icon-512.png",

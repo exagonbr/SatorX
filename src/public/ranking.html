@@ -29,7 +29,7 @@
   <link rel="icon" href="/icons/icon-192.png" type="image/png" sizes="192x192"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png"/>
   <link rel="apple-touch-startup-image" href="/img/pwa-splash.jpg" media="(orientation: portrait)"/>
-  <link rel="preload" href="/img/pwa-splash.jpg" as="image" fetchpriority="high"/>
+  <link rel="preload" href="/img/pwa-splash-live.jpg" as="image" fetchpriority="high"/>
   <link rel="stylesheet" href="/css/pwa-splash.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -148,7 +148,10 @@
 </head>
 <body>
   <div id="pwa-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine">
-    <img src="/img/pwa-splash.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
+    <div class="pwa-splash__art">
+      <img src="/img/pwa-splash-live.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
+      <div class="pwa-splash__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Initializing engine"><span class="pwa-splash__fill"></span></div>
+    </div>
   </div>
   <script src="/js/pwa-splash.js"></script>
   <header>
