@@ -5,7 +5,7 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
-  <script src="/js/i18n.js?v=2"></script>
+  <script src="/js/i18n.js?v=4"></script>
   <meta name="description" data-i18n-content="meta.2d.desc" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -2170,7 +2170,10 @@
               entry.lastOpponentMove = { san: prev.san, from: prev.from, to: prev.to };
             }
             if (!entry.pieceName && entry.piece) {
-              const names = { p: "Peão", n: "Cavalo", b: "Bispo", r: "Torre", q: "Dama", k: "Rei" };
+              const names = {
+                p: t("rules.pawn"), n: t("rules.knight"), b: t("rules.bishop"),
+                r: t("rules.rook"), q: t("rules.queen"), k: t("rules.king")
+              };
               entry.pieceName = names[entry.piece] || entry.piece;
             }
             matched.push(entry);
@@ -3054,17 +3057,17 @@
   <div class="mode-overlay" id="modeOverlay" hidden>
     <div class="mode-dialog">
       <h2 class="mode-dialog__title">Sator <span>Engine</span></h2>
-      <p class="mode-dialog__sub">Escolha o modo antes de começar a partida</p>
+      <p class="mode-dialog__sub" data-i18n="mode.sub">Escolha o modo antes de começar a partida</p>
       <div class="mode-cards">
         <button type="button" class="mode-card" data-mode="training">
           <span class="mode-card__icon">🎓</span>
-          <strong class="mode-card__name">Modo Treino</strong>
-          <span class="mode-card__desc">Contornos animados mostram as casas legais ao tocar numa peça. Ideal para aprender aberturas, táticas e regras.</span>
+          <strong class="mode-card__name" data-i18n="mode.train">Modo treino</strong>
+          <span class="mode-card__desc" data-i18n="mode.trainDesc">Contornos animados mostram as casas legais ao tocar numa peça. Ideal para aprender aberturas, táticas e regras.</span>
         </button>
         <button type="button" class="mode-card" data-mode="realistic">
           <span class="mode-card__icon">♟</span>
-          <strong class="mode-card__name">Modo Realístico</strong>
-          <span class="mode-card__desc">Sem marcações ao tocar nas peças — apenas o último lance é destacado. Experiência de torneio real.</span>
+          <strong class="mode-card__name" data-i18n="mode.real">Modo realístico</strong>
+          <span class="mode-card__desc" data-i18n="mode.realDesc">Sem marcações ao tocar nas peças — apenas o último lance é destacado. Experiência de torneio real.</span>
         </button>
       </div>
     </div>

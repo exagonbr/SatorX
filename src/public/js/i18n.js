@@ -49,13 +49,13 @@
       "meta.offline.title": "Offline — Sator Engine",
 
       "menu.aria": "Menu principal",
-      "menu.start": "▶  Iniciar Partida",
-      "menu.online": "Jogar Online (Lobby)",
+      "menu.start": "▶  Iniciar partida",
+      "menu.online": "Jogar online",
       "menu.ranking": "Ranking — salas online",
       "menu.matches": "Ranking",
-      "menu.rules": "Regras do Xadrez",
-      "menu.options": "Configurações",
-      "menu.ia": "IA & Rede Neural",
+      "menu.rules": "Regras",
+      "menu.options": "Ajustes",
+      "menu.ia": "Rede neural",
       "menu.footer": "Sator Ngx v5  ·  Motor híbrido",
       "alt.piece": "Quadrado Sator",
       "alt.logo": "Sator Ngx v5",
@@ -325,6 +325,11 @@
       "board2d.analyze": "Analisar",
       "board2d.list": "Listar replays",
       "board2d.mode": "Modo",
+      "mode.sub": "Escolha o modo antes de começar a partida",
+      "mode.train": "Modo treino",
+      "mode.trainDesc": "Contornos animados mostram as casas legais ao tocar numa peça. Ideal para aprender aberturas, táticas e regras.",
+      "mode.real": "Modo realístico",
+      "mode.realDesc": "Sem marcações ao tocar nas peças — apenas o último lance é destacado. Experiência de torneio real.",
       "board2d.modeEngine": "Contra o motor (minimax)",
       "board2d.modeHuman": "Humano vs humano",
       "board2d.modeMp": "Multiplayer Online",
@@ -670,13 +675,13 @@
       "meta.offline.title": "Offline — Sator Engine",
 
       "menu.aria": "Main menu",
-      "menu.start": "▶  Start Game",
-      "menu.online": "Play Online (Lobby)",
+      "menu.start": "▶  Start game",
+      "menu.online": "Play online",
       "menu.ranking": "Ranking — online rooms",
       "menu.matches": "Ranking",
-      "menu.rules": "Chess Rules",
+      "menu.rules": "Rules",
       "menu.options": "Settings",
-      "menu.ia": "AI & Neural Network",
+      "menu.ia": "Neural net",
       "menu.footer": "Sator Ngx v5  ·  Hybrid engine",
       "alt.piece": "Sator square",
       "alt.logo": "Sator Ngx v5",
@@ -946,6 +951,11 @@
       "board2d.analyze": "Analyze",
       "board2d.list": "List replays",
       "board2d.mode": "Mode",
+      "mode.sub": "Choose a mode before the game starts",
+      "mode.train": "Training mode",
+      "mode.trainDesc": "Animated outlines show the legal squares when you tap a piece. Useful for learning openings, tactics, and rules.",
+      "mode.real": "Realistic mode",
+      "mode.realDesc": "No marks when you tap a piece — only the last move is highlighted. A real tournament feel.",
       "board2d.modeEngine": "Vs engine (minimax)",
       "board2d.modeHuman": "Human vs human",
       "board2d.modeMp": "Online multiplayer",
@@ -1356,10 +1366,22 @@
     });
   }
 
-  function t(key, vars) {
+  function lookup(key) {
+    if (key == null) return null;
+    var k = String(key).trim();
+    var lower = k.toLowerCase();
     var table = D[current] || D[DEFAULT_LANG];
-    var str = (table && table[key]) || (D[DEFAULT_LANG] && D[DEFAULT_LANG][key]) || key;
-    return interpolate(str, vars);
+    var fb = D[DEFAULT_LANG];
+    if (table && table[k] != null) return table[k];
+    if (table && table[lower] != null) return table[lower];
+    if (fb && fb[k] != null) return fb[k];
+    if (fb && fb[lower] != null) return fb[lower];
+    return null;
+  }
+
+  function t(key, vars) {
+    var str = lookup(key);
+    return interpolate(str == null ? key : str, vars);
   }
 
   function apiError(msg, fallbackKey) {
@@ -1419,29 +1441,38 @@
 
   function apply(root) {
     var scope = root || document;
+    function paint(el, attr, write) {
+      var key = el.getAttribute(attr);
+      var str = lookup(key);
+      if (str == null) return;
+      write(interpolate(str));
+    }
     scope.querySelectorAll("[data-i18n]").forEach(function (el) {
-      el.textContent = t(el.getAttribute("data-i18n"));
+      paint(el, "data-i18n", function (value) { el.textContent = value; });
     });
     scope.querySelectorAll("[data-i18n-html]").forEach(function (el) {
-      el.innerHTML = t(el.getAttribute("data-i18n-html"));
+      paint(el, "data-i18n-html", function (value) { el.innerHTML = value; });
     });
     scope.querySelectorAll("[data-i18n-placeholder]").forEach(function (el) {
-      el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+      paint(el, "data-i18n-placeholder", function (value) { el.setAttribute("placeholder", value); });
     });
     scope.querySelectorAll("[data-i18n-title]").forEach(function (el) {
-      el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
+      paint(el, "data-i18n-title", function (value) { el.setAttribute("title", value); });
     });
     scope.querySelectorAll("[data-i18n-aria]").forEach(function (el) {
-      el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria")));
+      paint(el, "data-i18n-aria", function (value) { el.setAttribute("aria-label", value); });
     });
     scope.querySelectorAll("[data-i18n-alt]").forEach(function (el) {
-      el.setAttribute("alt", t(el.getAttribute("data-i18n-alt")));
+      paint(el, "data-i18n-alt", function (value) { el.setAttribute("alt", value); });
     });
     scope.querySelectorAll("[data-i18n-content]").forEach(function (el) {
-      applyAttr(el, "content", t(el.getAttribute("data-i18n-content")));
+      paint(el, "data-i18n-content", function (value) { applyAttr(el, "content", value); });
     });
     var titleEl = document.querySelector("title[data-i18n]");
-    if (titleEl) document.title = t(titleEl.getAttribute("data-i18n"));
+    if (titleEl) {
+      var titleStr = lookup(titleEl.getAttribute("data-i18n"));
+      if (titleStr != null) document.title = titleStr;
+    }
     document.documentElement.lang = htmlLang();
     syncSwitcher();
   }
