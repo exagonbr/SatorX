@@ -1467,10 +1467,12 @@
       var str = lookup(key);
       if (str == null) return;
       var value = interpolate(str);
-      if (!force && attr === "data-i18n") {
+      var rawKey = String(el.textContent || "").replace(/\s+/g, "").toLowerCase() === String(key || "").replace(/\s+/g, "").toLowerCase();
+      if (!force && !rawKey && attr === "data-i18n") {
         var stamped = el.getAttribute("data-i18n-stamp");
         if (stamped != null && el.textContent !== stamped) return;
       }
+      if (rawKey && (value == null || String(value).replace(/\s+/g, "").toLowerCase() === String(key || "").replace(/\s+/g, "").toLowerCase())) return;
       write(value);
       if (attr === "data-i18n") el.setAttribute("data-i18n-stamp", el.textContent);
     }
@@ -1569,7 +1571,7 @@
     injectCss();
     if (document.body) {
       injectSwitcher();
-      apply();
+      apply(document, true);
     }
   }
 

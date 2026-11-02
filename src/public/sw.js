@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v11";
+const CACHE_VERSION = "v12";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 
@@ -49,6 +49,12 @@ self.addEventListener("activate", function (event) {
       );
     }).then(function () {
       return self.clients.claim();
+    }).then(function () {
+      return self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    }).then(function (clients) {
+      return Promise.all(clients.map(function (client) {
+        if (typeof client.navigate === "function") return client.navigate(client.url);
+      }));
     })
   );
 });
@@ -106,28 +112,13 @@ self.addEventListener("fetch", function (event) {
     return;
   }
 
-  if (url.origin === self.location.origin && /\/js\/i18n\.js$/i.test(url.pathname)) {
-    event.respondWith(
-      caches.open(RUNTIME).then(function (cache) {
-        return cache.match(request).then(function (cached) {
-          if (cached) return cached;
-          return fetch(request).then(function (response) {
-            if (response && response.ok) cache.put(request, response.clone());
-            return response;
-          });
-        });
-      })
-    );
-    return;
-  }
-
-  /* JS/CSS: preferir rede para não servir i18n/scripts desatualizados. */
+  /* JS/CSS: rede primeiro, para o idioma não ficar preso numa cópia antiga. */
   if (
     url.origin === self.location.origin &&
     (url.pathname.startsWith("/js/") || url.pathname.endsWith(".css"))
   ) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: "no-cache" })
         .then(function (response) {
           if (response && response.ok) {
             var copy = response.clone();
