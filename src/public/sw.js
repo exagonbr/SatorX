@@ -1,5 +1,5 @@
 /* Sator Engine — Service Worker (cache de app shell + runtime) */
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const PRECACHE = "sator-precache-" + CACHE_VERSION;
 const RUNTIME = "sator-runtime-" + CACHE_VERSION;
 
@@ -37,21 +37,28 @@ self.addEventListener("install", function (event) {
   self.skipWaiting();
 });
 
+self.addEventListener("message", function (event) {
+  if (event.data && event.data.type === "sator-skip-wait") self.skipWaiting();
+});
+
 self.addEventListener("activate", function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(
         keys
-          .filter(function (k) {
-            return k.startsWith("sator-") && k !== PRECACHE && k !== RUNTIME;
-          })
-          .map(function (k) {
-            return caches.delete(k);
-          })
+          .filter(function (k) { return k.startsWith("sator-"); })
+          .map(function (k) { return caches.delete(k); })
       );
+    }).then(function () {
+      return self.clients.claim();
+    }).then(function () {
+      return self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    }).then(function (clients) {
+      return Promise.all(clients.map(function (client) {
+        if (typeof client.navigate === "function") return client.navigate(client.url);
+      }));
     })
   );
-  self.clients.claim();
 });
 
 function staleWhileRevalidate(request, cacheName) {

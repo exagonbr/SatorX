@@ -4,6 +4,20 @@
   "installCommand": "pnpm install --frozen-lockfile --prod",
   "buildCommand": "pnpm run build",
   "outputDirectory": "src/public",
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/js/i18n.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
+    },
+    {
+      "source": "/",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api" }
   ],
