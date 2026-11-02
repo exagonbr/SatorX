@@ -35,7 +35,6 @@
   <link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180"/>
   <link rel="apple-touch-startup-image" href="/img/pwa-splash.jpg" media="(orientation: portrait)"/>
-  <link rel="preload" href="/img/pwa-splash-live.jpg" as="image" fetchpriority="high"/>
   <link rel="stylesheet" href="/css/pwa-splash.css"/>
   <link rel="preload" href="/img/library-panorama.webp" as="image" type="image/webp"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
@@ -50,9 +49,9 @@
       --border-hover: rgba(212, 175, 55, 0.5);
       --text: #ede9e0;
       --muted: #7a8090;
-      --gold: #d4af37;
-      --gold-bright: #f0cc5a;
-      --gold-dim: rgba(212, 175, 55, 0.12);
+      --gold: #e2b04e;
+      --gold-bright: #f0c45a;
+      --gold-dim: rgba(226, 176, 78, 0.14);
       --check-color: #ffb84d;
       --mate-color: #ff5c5c;
       --draw-color: #9ab0c8;
@@ -765,12 +764,7 @@
   </script>
 </head>
 <body>
-  <div id="pwa-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine">
-    <div class="pwa-splash__art">
-      <img src="/img/pwa-splash-live.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
-      <div class="pwa-splash__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Initializing engine"><span class="pwa-splash__fill"></span></div>
-    </div>
-  </div>
+  <div id="pwa-splash" class="pwa-splash--compose" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine" data-i18n-aria="splash.init"></div>
   <script src="/js/pwa-splash.js"></script>
   <div id="chess3d-loading" class="chess3d-loading" aria-busy="true" aria-label="Carregando o tabuleiro 3D" data-i18n-aria="chess3d.loadingAria">
     <div class="chess3d-loading__bg" aria-hidden="true"></div>

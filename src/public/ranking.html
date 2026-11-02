@@ -32,26 +32,25 @@
   <link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180"/>
   <link rel="apple-touch-startup-image" href="/img/pwa-splash.jpg" media="(orientation: portrait)"/>
-  <link rel="preload" href="/img/pwa-splash-live.jpg" as="image" fetchpriority="high"/>
   <link rel="stylesheet" href="/css/pwa-splash.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --bg: #04060a;
-      --text: #e8e0d0;
-      --muted: #8a909c;
-      --gold: #c9a84c;
-      --gold-bright: #f0cc5a;
-      --border: rgba(201, 168, 76, 0.22);
-      --row: rgba(201, 168, 76, 0.06);
+      --bg: #050403;
+      --text: #efe6d4;
+      --muted: #8a7f6c;
+      --gold: #e2b04e;
+      --gold-bright: #f0c45a;
+      --border: rgba(226, 176, 78, 0.28);
+      --row: rgba(226, 176, 78, 0.07);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
       background:
-        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(201, 168, 76, 0.08) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 50% at 50% 0%, rgba(226, 176, 78, 0.1) 0%, transparent 55%),
         var(--bg);
       color: var(--text);
       font-family: "Source Sans 3", system-ui, sans-serif;
@@ -150,12 +149,7 @@
   </style>
 </head>
 <body>
-  <div id="pwa-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine">
-    <div class="pwa-splash__art">
-      <img src="/img/pwa-splash-live.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
-      <div class="pwa-splash__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Initializing engine"><span class="pwa-splash__fill"></span></div>
-    </div>
-  </div>
+  <div id="pwa-splash" class="pwa-splash--compose" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine" data-i18n-aria="splash.init"></div>
   <script src="/js/pwa-splash.js"></script>
   <header>
     <h1 data-i18n="ranking.title">Ranking — salas online</h1>

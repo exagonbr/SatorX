@@ -34,7 +34,6 @@
   <link rel="icon" href="/icons/icon-512.png" type="image/png" sizes="512x512"/>
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" sizes="180x180"/>
   <link rel="apple-touch-startup-image" href="/img/pwa-splash.jpg" media="(orientation: portrait)"/>
-  <link rel="preload" href="/img/pwa-splash-live.jpg" as="image" fetchpriority="high"/>
   <link rel="stylesheet" href="/css/pwa-splash.css"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -49,9 +48,9 @@
       --border-strong: rgba(212, 175, 55, 0.35);
       --text: #ede9e0;
       --muted: #7a8090;
-      --gold: #d4af37;
-      --gold-bright: #f0cc5a;
-      --gold-dim: rgba(212, 175, 55, 0.1);
+      --gold: #e2b04e;
+      --gold-bright: #f0c45a;
+      --gold-dim: rgba(226, 176, 78, 0.12);
       --accent: #4a9eff;
       --accent-dim: rgba(74, 158, 255, 0.12);
     }
@@ -913,12 +912,7 @@
   </style>
 </head>
 <body>
-  <div id="pwa-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine">
-    <div class="pwa-splash__art">
-      <img src="/img/pwa-splash-live.jpg" alt="" width="576" height="1024" fetchpriority="high" decoding="sync"/>
-      <div class="pwa-splash__track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Initializing engine"><span class="pwa-splash__fill"></span></div>
-    </div>
-  </div>
+  <div id="pwa-splash" class="pwa-splash--compose" role="status" aria-live="polite" aria-busy="true" aria-label="Initializing engine" data-i18n-aria="splash.init"></div>
   <script src="/js/pwa-splash.js"></script>
   <div class="page-wrap">
     <div class="page-header">
