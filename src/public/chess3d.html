@@ -8,21 +8,19 @@
   <meta name="theme-color" content="#04060a"/>
     <script>
   (function () {
-    var KEY = "satorx_lang";
     var lang = "";
-    try { lang = localStorage.getItem(KEY) || ""; } catch (e) {}
+    try { lang = localStorage.getItem("satorx_lang_choice") || ""; } catch (e) {}
     lang = String(lang).trim();
     if (/^en(-[a-z]+)?$/i.test(lang)) lang = "en";
     else if (/^pt([-_]br)?$/i.test(lang)) lang = "pt-BR";
-    else lang = "pt-BR";
-    try {
-      if (localStorage.getItem(KEY) !== lang) localStorage.setItem(KEY, lang);
-    } catch (e) {}
-    document.documentElement.lang = lang;
-    window.__SATOR_LANG = lang;
+    else lang = "";
+    if (lang) {
+      document.documentElement.lang = lang === "en" ? "en" : "pt-BR";
+      window.__SATOR_LANG = lang;
+    }
   })();
   </script>
-<script src="/js/i18n.js?v=7"></script>
+<script src="/js/i18n.js?v=8"></script>
   <meta name="description" data-i18n-content="meta.3d.desc" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -800,13 +798,13 @@
         <h2 data-i18n="chess3d.game">Partida</h2>
         <button type="button" class="panel__toggle" id="btnPanelToggle" aria-expanded="true" aria-controls="panelRest" title="Ocultar painel" data-i18n="chess3d.hide" data-i18n-title="chess3d.hideTitle">Ocultar</button>
       </div>
-      <div class="status" id="status" data-i18n="common.loading">Carregando…</div>
+      <div class="status" id="status" data-i18n="common.loading" data-i18n-live>Carregando…</div>
       <div id="panelRest" class="panel__rest">
         <p class="hint" data-i18n-html="chess3d.hint">
           Lance: clique na peça, depois na casa de destino (sem arrastar). <kbd>Esc</kbd> cancela a seleção. Toca-mover: após escolher a peça, não pode trocar por outra sua.
         </p>
-        <div class="hist-3d" id="moveHistory3d" aria-label="Histórico de jogadas" data-i18n="board2d.noMoves" data-i18n-aria="chess3d.historyAria">Nenhum lance ainda.</div>
-        <p class="hint" id="bookLine3d" data-i18n="chess3d.bookLine">Livro da posição: —</p>
+        <div class="hist-3d" id="moveHistory3d" aria-label="Histórico de jogadas" data-i18n="board2d.noMoves" data-i18n-aria="chess3d.historyAria" data-i18n-live>Nenhum lance ainda.</div>
+        <p class="hint" id="bookLine3d" data-i18n="chess3d.bookLine" data-i18n-live>Livro da posição: —</p>
         <div class="row">
           <button type="button" class="btn" id="btnNew" data-i18n="chess3d.new">Novo jogo</button>
           <button type="button" class="btn" id="btnUndo" data-i18n="chess3d.undo">Desfazer</button>

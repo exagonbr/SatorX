@@ -1,9 +1,11 @@
 /**
  * SatorX i18n — Português (Brasil) e English.
- * Arranque: pt-BR. A escolha fica só em localStorage ("satorx_lang") e não é reescrita a cada visita.
+ * Boot: escolha explícita (satorx_lang_choice) → navigator.languages → pt-BR.
+ * Só o clique na bandeira grava a escolha; o idioma do navegador é sempre detectado
+ * na primeira visita e nunca é reescrito automaticamente.
  */
 (function (global) {
-  var LS_KEY = "satorx_lang";
+  var CHOICE_KEY = "satorx_lang_choice";
   var DEFAULT_LANG = "pt-BR";
   var SUPPORTED = { "pt-BR": true, en: true };
 
@@ -15,19 +17,31 @@
     return "";
   }
 
+  function detectBrowserLang() {
+    try {
+      var langs = (global.navigator && global.navigator.languages) ? Array.from(global.navigator.languages) : [];
+      if (!langs.length && global.navigator && global.navigator.language) langs = [global.navigator.language];
+      for (var i = 0; i < langs.length; i++) {
+        var n = normalizeLang(langs[i]);
+        if (n) return n;
+      }
+    } catch (_) {}
+    return "";
+  }
+
   function persistLang(lang) {
     global.__SATOR_LANG = lang;
-    try { localStorage.setItem(LS_KEY, lang); } catch (_) {}
+    try { localStorage.setItem(CHOICE_KEY, lang); } catch (_) {}
   }
 
   function readStored() {
     try {
-      var saved = normalizeLang(localStorage.getItem(LS_KEY));
-      if (saved) return saved;
+      var choice = normalizeLang(localStorage.getItem(CHOICE_KEY));
+      if (choice) return choice;
     } catch (_) {}
     var boot = normalizeLang(global.__SATOR_LANG);
     if (boot) return boot;
-    return DEFAULT_LANG;
+    return detectBrowserLang() || DEFAULT_LANG;
   }
 
   var FLAG_EN =
@@ -1365,11 +1379,6 @@
   };
 
   var current = readStored();
-  try {
-    if (normalizeLang(localStorage.getItem(LS_KEY)) !== current) persistLang(current);
-  } catch (_) {
-    persistLang(current);
-  }
   global.__SATOR_LANG = current;
 
   function htmlLang() {
@@ -1402,7 +1411,8 @@
 
   function t(key, vars) {
     var str = lookup(key);
-    return interpolate(str == null ? key : str, vars);
+    if (str == null) return "";
+    return interpolate(str, vars);
   }
 
   function apiError(msg, fallbackKey) {
@@ -1463,18 +1473,12 @@
   function apply(root, force) {
     var scope = root || document;
     function paint(el, attr, write) {
+      // Elementos marcados como "vivos" são geridos por JS e nunca tocados aqui
+      if (el.hasAttribute("data-i18n-live")) return;
       var key = el.getAttribute(attr);
       var str = lookup(key);
       if (str == null) return;
-      var value = interpolate(str);
-      var rawKey = String(el.textContent || "").replace(/\s+/g, "").toLowerCase() === String(key || "").replace(/\s+/g, "").toLowerCase();
-      if (!force && !rawKey && attr === "data-i18n") {
-        var stamped = el.getAttribute("data-i18n-stamp");
-        if (stamped != null && el.textContent !== stamped) return;
-      }
-      if (rawKey && (value == null || String(value).replace(/\s+/g, "").toLowerCase() === String(key || "").replace(/\s+/g, "").toLowerCase())) return;
-      write(value);
-      if (attr === "data-i18n") el.setAttribute("data-i18n-stamp", el.textContent);
+      write(interpolate(str));
     }
     scope.querySelectorAll("[data-i18n]").forEach(function (el) {
       paint(el, "data-i18n", function (value) { el.textContent = value; });
@@ -1504,6 +1508,34 @@
     }
     document.documentElement.lang = htmlLang();
     syncSwitcher();
+  }
+
+  // MutationObserver: traduz automaticamente novos nós inseridos no DOM
+  function observeNewNodes() {
+    if (typeof MutationObserver === "undefined") return;
+    var observer = new MutationObserver(function (mutations) {
+      mutations.forEach(function (m) {
+        m.addedNodes.forEach(function (node) {
+          if (node.nodeType !== 1) return; // só elementos
+          // Traduz o próprio nó e os seus descendentes
+          if (node.hasAttribute && (
+            node.hasAttribute("data-i18n") ||
+            node.hasAttribute("data-i18n-html") ||
+            node.hasAttribute("data-i18n-placeholder") ||
+            node.hasAttribute("data-i18n-title") ||
+            node.hasAttribute("data-i18n-aria") ||
+            node.hasAttribute("data-i18n-alt") ||
+            node.hasAttribute("data-i18n-content")
+          )) {
+            apply(node.parentElement || node, true);
+          } else if (node.querySelector) {
+            var hasSub = node.querySelector("[data-i18n],[data-i18n-html],[data-i18n-placeholder],[data-i18n-title],[data-i18n-aria],[data-i18n-alt],[data-i18n-content]");
+            if (hasSub) apply(node, true);
+          }
+        });
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   function injectCss() {
@@ -1572,6 +1604,7 @@
     if (document.body) {
       injectSwitcher();
       apply(document, true);
+      observeNewNodes();
     }
   }
 

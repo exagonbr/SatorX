@@ -13,7 +13,7 @@ import {
 } from "/js/matchLog.mjs?v=2";
 
 function t(key, vars) {
-  return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+  return window.SatorI18n ? window.SatorI18n.t(key, vars) : "";
 }
 function apiErr(msg, fallback) {
   return window.SatorI18n ? window.SatorI18n.apiError(msg, fallback) : (msg || fallback || "");

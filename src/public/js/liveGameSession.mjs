@@ -134,7 +134,7 @@ function injectStyles() {
 }
 
 function t(key, vars) {
-  return window.SatorI18n ? window.SatorI18n.t(key, vars) : key;
+  return window.SatorI18n ? window.SatorI18n.t(key, vars) : "";
 }
 
 function fillChooser(el) {

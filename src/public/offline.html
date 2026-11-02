@@ -6,21 +6,19 @@
   <meta name="theme-color" content="#04060a"/>
     <script>
   (function () {
-    var KEY = "satorx_lang";
     var lang = "";
-    try { lang = localStorage.getItem(KEY) || ""; } catch (e) {}
+    try { lang = localStorage.getItem("satorx_lang_choice") || ""; } catch (e) {}
     lang = String(lang).trim();
     if (/^en(-[a-z]+)?$/i.test(lang)) lang = "en";
     else if (/^pt([-_]br)?$/i.test(lang)) lang = "pt-BR";
-    else lang = "pt-BR";
-    try {
-      if (localStorage.getItem(KEY) !== lang) localStorage.setItem(KEY, lang);
-    } catch (e) {}
-    document.documentElement.lang = lang;
-    window.__SATOR_LANG = lang;
+    else lang = "";
+    if (lang) {
+      document.documentElement.lang = lang === "en" ? "en" : "pt-BR";
+      window.__SATOR_LANG = lang;
+    }
   })();
   </script>
-<script src="/js/i18n.js?v=7"></script>
+<script src="/js/i18n.js?v=8"></script>
   <title data-i18n="meta.offline.title">Offline — Sator Engine</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml"/>
   <style>
