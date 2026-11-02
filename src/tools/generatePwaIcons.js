@@ -84,8 +84,14 @@ async function main() {
     .png()
     .toFile(path.join(iconsDir, "icon-maskable-512.png"));
 
-  const ico = pngToIco([await square(16), await square(32), await square(48)]);
-  fs.writeFileSync(path.join(publicDir, "favicon.ico"), ico);
+  const fav16 = await square(16);
+  const fav32 = await square(32);
+  fs.writeFileSync(path.join(publicDir, "favicon-16.png"), fav16);
+  fs.writeFileSync(path.join(publicDir, "favicon-32.png"), fav32);
+  fs.writeFileSync(
+    path.join(publicDir, "favicon.ico"),
+    pngToIco([fav16, fav32, await square(48)])
+  );
 
   console.log("Ícones PWA gravados em", iconsDir);
 }
