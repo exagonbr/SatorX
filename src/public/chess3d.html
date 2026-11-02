@@ -6,85 +6,23 @@
   <script defer src="/_vercel/speed-insights/script.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
   <meta name="theme-color" content="#04060a"/>
-  <script>
+    <script>
   (function () {
-    var KEY = "satorx_lang", DEF = "pt-BR";
-    function norm(v) {
-      if (!v) return "";
-      v = String(v).trim();
-      if (/^pt([-_]br)?$/i.test(v)) return "pt-BR";
-      if (/^en(-[a-z]+)?$/i.test(v)) return "en";
-      return "";
-    }
-    function cookie() {
-      var m = document.cookie.match(/(?:^|;\s*)satorx_lang=([^;]*)/);
-      return m ? decodeURIComponent(m[1]) : "";
-    }
+    var KEY = "satorx_lang";
     var lang = "";
-    try { lang = norm(localStorage.getItem(KEY)); } catch (e) {}
-    if (!lang) lang = norm(cookie());
-    if (!lang) { try { lang = norm(sessionStorage.getItem(KEY)); } catch (e) {} }
-    if (!lang) lang = DEF;
-    try { localStorage.setItem(KEY, lang); } catch (e) {}
-    try { sessionStorage.setItem(KEY, lang); } catch (e) {}
-    var secure = location.protocol === "https:" ? "; Secure" : "";
-    document.cookie = KEY + "=" + encodeURIComponent(lang) + "; Path=/; Max-Age=31536000; SameSite=Lax" + secure;
-    document.documentElement.lang = lang === "en" ? "en" : "pt-BR";
+    try { lang = localStorage.getItem(KEY) || ""; } catch (e) {}
+    lang = String(lang).trim();
+    if (/^en(-[a-z]+)?$/i.test(lang)) lang = "en";
+    else if (/^pt([-_]br)?$/i.test(lang)) lang = "pt-BR";
+    else lang = "pt-BR";
+    try {
+      if (localStorage.getItem(KEY) !== lang) localStorage.setItem(KEY, lang);
+    } catch (e) {}
+    document.documentElement.lang = lang;
     window.__SATOR_LANG = lang;
-    var MENU = {
-      "pt-BR": {
-        "menu.start": "▶  Iniciar partida",
-        "menu.online": "Jogar online",
-        "menu.matches": "Ranking",
-        "menu.rules": "Regras",
-        "menu.options": "Ajustes",
-        "menu.ia": "Rede neural",
-        "menu.footer": "Sator Ngx v5  ·  Motor híbrido"
-      },
-      en: {
-        "menu.start": "▶  Start game",
-        "menu.online": "Play online",
-        "menu.matches": "Ranking",
-        "menu.rules": "Rules",
-        "menu.options": "Settings",
-        "menu.ia": "Neural net",
-        "menu.footer": "Sator Ngx v5  ·  Hybrid engine"
-      }
-    };
-    function heal() {
-      var table = (document.documentElement.lang || "").toLowerCase().indexOf("en") === 0 ? MENU.en : MENU["pt-BR"];
-      var broken = false;
-      document.querySelectorAll("[data-i18n]").forEach(function (el) {
-        var key = el.getAttribute("data-i18n");
-        if (!key || !table[key]) return;
-        var text = (el.textContent || "").replace(/\s+/g, " ").trim();
-        if (text.toLowerCase() !== key.toLowerCase()) return;
-        el.textContent = table[key];
-        broken = true;
-      });
-      if (!broken) return;
-      try {
-        if (sessionStorage.getItem("sator_i18n_purged") === "1") return;
-        sessionStorage.setItem("sator_i18n_purged", "1");
-      } catch (e) { return; }
-      var done = Promise.resolve();
-      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
-        done = navigator.serviceWorker.getRegistrations().then(function (regs) {
-          return Promise.all(regs.map(function (r) { return r.unregister(); }));
-        });
-      }
-      done.then(function () {
-        if (!window.caches) { location.reload(); return; }
-        return caches.keys().then(function (keys) {
-          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
-        });
-      }).then(function () { location.reload(); }).catch(function () { location.reload(); });
-    }
-    document.addEventListener("DOMContentLoaded", heal);
-    window.addEventListener("load", function () { setTimeout(heal, 0); });
   })();
   </script>
-  <script src="/js/i18n.js?v=6"></script>
+<script src="/js/i18n.js?v=6"></script>
   <meta name="description" data-i18n-content="meta.3d.desc" content="Partida de xadrez 3D com motor Sator Engine e IA híbrida."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>

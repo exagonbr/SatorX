@@ -1,6 +1,6 @@
 /**
  * SatorX i18n — Português (Brasil) e English.
- * Arranque: pt-BR. A escolha fica em localStorage, sessionStorage e cookie "satorx_lang".
+ * Arranque: pt-BR. A escolha fica só em localStorage ("satorx_lang") e não é reescrita a cada visita.
  */
 (function (global) {
   var LS_KEY = "satorx_lang";
@@ -15,37 +15,18 @@
     return "";
   }
 
-  function readCookieLang() {
-    try {
-      var m = document.cookie.match(/(?:^|;\s*)satorx_lang=([^;]*)/);
-      return m ? decodeURIComponent(m[1]) : "";
-    } catch (_) {
-      return "";
-    }
-  }
-
   function persistLang(lang) {
     global.__SATOR_LANG = lang;
     try { localStorage.setItem(LS_KEY, lang); } catch (_) {}
-    try { sessionStorage.setItem(LS_KEY, lang); } catch (_) {}
-    try {
-      var secure = location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = LS_KEY + "=" + encodeURIComponent(lang) +
-        "; Path=/; Max-Age=31536000; SameSite=Lax" + secure;
-    } catch (_) {}
   }
 
   function readStored() {
+    try {
+      var saved = normalizeLang(localStorage.getItem(LS_KEY));
+      if (saved) return saved;
+    } catch (_) {}
     var boot = normalizeLang(global.__SATOR_LANG);
     if (boot) return boot;
-    var sources = [];
-    try { sources.push(localStorage.getItem(LS_KEY)); } catch (_) {}
-    sources.push(readCookieLang());
-    try { sources.push(sessionStorage.getItem(LS_KEY)); } catch (_) {}
-    for (var i = 0; i < sources.length; i++) {
-      var n = normalizeLang(sources[i]);
-      if (n) return n;
-    }
     return DEFAULT_LANG;
   }
 
@@ -1384,7 +1365,12 @@
   };
 
   var current = readStored();
-  persistLang(current);
+  try {
+    if (normalizeLang(localStorage.getItem(LS_KEY)) !== current) persistLang(current);
+  } catch (_) {
+    persistLang(current);
+  }
+  global.__SATOR_LANG = current;
 
   function htmlLang() {
     return current === "en" ? "en" : "pt-BR";
@@ -1474,13 +1460,19 @@
     el.setAttribute(attr, value);
   }
 
-  function apply(root) {
+  function apply(root, force) {
     var scope = root || document;
     function paint(el, attr, write) {
       var key = el.getAttribute(attr);
       var str = lookup(key);
       if (str == null) return;
-      write(interpolate(str));
+      var value = interpolate(str);
+      if (!force && attr === "data-i18n") {
+        var stamped = el.getAttribute("data-i18n-stamp");
+        if (stamped != null && el.textContent !== stamped) return;
+      }
+      write(value);
+      if (attr === "data-i18n") el.setAttribute("data-i18n-stamp", el.textContent);
     }
     scope.querySelectorAll("[data-i18n]").forEach(function (el) {
       paint(el, "data-i18n", function (value) { el.textContent = value; });
@@ -1562,7 +1554,7 @@
     var changed = lang !== current;
     current = lang;
     persistLang(lang);
-    apply();
+    apply(document, true);
     if (!changed) return;
     try {
       global.dispatchEvent(new CustomEvent("sator:langchange", { detail: { lang: current } }));
@@ -1587,10 +1579,6 @@
   } else {
     boot();
   }
-  global.addEventListener("pageshow", function () {
-    current = readStored();
-    if (document.body) boot();
-  });
 
   global.SatorI18n = {
     t: t,

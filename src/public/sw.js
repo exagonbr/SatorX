@@ -37,26 +37,18 @@ self.addEventListener("install", function (event) {
   self.skipWaiting();
 });
 
-self.addEventListener("message", function (event) {
-  if (event.data && event.data.type === "sator-skip-wait") self.skipWaiting();
-});
-
 self.addEventListener("activate", function (event) {
   event.waitUntil(
     caches.keys().then(function (keys) {
       return Promise.all(
         keys
-          .filter(function (k) { return k.startsWith("sator-"); })
+          .filter(function (k) {
+            return k.startsWith("sator-") && k !== PRECACHE && k !== RUNTIME;
+          })
           .map(function (k) { return caches.delete(k); })
       );
     }).then(function () {
       return self.clients.claim();
-    }).then(function () {
-      return self.clients.matchAll({ type: "window", includeUncontrolled: true });
-    }).then(function (clients) {
-      return Promise.all(clients.map(function (client) {
-        if (typeof client.navigate === "function") return client.navigate(client.url);
-      }));
     })
   );
 });
@@ -116,8 +108,14 @@ self.addEventListener("fetch", function (event) {
 
   if (url.origin === self.location.origin && /\/js\/i18n\.js$/i.test(url.pathname)) {
     event.respondWith(
-      fetch(request, { cache: "reload" }).catch(function () {
-        return caches.match(request);
+      caches.open(RUNTIME).then(function (cache) {
+        return cache.match(request).then(function (cached) {
+          if (cached) return cached;
+          return fetch(request).then(function (response) {
+            if (response && response.ok) cache.put(request, response.clone());
+            return response;
+          });
+        });
       })
     );
     return;
