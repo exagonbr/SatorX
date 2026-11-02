@@ -4,7 +4,7 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { Chess } from "chess.js";
-import { bindLiveGame, fetchPositionBook, restoreChess } from "/js/liveGameSession.mjs?v=2";
+import { bindLiveGame, fetchPositionBook, restoreChess } from "/js/liveGameSession.mjs?v=4";
 import {
   logFinishedMatch,
   resultFromChessGame,
@@ -436,6 +436,14 @@ function tickClock() {
   if (game.turn() === 'w') clockWhiteSecs++;
   else clockBlackSecs++;
   updateClockDisplays();
+  if (liveApi && typeof liveApi.persistClocks === "function") {
+    liveApi.persistClocks({
+      white: clockWhiteSecs,
+      black: clockBlackSecs,
+      paused: !clockRunning,
+      side: game.turn()
+    });
+  }
 }
 
 function updateClockDisplays() {
@@ -813,8 +821,22 @@ function applyLiveState(state) {
     if (t) t.value = String(state.timeMs);
   }
   if (state.clocks) {
-    clockWhiteSecs = Number(state.clocks.white) || 0;
-    clockBlackSecs = Number(state.clocks.black) || 0;
+    let white = Number(state.clocks.white) || 0;
+    let black = Number(state.clocks.black) || 0;
+    // Recupera segundos entre o último save e o reload (ex.: motor a pensar).
+    if (!state.clocks.paused && state.clocks.tickStartedAt) {
+      const elapsed = Math.min(
+        Math.floor((Date.now() - state.clocks.tickStartedAt) / 1000),
+        30
+      );
+      if (elapsed > 0) {
+        const side = state.clocks.side || game.turn();
+        if (side === "w") white += elapsed;
+        else black += elapsed;
+      }
+    }
+    clockWhiteSecs = white;
+    clockBlackSecs = black;
     if (state.clocks.paused) stopClock();
     else startClock();
     updateClockDisplays();
@@ -1644,6 +1666,14 @@ async function tryMove(from, to) {
   }
 
   updateClockDisplays();
+  if (liveApi && typeof liveApi.persistClocks === "function") {
+    liveApi.persistClocks({
+      white: clockWhiteSecs,
+      black: clockBlackSecs,
+      paused: !clockRunning,
+      side: game.turn()
+    });
+  }
   if (game.isGameOver()) {
     stopClock();
     saveReplayAuto();

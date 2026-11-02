@@ -235,7 +235,11 @@ export function bindLiveGame(adapter) {
       playerColor: meta.playerColor || "w",
       depth: meta.depth,
       timeMs: meta.timeMs,
-      clocks: meta.clocks || null,
+      clocks: (function () {
+        var c = meta.clocks || null;
+        if (!c || c.paused) return c;
+        return Object.assign({}, c, { tickStartedAt: Date.now() });
+      })(),
       trainOnline: meta.trainOnline !== false,
       lastMove: verbose.length ? { from: verbose[verbose.length - 1].from, to: verbose[verbose.length - 1].to } : null,
       thoughtLog: Array.isArray(meta.thoughtLog) ? meta.thoughtLog : (prev.thoughtLog || []),
@@ -262,6 +266,24 @@ export function bindLiveGame(adapter) {
       body: JSON.stringify(state)
     }).catch(function () {});
     return state;
+  }
+
+  /** Atualiza só os relógios no localStorage (sem POST) — evita perder o tempo do motor no reload. */
+  function persistClocks(clocks) {
+    if (applying || !clocks) return;
+    const cur = readLocal();
+    if (!cur || !cur.id) return;
+    const stamped =
+      clocks.paused
+        ? clocks
+        : Object.assign({}, clocks, { tickStartedAt: Date.now() });
+    writeLocal(
+      Object.assign({}, cur, {
+        clocks: stamped,
+        updatedAt: Date.now(),
+        origin: originId
+      })
+    );
   }
 
   async function logMove(info) {
@@ -340,16 +362,26 @@ export function bindLiveGame(adapter) {
     }
   });
 
-    function beginNewSession() {
-      writeLocal({ id: newSessionId(), updatedAt: Date.now(), origin: originId, sans: [], pgn: "" });
+  function flushBeforeUnload() {
+    try {
+      publish();
+    } catch {
+      /* ignore */
     }
+  }
+  window.addEventListener("pagehide", flushBeforeUnload);
+  window.addEventListener("beforeunload", flushBeforeUnload);
 
-    function goToView(view) {
-      const state = publish();
-      window.location.href = viewUrl(view, state.id);
-    }
+  function beginNewSession() {
+    writeLocal({ id: newSessionId(), updatedAt: Date.now(), origin: originId, sans: [], pgn: "" });
+  }
 
-    async function chooseNewGame() {
+  function goToView(view) {
+    const state = publish();
+    window.location.href = viewUrl(view, state.id);
+  }
+
+  async function chooseNewGame() {
     const view = await openViewChooser();
     if (!view) return null;
     return view;
@@ -359,6 +391,7 @@ export function bindLiveGame(adapter) {
     originId,
     snapshot,
     publish,
+    persistClocks,
     logMove,
     restore,
     goToView,

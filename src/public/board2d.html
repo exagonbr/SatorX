@@ -1125,7 +1125,7 @@
   <script src="https://unpkg.com/@chrisoakman/chessboardjs@1.0.0/dist/chessboard-1.0.0.min.js"></script>
   <script type="module">
     import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.4.0/+esm";
-    import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=3";
+    import { bindLiveGame, fetchPositionBook, searchSatorGames, restoreChess } from "/js/liveGameSession.mjs?v=4";
     import {
       logFinishedMatch,
       resultFromChessGame,
@@ -1779,6 +1779,15 @@
       if (clockSide === "w") clockWhiteSecs++;
       else clockBlackSecs++;
       updateClockUi();
+      if (liveApi && typeof liveApi.persistClocks === "function") {
+        liveApi.persistClocks({
+          white: clockWhiteSecs,
+          black: clockBlackSecs,
+          paused: clockPaused,
+          side: clockSide,
+          awaiting: awaitingClockPress
+        });
+      }
     }
 
     function ensureClockTicking() {
@@ -1828,6 +1837,15 @@
       clockPaused = false;
       ensureClockTicking();
       updateClockUi();
+      if (liveApi && typeof liveApi.persistClocks === "function") {
+        liveApi.persistClocks({
+          white: clockWhiteSecs,
+          black: clockBlackSecs,
+          paused: clockPaused,
+          side: clockSide,
+          awaiting: awaitingClockPress
+        });
+      }
     }
 
     function pressClock() {
@@ -2426,8 +2444,22 @@
         document.getElementById("timeMs").value = state.timeMs;
       }
       if (state.clocks) {
-        clockWhiteSecs = Number(state.clocks.white) || 0;
-        clockBlackSecs = Number(state.clocks.black) || 0;
+        var _white = Number(state.clocks.white) || 0;
+        var _black = Number(state.clocks.black) || 0;
+        // Recupera segundos entre o último save e o reload (ex.: motor a pensar).
+        if (!state.clocks.paused && state.clocks.tickStartedAt) {
+          var _elapsed = Math.min(
+            Math.floor((Date.now() - state.clocks.tickStartedAt) / 1000),
+            30
+          );
+          if (_elapsed > 0) {
+            var _side = state.clocks.side || game.turn();
+            if (_side === "w") _white += _elapsed;
+            else _black += _elapsed;
+          }
+        }
+        clockWhiteSecs = _white;
+        clockBlackSecs = _black;
         clockSide = state.clocks.side || game.turn();
         awaitingClockPress = Boolean(state.clocks.awaiting);
         if (state.clocks.paused) pauseClock();
@@ -3015,6 +3047,13 @@
         updateStatus();
         updateClockUi();
         void hydrateThoughtFromServer();
+        // Auto-reply when reload lands on engine's turn (mirrors chess3d behaviour).
+        if (getMode() === "engine" && !game.isGameOver() && !isPlayerTurn() && !busy) {
+          busy = true;
+          resumeClock();
+          updateStatus();
+          callBestMove().then(function () { busy = false; updateStatus(); });
+        }
       });
     }
     var urlJoin = urlParams.get("join");
