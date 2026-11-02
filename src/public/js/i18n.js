@@ -502,6 +502,9 @@
       "go.repetition": "Tripla repetição da mesma posição.",
       "go.fifty": "Regra dos 50 lances sem captura ou peão.",
       "go.drawEnded": "A partida terminou em empate.",
+      "go.engineTimeoutTitle": "O motor desistiu",
+      "go.engineTimeoutDetail": "Obrigado pela partida — o tempo de reflexão esgotou (lock). Quer jogar outra?",
+      "go.engineTimeoutWin": "Vitória sua — o motor agradece e pede uma nova partida.",
 
       "status.waitOpp": "A aguardar oponente — o jogo só começa quando o convidado entrar na sala.",
       "status.mateBlack": "Xeque-mate — vitória das pretas.",
@@ -1130,6 +1133,9 @@
       "go.repetition": "Threefold repetition of the same position.",
       "go.fifty": "Fifty-move rule with no capture or pawn move.",
       "go.drawEnded": "The game ended in a draw.",
+      "go.engineTimeoutTitle": "The engine resigned",
+      "go.engineTimeoutDetail": "Thank you for the game — thinking time ran out (lock). Want another?",
+      "go.engineTimeoutWin": "You win — the engine thanks you and asks for another game.",
 
       "status.waitOpp": "Waiting for opponent — the game starts only when the guest joins the room.",
       "status.mateBlack": "Checkmate — Black wins.",

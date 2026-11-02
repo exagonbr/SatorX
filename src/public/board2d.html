@@ -19,7 +19,7 @@
     }
   })();
   </script>
-<script src="/js/i18n.js?v=9"></script>
+<script src="/js/i18n.js?v=10"></script>
   <meta name="description" data-i18n-content="meta.2d.desc" content="Tabuleiro 2D Sator com motor de xadrez e análise por API."/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
@@ -750,6 +750,38 @@
       padding: 16px;
     }
     .mode-overlay[hidden] { display: none !important; }
+    #gameOverOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9100;
+      background: rgba(4, 6, 12, 0.85);
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      padding: 16px;
+    }
+    #gameOverOverlay.open { display: flex; }
+    #gameOverOverlay .go-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border-strong);
+      border-radius: 18px;
+      padding: 28px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    #gameOverOverlay .go-card h3 {
+      margin: 0 0 10px;
+      color: var(--accent);
+      font-size: 1.45rem;
+    }
+    #gameOverOverlay .go-card p {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.5;
+    }
     .mode-dialog {
       background: var(--surface-2);
       border: 1px solid var(--border-strong);
@@ -1141,6 +1173,8 @@
     const game = new Chess();
     let board = null;
     let busy = false;
+    /** @type {{ reason: string, winner: "white"|"black" } | null} */
+    let engineForcedEnd = null;
     let multiplayerPollId = null;
     let myMultiplayerColor = "w";
     let currentLobbyId = null;
@@ -2043,7 +2077,7 @@
     }
 
     function trySelectOrMove(sq) {
-      if (busy || game.isGameOver()) return;
+      if (busy || isMatchOver()) return;
       if (getMode() === "multiplayer" && (mpIsSpectator || !mpOpponentReady)) return;
       if (getMode() === "engine" && !isPlayerTurn()) return;
       const piece = game.get(sq);
@@ -2369,7 +2403,59 @@
       }
     }
 
+    function isMatchOver() {
+      return game.isGameOver() || !!engineForcedEnd;
+    }
+
+    function openEngineResignOverlay() {
+      const overlay = document.getElementById("gameOverOverlay");
+      const title = document.getElementById("goTitle");
+      const detail = document.getElementById("goDetail");
+      if (!overlay || !title || !detail) return;
+      title.textContent = t("go.engineTimeoutTitle");
+      detail.textContent = t("go.engineTimeoutDetail");
+      overlay.classList.add("open");
+      overlay.setAttribute("aria-hidden", "false");
+    }
+
+    function closeGameOverOverlay() {
+      const overlay = document.getElementById("gameOverOverlay");
+      if (!overlay) return;
+      overlay.classList.remove("open");
+      overlay.setAttribute("aria-hidden", "true");
+    }
+
+    async function engineResignOnLock() {
+      if (engineForcedEnd || getMode() !== "engine") return;
+      const playerWins = getPlayerColor() === "w" ? "white" : "black";
+      engineForcedEnd = { reason: "timeout", winner: playerWins };
+      pauseClock();
+      busy = false;
+      setStatus(t("go.engineTimeoutWin"));
+      openEngineResignOverlay();
+      const m = document.getElementById("trainMetrics");
+      if (m) m.textContent = t("go.engineTimeoutTitle");
+      await fetch("/api/replay/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pgn: game.pgn(),
+          fen: game.fen(),
+          result: playerWins,
+          moves: game.history(),
+          meta: {
+            auto: true,
+            ui: "board2d",
+            mode: getMode(),
+            engineResign: "timeout",
+            sessionId: liveApi && liveApi.snapshot ? liveApi.snapshot().id : null
+          }
+        })
+      }).catch(function () {});
+    }
+
     function isPlayerTurn() {
+      if (isMatchOver()) return false;
       if (getMode() === "human") return true;
       if (getMode() === "multiplayer") {
         if (mpIsSpectator) return false;
@@ -2507,6 +2593,14 @@
       if (verboseMoves.length) syncLastMoveFromHistory();
       else lastMoveArrow = null;
       let s = "";
+      if (engineForcedEnd) {
+        setStatus(t("go.engineTimeoutWin"));
+        setFen();
+        renderTensorGrid();
+        renderMoveHistory();
+        scheduleBoardGraphics();
+        return;
+      }
       if (
         getMode() === "multiplayer" &&
         currentLobbyId &&
@@ -2553,7 +2647,7 @@
     }
 
     function onDragStart(source, piece) {
-      if (busy || game.isGameOver()) return false;
+      if (busy || isMatchOver()) return false;
       if (getMode() === "multiplayer" && mpIsSpectator) return false;
       if (getMode() === "multiplayer" && !mpIsSpectator && !mpOpponentReady) return false;
       if (getMode() === "engine" && !isPlayerTurn()) return false;
@@ -2592,16 +2686,21 @@
     }
 
     async function callBestMove() {
+      if (getMode() !== "engine" || isMatchOver()) return;
       const depth = parseInt(document.getElementById("depth").value, 10);
-      const timeMs = parseInt(document.getElementById("timeMs").value, 10);
+      const timeMs = Math.min(12000, Math.max(120, parseInt(document.getElementById("timeMs").value, 10) || 2500));
       const fenBefore = game.fen();
       const hist = game.history();
       const verbose = game.history({ verbose: true });
       const lastMove = verbose.length ? verbose[verbose.length - 1] : null;
+      const hardMs = Math.min(14000, timeMs + 1800);
+      const ctrl = new AbortController();
+      const kill = setTimeout(function () { ctrl.abort(); }, hardMs);
       try {
-        const res = await fetch("/api/bestmove", {
+        const r = await fetch("/api/bestmove", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: ctrl.signal,
           body: JSON.stringify({
             fen: game.fen(),
             depth,
@@ -2619,36 +2718,43 @@
                 }
               : null
           })
-        }).then(r => r.json());
-        if (res.bestMove && res.bestMove.san) {
-          const mv = game.move(res.bestMove.san);
-          if (mv) rememberLastMove(mv);
-          selectedSq = null;
-          board.position(game.fen());
-          if (mv) onClockAfterMove(mv.color);
-          await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
-          if (res.masterStrategy) {
-            applyMasterThought(res.masterStrategy, game.history().length);
-          } else {
-            document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
-          }
-          if (liveApi && mv) {
-            void liveApi.logMove({
-              ply: game.history().length,
-              san: mv.san,
-              fenBefore: fenBefore,
-              fenAfter: game.fen(),
-              source: "engine"
-            });
-          }
-          if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
+        });
+        const res = await r.json().catch(function () { return {}; });
+        if (!r.ok || res.error === "engine_timeout" || !res.bestMove || !res.bestMove.san) {
+          await engineResignOnLock();
+          return;
         }
+        if (isMatchOver()) return;
+        const mv = game.move(res.bestMove.san);
+        if (mv) rememberLastMove(mv);
+        selectedSq = null;
+        board.position(game.fen());
+        if (mv) onClockAfterMove(mv.color);
+        await sendMoveLearn(fenBefore, game.fen(), res.bestMove.san);
+        if (res.masterStrategy) {
+          applyMasterThought(res.masterStrategy, game.history().length);
+        } else {
+          document.getElementById("engineMove").textContent = JSON.stringify(res.bestMove, null, 2);
+        }
+        if (liveApi && mv) {
+          void liveApi.logMove({
+            ply: game.history().length,
+            san: mv.san,
+            fenBefore: fenBefore,
+            fenAfter: game.fen(),
+            source: "engine"
+          });
+        }
+        if (res.report) document.getElementById("report").textContent = JSON.stringify(res.report, null, 2);
         if (game.isGameOver()) {
           pauseClock();
           saveReplayAuto();
         }
       } catch (e) {
         console.error("bestmove error", e);
+        await engineResignOnLock();
+      } finally {
+        clearTimeout(kill);
       }
     }
 
@@ -2881,6 +2987,8 @@
 
     function resetLocalGame() {
       resetMatchSession();
+      engineForcedEnd = null;
+      closeGameOverOverlay();
       game.reset();
       board.start();
       selectedSq = null;
@@ -2911,6 +3019,13 @@
         if (view === "3d") liveApi.goToView("3d");
       });
     };
+    const btnGoNew = document.getElementById("btnGoNew");
+    if (btnGoNew) {
+      btnGoNew.onclick = function () {
+        closeGameOverOverlay();
+        document.getElementById("btnNew").click();
+      };
+    }
     document.getElementById("btnUndo").onclick = () => {
       if (busy) return;
       if (getMode() === "multiplayer") return;
@@ -3048,7 +3163,7 @@
         updateClockUi();
         void hydrateThoughtFromServer();
         // Auto-reply when reload lands on engine's turn (mirrors chess3d behaviour).
-        if (getMode() === "engine" && !game.isGameOver() && !isPlayerTurn() && !busy) {
+        if (getMode() === "engine" && !isMatchOver() && !isPlayerTurn() && !busy) {
           busy = true;
           resumeClock();
           updateStatus();
@@ -3105,6 +3220,14 @@
     }
   </script>
   <script src="/js/pwa-register.js" defer></script>
+
+  <div id="gameOverOverlay" aria-hidden="true">
+    <div class="go-card">
+      <h3 id="goTitle" data-i18n="go.gameOver">Fim de partida</h3>
+      <p id="goDetail"></p>
+      <button type="button" class="btn" id="btnGoNew" data-i18n="chess3d.goNew">Nova partida</button>
+    </div>
+  </div>
 
   <!-- ── Modal de seleção de modo ──────────────────────────────── -->
   <div class="mode-overlay" id="modeOverlay" hidden>

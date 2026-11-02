@@ -87,6 +87,8 @@ const libraryAnim = {
 };
 let pieceNodes = [];
 let busy = false;
+/** @type {{ reason: string, winner: "white"|"black" } | null} */
+let engineForcedEnd = null;
 let liveApi = null;
 let bookRefreshTimer = null;
 
@@ -617,11 +619,55 @@ function syncCheckKingHighlight() {
   }
 }
 
+function openEngineResignOverlay() {
+  const overlay = document.getElementById("gameOverOverlay");
+  const title = document.getElementById("goTitle");
+  const detail = document.getElementById("goDetail");
+  if (!overlay || !title || !detail) return;
+  title.textContent = t("go.engineTimeoutTitle");
+  detail.textContent = t("go.engineTimeoutDetail");
+  overlay.classList.add("open");
+  overlay.setAttribute("aria-hidden", "false");
+  stopClock();
+}
+
+async function engineResignOnLock() {
+  if (engineForcedEnd || getMode() !== "engine") return;
+  const playerWins = getPlayerColor() === "w" ? "white" : "black";
+  engineForcedEnd = { reason: "timeout", winner: playerWins };
+  busy = false;
+  stopClock();
+  openEngineResignOverlay();
+  const metrics = document.getElementById("metrics");
+  if (metrics) metrics.textContent = t("go.engineTimeoutWin");
+  fetch("/api/replay/save", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pgn: game.pgn(),
+      fen: game.fen(),
+      result: playerWins,
+      moves: game.history(),
+      meta: {
+        auto: true,
+        ui: "chess3d",
+        mode: getMode(),
+        engineResign: "timeout",
+        sessionId: liveApi && liveApi.snapshot ? liveApi.snapshot().id : null
+      }
+    })
+  }).catch(() => {});
+}
+
 function updateGameOverOverlay() {
   const overlay = document.getElementById("gameOverOverlay");
   const title = document.getElementById("goTitle");
   const detail = document.getElementById("goDetail");
   if (!overlay || !title || !detail) return;
+  if (engineForcedEnd) {
+    openEngineResignOverlay();
+    return;
+  }
   if (!game.isGameOver()) {
     if (getMode() === "multiplayer" && mpServerEndShown) {
       return;
@@ -666,6 +712,7 @@ function setStatusBrief(msg, ms = 2600) {
 }
 
 function isPlayerTurn() {
+  if (engineForcedEnd || game.isGameOver()) return false;
   if (getMode() === "human") return true;
   if (getMode() === "multiplayer") {
     if (mpIsSpectator) return false;
@@ -677,6 +724,11 @@ function isPlayerTurn() {
 
 function updateStatus() {
   let s = "";
+  if (engineForcedEnd) {
+    setStatus(t("go.engineTimeoutWin"));
+    updateGameOverOverlay();
+    return;
+  }
   if (
     getMode() === "multiplayer" &&
     currentLobbyId &&
@@ -1616,6 +1668,7 @@ async function spectateLobby() {
 }
 
 async function tryMove(from, to) {
+  if (busy || engineForcedEnd || game.isGameOver()) return false;
   if (getMode() === "multiplayer" && mpIsSpectator) return false;
   if (getMode() === "multiplayer" && !mpIsSpectator && !mpOpponentReady) return false;
   const moving = game.get(from);
@@ -1685,19 +1738,39 @@ async function tryMove(from, to) {
 }
 
 async function callBestMove() {
-  if (getMode() !== "engine" || game.isGameOver()) return;
+  if (getMode() !== "engine" || game.isGameOver() || engineForcedEnd) return;
   clearTapSelection();
   busy = true;
   updateStatus();
   const depth = parseInt(document.getElementById("depth").value, 10) || 7;
-  const timeMs = parseInt(document.getElementById("timeMs").value, 10) || 2500;
+  const timeMs = Math.min(12000, Math.max(120, parseInt(document.getElementById("timeMs").value, 10) || 2500));
   const fenBefore = game.fen();
+  const hardMs = Math.min(14000, timeMs + 1800);
+  const ctrl = new AbortController();
+  const kill = setTimeout(() => ctrl.abort(), hardMs);
 
-  const res = await fetch("/api/bestmove", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fen: fenBefore, depth, timeMs })
-  }).then((r) => r.json()).catch(() => ({}));
+  let res = {};
+  try {
+    const r = await fetch("/api/bestmove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      signal: ctrl.signal,
+      body: JSON.stringify({ fen: fenBefore, depth, timeMs })
+    });
+    res = await r.json().catch(() => ({}));
+    if (!r.ok || res.error === "engine_timeout" || !res.bestMove || !res.bestMove.san) {
+      await engineResignOnLock();
+      return;
+    }
+  } catch (e) {
+    console.error("bestmove error", e);
+    await engineResignOnLock();
+    return;
+  } finally {
+    clearTimeout(kill);
+  }
+
+  if (engineForcedEnd) return;
 
   if (res.bestMove && res.bestMove.san) {
     try { game.move(res.bestMove.san, { sloppy: true }); } catch { busy = false; return; }
@@ -1725,7 +1798,7 @@ async function callBestMove() {
 }
 
 function maybeEngineReply() {
-  if (getMode() !== "engine" || game.isGameOver()) return;
+  if (getMode() !== "engine" || game.isGameOver() || engineForcedEnd) return;
   if (game.turn() !== getPlayerColor()) {
     setTimeout(() => callBestMove(), 200);
   }
@@ -2858,6 +2931,7 @@ window.addEventListener("DOMContentLoaded", () => {
     const view = liveApi ? await liveApi.chooseNewGame() : "3d";
     if (!view) return;
     if (liveApi) liveApi.beginNewSession();
+    engineForcedEnd = null;
     game.reset();
     resetMatchSession();
     resetClock();

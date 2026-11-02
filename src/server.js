@@ -123,6 +123,9 @@ app.get("/api/ping", (req, res) => res.json({ ok: true }));
 
 app.post("/api/bestmove", async (req, res) => {
   const { fen, depth = 7, timeMs = 2500, history, lastMove } = req.body || {};
+  // Tempo é primordial: teto duro no orçamento do motor (ms).
+  const cappedTime = Math.min(12000, Math.max(120, Number(timeMs) || 2500));
+  const cappedDepth = Math.min(10, Math.max(1, Number(depth) || 7));
   const chess = new Chess();
   const historySans = Array.isArray(history) ? history : [];
   if (historySans.length) {
@@ -148,11 +151,23 @@ app.post("/api/bestmove", async (req, res) => {
   } catch {
     book = {};
   }
-  const result = findBestMove(chess, depth, timeMs, {
+  const wallStart = Date.now();
+  const result = findBestMove(chess, cappedDepth, cappedTime, {
     book,
     lastMove: lastMove || null,
     historySans: historySans.length ? historySans : chess.history()
   });
+  const wallMs = Date.now() - wallStart;
+  // Se a busca estourou o orçamento sem lance, o cliente trata como desistência.
+  if (!result.bestMove && !chess.isGameOver()) {
+    return res.status(504).json({
+      ok: false,
+      error: "engine_timeout",
+      timedOut: true,
+      elapsedMs: wallMs,
+      timeMs: cappedTime
+    });
+  }
   if (result.bestMove && result.masterStrategy) {
     try {
       masterThoughtStore.appendThought({
@@ -177,7 +192,7 @@ app.post("/api/bestmove", async (req, res) => {
       console.warn("[bestmove] thought log:", e.message);
     }
   }
-  return res.json(result);
+  return res.json({ ...result, ok: true, elapsedMs: result.elapsedMs || wallMs });
 });
 
 app.get("/api/master-thought-log", (req, res) => {
