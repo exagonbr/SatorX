@@ -2,14 +2,42 @@
   var root = document.getElementById("pwa-splash");
   if (!root) return;
 
+  var art = root.querySelector(".pwa-splash__art");
+  var img = root.querySelector(".pwa-splash__art img");
   var track = root.querySelector(".pwa-splash__track");
+  var isIndex = root.classList.contains("pwa-splash--index");
   var started = Date.now();
-  var MIN_MS = 700;
+  var MIN_MS = 900;
   var shown = 0.04;
   var target = 0.08;
   var creep = 0.08;
   var finishing = false;
   var hidden = false;
+
+  /* Posição da barra na arte landscape 1024×576 */
+  var BAR = { x: 0.283, y: 0.82, w: 0.434, h: 0.028 };
+
+  function layoutIndexBar() {
+    if (!isIndex || !art || !img || !track) return;
+    var aw = art.clientWidth;
+    var ah = art.clientHeight;
+    var nw = img.naturalWidth || 1024;
+    var nh = img.naturalHeight || 576;
+    if (aw < 2 || ah < 2) return;
+
+    var scale = Math.max(aw / nw, ah / nh);
+    var rw = nw * scale;
+    var rh = nh * scale;
+    var ox = (aw - rw) / 2;
+    /* object-position: center 28% → vertical bias */
+    var posY = 0.28;
+    var oy = (ah - rh) * posY;
+
+    track.style.left = ox + BAR.x * rw + "px";
+    track.style.top = oy + BAR.y * rh + "px";
+    track.style.width = BAR.w * rw + "px";
+    track.style.height = Math.max(8, BAR.h * rh) + "px";
+  }
 
   function paint() {
     if (track) {
@@ -23,10 +51,10 @@
     var total = 0;
     var ready = 0;
     for (var i = 0; i < imgs.length; i++) {
-      var img = imgs[i];
-      if (img.closest && img.closest("#pwa-splash")) continue;
+      var el = imgs[i];
+      if (el.closest && el.closest("#pwa-splash")) continue;
       total++;
-      if (img.complete && img.naturalWidth > 0) ready++;
+      if (el.complete && el.naturalWidth > 0) ready++;
     }
     var ratio = total ? ready / total : 0;
     var milestone = 0.16;
@@ -64,6 +92,15 @@
         if (root.parentNode) root.parentNode.removeChild(root);
       }, 520);
     }, wait);
+  }
+
+  if (isIndex) {
+    layoutIndexBar();
+    window.addEventListener("resize", layoutIndexBar);
+    if (img) {
+      img.addEventListener("load", layoutIndexBar);
+      if (img.complete) layoutIndexBar();
+    }
   }
 
   if (document.readyState === "complete") finish();
